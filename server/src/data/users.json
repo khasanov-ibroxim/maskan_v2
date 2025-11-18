@@ -1,0 +1,38 @@
+[
+  {
+    "id": "1",
+    "username": "admin",
+    "password": "$2b$10$Usedrn1N.AbJuO6cICGxveI6swPznWb7oBFQMzh6GTDN3mKSDyZBu",
+    "fullName": "Admin User",
+    "role": "admin",
+    "isActive": true,
+    "createdAt": "2025-11-18T06:00:03.785Z"
+  },
+  {
+    "id": "2",
+    "username": "Dovron",
+    "password": "$2b$10$ndEhd7Q5bdOdD3ywbqsjbOATVTmPJ3ABUARLuzElvvh77U/Tit8jq",
+    "fullName": "Dovron",
+    "role": "user",
+    "isActive": true,
+    "createdAt": "2025-11-18T06:00:03.893Z"
+  },
+  {
+    "id": "3",
+    "username": "Xusan",
+    "password": "$2b$10$YbZXs3NgjpRQRfXiXe8FWOOlfbAE3XnJ9mTSwmsSEnu7iL2C6dj4.",
+    "fullName": "Xusan",
+    "role": "user",
+    "isActive": true,
+    "createdAt": "2025-11-18T06:00:04.003Z"
+  },
+  {
+    "id": "1763448927242",
+    "username": "Ibroxim123",
+    "password": "$2b$10$qcdq3mj6CAD2CjTJWgtcf.Nneq.OYhhGaq9zn0HdnHEfVmGcmplSO",
+    "fullName": "Xasanov ibroxim",
+    "role": "rieltor",
+    "isActive": true,
+    "createdAt": "2025-11-18T06:55:27.322Z"
+  }
+]

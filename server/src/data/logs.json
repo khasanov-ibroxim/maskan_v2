@@ -1,0 +1,130 @@
+[
+  {
+    "id": "1763445673649s94uvxr3v",
+    "userId": "1",
+    "username": "admin",
+    "action": "login",
+    "description": "User tizimga kirdi",
+    "ipAddress": "::ffff:127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0",
+    "duration": null,
+    "timestamp": "2025-11-18T06:01:13.649Z"
+  },
+  {
+    "timestamp": "2025-11-18T06:16:40.909Z",
+    "userId": "1",
+    "username": "admin",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "::ffff:127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T06:23:22.379Z",
+    "userId": "1",
+    "username": "admin",
+    "action": "logout",
+    "description": "Tizimdan chiqdi",
+    "ipAddress": "::ffff:127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T06:23:32.966Z",
+    "userId": "2",
+    "username": "Dovron",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "::ffff:127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T06:47:00.313Z",
+    "userId": "1",
+    "username": "admin",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "::ffff:127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T06:55:27.323Z",
+    "userId": "1",
+    "username": "admin",
+    "action": "create_user",
+    "description": "Yangi user yaratildi: Ibroxim123",
+    "ipAddress": "::ffff:127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T06:55:39.003Z",
+    "userId": "1",
+    "username": "admin",
+    "action": "logout",
+    "description": "Tizimdan chiqdi",
+    "ipAddress": "::ffff:127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T06:55:40.480Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "::ffff:127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T06:59:25.100Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "logout",
+    "description": "Tizimdan chiqdi",
+    "ipAddress": "::ffff:127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T07:00:18.945Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "::ffff:127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T07:00:26.480Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "logout",
+    "description": "Tizimdan chiqdi",
+    "ipAddress": "::ffff:127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T07:00:54.043Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "::ffff:127.0.0.1",
+    "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 12_0 like Mac OS X) AppleWebKit/603.1.30 (KHTML, like Gecko) CriOS/60.0.3112.89 Mobile/15A5370a Safari/602.1"
+  },
+  {
+    "timestamp": "2025-11-18T07:06:17.041Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "logout",
+    "description": "Tizimdan chiqdi",
+    "ipAddress": "::ffff:127.0.0.1",
+    "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 12_0 like Mac OS X) AppleWebKit/603.1.30 (KHTML, like Gecko) CriOS/60.0.3112.89 Mobile/15A5370a Safari/602.1"
+  },
+  {
+    "timestamp": "2025-11-18T07:06:18.655Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "::ffff:127.0.0.1",
+    "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 12_0 like Mac OS X) AppleWebKit/603.1.30 (KHTML, like Gecko) CriOS/60.0.3112.89 Mobile/15A5370a Safari/602.1"
+  }
+]

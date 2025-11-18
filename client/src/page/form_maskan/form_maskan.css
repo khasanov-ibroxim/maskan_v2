@@ -1,0 +1,58 @@
+.form_maskan{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+/* TableMaskan.css yoki global CSS */
+
+/* konteyner uchun input styling */
+.osmotir-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+/* umumiy input styli - AntD form bilan moslashishi uchun */
+.osmotir-input {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid #d9d9d9;
+    font-size: 14px;
+    line-height: 1.3;
+    box-sizing: border-box;
+    height: 40px;
+    background: #fff;
+}
+
+/* agar siz Form.Item ichida ikki ustunni istasangiz: */
+.osmotir-date {
+    /* chap ustun */
+}
+
+.osmotir-time {
+    /* o'ng ustun */
+}
+
+/*!* Kattaroq ekranlarda ikki input yonma-yon (misol: parent width katta bo'lsa) *!*/
+/*@media (min-width: 576px) {*/
+/*    .osmotir-row {*/
+/*        flex-direction: row;*/
+/*    }*/
+/*}*/
+
+/*!* Mobil ekranlar — ustma-ust bo'lsin *!*/
+/*@media (max-width: 575.98px) {*/
+/*    .osmotir-row {*/
+/*        flex-direction: column;*/
+/*    }*/
+/*    .osmotir-input {*/
+/*        height: 44px;*/
+/*        font-size: 16px;*/
+/*    }*/
+/*}*/
+
+/* Submit tugma markazlashgan layout bilan yaxshi ko'rinishi uchun (ixtiyoriy) */
+.ant-btn {
+    border-radius: 8px;
+}
