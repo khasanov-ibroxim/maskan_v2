@@ -269,8 +269,14 @@ const protect = async (req, res, next) => {
  * Authorization middleware (Role tekshirish)
  * @param  {...string} roles - Ruxsat berilgan rollar
  */
+// ✅ TO'G'RI authorize:
 const authorize = (...roles) => {
     return (req, res, next) => {
+        // OPTIONS so'rovlarini o'tkazib yuborish
+        if (req.method === 'OPTIONS') {
+            return next();
+        }
+
         if (!req.user) {
             return res.status(401).json({
                 success: false,
@@ -288,7 +294,6 @@ const authorize = (...roles) => {
         next();
     };
 };
-
 module.exports = {
     protect,
     authorize,

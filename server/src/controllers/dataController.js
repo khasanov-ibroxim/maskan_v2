@@ -7,7 +7,7 @@ const { HERO_APP_SCRIPT } = require('../config/env');
 async function sendData(req, res, appScriptQueue) {
     try {
         console.log("\n" + "=".repeat(60));
-        console.log("📥 YANGI SO'ROV");
+        console.log("🔥 YANGI SO'ROV");
         console.log("=".repeat(60));
 
         let data = typeof req.body.data === 'string' ? JSON.parse(req.body.data) : req.body.data;
@@ -18,6 +18,7 @@ async function sendData(req, res, appScriptQueue) {
         console.log("  Telefon:", data.tell);
         console.log("  Rasmlar:", data.rasmlar?.length || 0);
         console.log("  Rieltor:", data.rieltor);
+        console.log("  Sana:", data.sana); // ✅ QUSHILDI
 
         // Fayllarni saqlash
         const folderLink = await saveFiles(data, req);
@@ -39,7 +40,7 @@ async function sendData(req, res, appScriptQueue) {
 
 📍 <b>Kvartil:</b> ${data.kvartil}
 🏢 <b>X/E/ET:</b> ${data.xet}
-📏 <b>Maydon:</b> ${data.m2} m²
+📐 <b>Maydon:</b> ${data.m2} m²
 💰 <b>Narxi:</b> ${data.narx} $
 📞 <b>Telefon:</b> ${data.tell}
 ${data.fio ? `👤 <b>Ega:</b> ${data.fio}` : ''}
@@ -98,8 +99,20 @@ ${data.osmotir ? `🕐 <b>Ko'rikdan o'tish:</b> ${data.osmotir}` : ''}
             try {
                 const glavniyData = {
                     ...data,
-                    rasmlar: folderLink || ""
+                    rasmlar: folderLink || "",
+                    sana: data.sana || new Date().toLocaleString('uz-UZ', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    }) // ✅ SANA QUSHILDI va fallback bor
                 };
+
+                console.log("📊 Excel'ga yuboriladigan ma'lumotlar:");
+                console.log("   Kvartil:", glavniyData.kvartil);
+                console.log("   Sana:", glavniyData.sana); // ✅ LOG QUSHILDI
+                console.log("   Rasmlar:", glavniyData.rasmlar);
 
                 const glavniyResult = await sendToAppScriptWithRetry(HERO_APP_SCRIPT, glavniyData);
                 results.glavniy = { success: true, data: glavniyResult };
@@ -113,14 +126,21 @@ ${data.osmotir ? `🕐 <b>Ko'rikdan o'tish:</b> ${data.osmotir}` : ''}
             if (rielterInfo && rielterInfo.rielterExcelId) {
                 console.log("\n📤 Rielter Excel'ga yuborish...");
                 try {
-                    const rielterData = {
+                    const rielterExcelData = {
                         ...data,
-                        rasmlar: folderLink || ""
+                        rasmlar: folderLink || "",
+                        sana: data.sana || new Date().toLocaleString('uz-UZ', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        }) // ✅ SANA QUSHILDI
                     };
 
                     const rielterResult = await sendToAppScriptWithRetry(
                         rielterInfo.rielterExcelId,
-                        rielterData
+                        rielterExcelData
                     );
                     results.rielter = { success: true, data: rielterResult };
                     console.log("✅ Rielter Excel'ga yuborildi");

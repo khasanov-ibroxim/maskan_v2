@@ -126,5 +126,266 @@
     "description": "Tizimga kirdi",
     "ipAddress": "::ffff:127.0.0.1",
     "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 12_0 like Mac OS X) AppleWebKit/603.1.30 (KHTML, like Gecko) CriOS/60.0.3112.89 Mobile/15A5370a Safari/602.1"
+  },
+  {
+    "timestamp": "2025-11-18T10:38:25.226Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "::ffff:127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T10:40:18.516Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "logout",
+    "description": "Tizimdan chiqdi",
+    "ipAddress": "::ffff:127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T10:40:30.012Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "::ffff:127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T10:40:52.485Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "logout",
+    "description": "Tizimdan chiqdi",
+    "ipAddress": "::ffff:127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T10:41:14.402Z",
+    "userId": "1",
+    "username": "admin",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "::ffff:127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T10:45:00.116Z",
+    "userId": "1",
+    "username": "admin",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "::ffff:127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T10:45:33.128Z",
+    "userId": "1",
+    "username": "admin",
+    "action": "create_user",
+    "description": "Yangi user yaratildi: Doniyor",
+    "ipAddress": "::ffff:127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T11:26:24.421Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "2a05:45c2:403c:e401:9036:706f:52c8:10cc",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T11:26:42.840Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "2a05:45c2:403c:e401:9036:706f:52c8:10cc",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T11:28:18.830Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "2a05:45c2:403c:e401:9036:706f:52c8:10cc",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T11:29:15.531Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "2a05:45c2:403c:e401:9036:706f:52c8:10cc",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T11:30:06.196Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "2a05:45c2:403c:e401:9036:706f:52c8:10cc",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T11:33:10.637Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "2a05:45c2:403c:e401:9036:706f:52c8:10cc",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T11:37:27.665Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "2a05:45c2:403c:e401:9036:706f:52c8:10cc",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T11:43:49.186Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "::ffff:127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T11:43:54.208Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "logout",
+    "description": "Tizimdan chiqdi",
+    "ipAddress": "::ffff:127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T11:44:34.342Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "2a05:45c2:403c:e401:9036:706f:52c8:10cc",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T11:45:01.091Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "2a05:45c2:403c:e401:9036:706f:52c8:10cc",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T11:45:17.861Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "2a05:45c2:403c:e401:9036:706f:52c8:10cc",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T11:45:39.534Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "2a05:45c2:403c:e401:9036:706f:52c8:10cc",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T11:47:46.065Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "2a05:45c2:403c:e401:9036:706f:52c8:10cc",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T12:23:01.851Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "2a05:45c2:403c:e401:9036:706f:52c8:10cc",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T12:23:29.881Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "::ffff:127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-18T12:23:54.560Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "2a05:45c2:403c:e401:9036:706f:52c8:10cc",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-19T09:36:34.368Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "92.253.198.196",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-19T09:50:28.015Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "::ffff:127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-19T10:04:01.172Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "92.253.198.196",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-19T10:04:30.349Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "92.253.198.196",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-19T10:45:50.324Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "92.253.198.196",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
   }
 ]

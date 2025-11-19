@@ -1,226 +1,82 @@
-// src/pages/auth/Login.jsx
-import React, { useState, useEffect } from "react";
-import { Form, Input, Button, message } from "antd";
-import { UserOutlined, LockOutlined, LoadingOutlined } from "@ant-design/icons";
-import { useNavigate } from "react-router-dom";
-import api from "../../utils/api.jsx";
+// Login.jsx
+import { useState } from 'react';
+import api, { authAPI } from '../../utils/api.jsx';
 
 const Login = () => {
-    const [form] = Form.useForm();
+    const [credentials, setCredentials] = useState({
+        username: '',
+        password: ''
+    });
     const [loading, setLoading] = useState(false);
-    const [checkingSession, setCheckingSession] = useState(true);
-    const navigate = useNavigate();
+    const [error, setError] = useState('');
 
-    useEffect(() => {
-        // Mavjud sessionni tekshirish
-        checkExistingSession();
-    }, []);
-
-    const checkExistingSession = async () => {
-        const sessionId = localStorage.getItem('sessionId');
-
-        if (!sessionId) {
-            setCheckingSession(false);
-            return;
-        }
-
-        try {
-            const response = await api.get('/api/auth/me');
-
-            if (response.data.success) {
-                // Session hali ham faol, darhol redirect
-                const role = response.data.user.role;
-                console.log('✅ Faol session topildi, redirect qilinmoqda...');
-
-                if (role === 'admin') {
-                    navigate('/admin', { replace: true });
-                } else {
-                    navigate('/', { replace: true });
-                }
-            }
-        } catch (error) {
-            // Session tugagan yoki xato, tozalash
-            console.log('❌ Session tugagan, tozalanmoqda...');
-            localStorage.removeItem('sessionId');
-            localStorage.removeItem('userData');
-        } finally {
-            setCheckingSession(false);
-        }
-    };
-
-    const onFinish = async (values) => {
+    const handleLogin = async (e) => {
+        e.preventDefault();
         setLoading(true);
+        setError('');
 
         try {
-            console.log('🔐 Login urinishi:', values.username);
+            console.log('🔐 Attempting login...');
+            console.log('API URL:', import.meta.env.VITE_API_URL);
 
-            const response = await api.post('/api/auth/login', {
-                username: values.username,
-                password: values.password
-            });
+            const response = await authAPI.login(credentials);
 
-            if (response.data.success) {
-                const { sessionId, user } = response.data;
+            console.log('✅ Login successful:', response.data);
 
-                console.log('✅ Login muvaffaqiyatli:', user.username);
-
-                // Session ID va user ma'lumotlarini saqlash
-                localStorage.setItem('sessionId', sessionId);
-                localStorage.setItem('userData', JSON.stringify(user));
-
-                // Success message
-                message.success(`Xush kelibsiz, ${user.fullName}! 🎉`);
-
-                // Biroz kutish (animatsiya uchun)
-                setTimeout(() => {
-                    // Role ga qarab yo'naltirish
-                    if (user.role === 'admin') {
-                        console.log('👨‍💼 Admin panelga yo\'naltirilmoqda...');
-                        navigate('/admin', { replace: true });
-                    } else {
-                        console.log('👤 Bosh sahifaga yo\'naltirilmoqda...');
-                        navigate('/', { replace: true });
-                    }
-                }, 800);
+            // Session ID'ni saqlash
+            if (response.data.sessionId) {
+                localStorage.setItem('sessionId', response.data.sessionId);
+                localStorage.setItem('user', JSON.stringify(response.data.user));
             }
 
-        } catch (error) {
-            console.error('❌ Login xato:', error);
+            // Redirect
+            window.location.href = '/';
 
-            if (error.response) {
-                // Server javob berdi lekin xato
-                const errorMsg = error.response.data?.error || 'Username yoki password noto\'g\'ri';
-                message.error(errorMsg);
-            } else if (error.request) {
-                // Request yuborildi lekin javob yo'q
-                message.error('Serverga ulanib bo\'lmadi. Internetni tekshiring!');
+        } catch (err) {
+            console.error('❌ Login error:', err);
+
+            if (err.response) {
+                setError(err.response.data?.error || 'Login xatosi');
+            } else if (err.request) {
+                setError('Serverga ulanib bo\'lmadi. Internetni tekshiring.');
             } else {
-                // Boshqa xatolik
-                message.error('Xatolik yuz berdi. Qaytadan urinib ko\'ring');
+                setError('Noma\'lum xato yuz berdi');
             }
         } finally {
             setLoading(false);
         }
     };
 
-    // Session tekshirilayotganda loading ko'rsatish
-    if (checkingSession) {
-        return (
-            <div
-                style={{
-                    minHeight: '100vh',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                }}
-            >
-                <div style={{ textAlign: 'center', color: '#fff' }}>
-                    <LoadingOutlined style={{ fontSize: 48, marginBottom: 16 }} />
-                    <div style={{ fontSize: 16 }}>Tekshirilmoqda...</div>
-                </div>
-            </div>
-        );
-    }
-
     return (
-        <div
-            style={{
-                minHeight: '100vh',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            }}
-        >
-            <div
-                style={{
-                    maxWidth: 420,
-                    width: '100%',
-                    margin: '0 20px',
-                    padding: 40,
-                    borderRadius: 16,
-                    boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
-                    background: '#fff',
-                }}
-            >
-                {/* Logo va Title */}
-                <div style={{ textAlign: 'center', marginBottom: 40 }}>
-                    <div style={{ fontSize: 48, marginBottom: 10 }}>🏠</div>
-                    <h1 style={{ fontSize: 28, marginBottom: 8, color: '#333', fontWeight: 'bold' }}>
-                        Maskan Lux
-                    </h1>
-                    <p style={{ color: '#888', fontSize: 14 }}>
-                        Tizimga kirish
-                    </p>
-                </div>
+        <form onSubmit={handleLogin}>
+            {error && <div className="error">{error}</div>}
 
-                {/* Login Form */}
-                <Form
-                    form={form}
-                    layout="vertical"
-                    onFinish={onFinish}
-                    autoComplete="off"
-                    size="large"
-                >
-                    <Form.Item
-                        name="username"
-                        rules={[
-                            { required: true, message: 'Username kiriting!' },
-                            { min: 3, message: 'Username kamida 3 ta belgidan iborat bo\'lishi kerak' }
-                        ]}
-                    >
-                        <Input
-                            prefix={<UserOutlined style={{ color: '#999' }} />}
-                            placeholder="Username"
-                            disabled={loading}
-                            autoFocus
-                        />
-                    </Form.Item>
+            <input
+                type="text"
+                placeholder="Username"
+                value={credentials.username}
+                onChange={(e) => setCredentials({
+                    ...credentials,
+                    username: e.target.value
+                })}
+                required
+            />
 
-                    <Form.Item
-                        name="password"
-                        rules={[
-                            { required: true, message: 'Parol kiriting!' },
-                            { min: 3, message: 'Parol kamida 3 ta belgidan iborat bo\'lishi kerak' }
-                        ]}
-                    >
-                        <Input.Password
-                            prefix={<LockOutlined style={{ color: '#999' }} />}
-                            placeholder="Parol"
-                            disabled={loading}
-                        />
-                    </Form.Item>
+            <input
+                type="password"
+                placeholder="Password"
+                value={credentials.password}
+                onChange={(e) => setCredentials({
+                    ...credentials,
+                    password: e.target.value
+                })}
+                required
+            />
 
-                    <Button
-                        type="primary"
-                        htmlType="submit"
-                        loading={loading}
-                        block
-                        style={{
-                            height: 48,
-                            fontSize: 16,
-                            fontWeight: 'bold',
-                            marginTop: 8
-                        }}
-                    >
-                        {loading ? 'Tekshirilmoqda...' : 'Kirish'}
-                    </Button>
-                </Form>
-
-
-
-                {/* Footer */}
-                <div style={{
-                    marginTop: 20,
-                    textAlign: 'center',
-                    color: '#999',
-                    fontSize: 11
-                }}>
-                    © 2025 Maskan Lux.
-                </div>
-            </div>
-        </div>
+            <button type="submit" disabled={loading}>
+                {loading ? 'Kirish...' : 'Kirish'}
+            </button>
+        </form>
     );
 };
 

@@ -35,6 +35,7 @@ const upload = multer({
 
 function dataRoutes(appScriptQueue) {
     // PUBLIC ROUTE - Auth kerak emas!
+    // Path: /api/send-data (chunki app.js da "/api" prefix bor)
     router.post('/send-data', upload.array("images"), (req, res) => {
         console.log('📥 /send-data endpoint ga sorov keldi');
         console.log('   Method:', req.method);
@@ -46,6 +47,7 @@ function dataRoutes(appScriptQueue) {
     });
 
     // PUBLIC ROUTE - Queue status
+    // Path: /api/queue-status
     router.get('/queue-status', (req, res) => {
         console.log('📊 /queue-status endpoint ga sorov keldi');
 

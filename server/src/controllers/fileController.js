@@ -353,23 +353,33 @@ function browsePath(req, res) {
                             </div>
                         ` : ''}
 
-                        ${imageFiles.length > 0 ? `
-                            <div class="section">
-                                <h2>🖼️ Rasmlar (${imageFiles.length})</h2>
-                                <div class="grid">
-                                    ${imageFiles.map(item => `
-                                        <div class="item">
-                                            <div class="checkbox-wrapper">
-                                                <input type="checkbox" class="file-checkbox" value="/browse/${encodeURIComponent(item.path)}" onchange="updateSelection()">
-                                            </div>
-                                            <img src="/browse/${encodeURIComponent(item.path)}" class="image-preview" alt="${item.name}" onclick="window.open('/browse/${encodeURIComponent(item.path)}', '_blank')">
-                                            <div class="item-name">${item.name}</div>
-                                            <div class="item-size">${(item.size / 1024).toFixed(2)} KB</div>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        ` : ''}
+                    
+
+${imageFiles.length > 0 ? `
+    <div class="section">
+        <h2>🖼️ Rasmlar (${imageFiles.length})</h2>
+        <div class="grid">
+            ${imageFiles.map(item => `
+                <div class="item">
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" class="file-checkbox" value="/browse/${encodeURIComponent(item.path)}" onchange="updateSelection()">
+                    </div>
+                   
+                    <img 
+                        src="/browse/${encodeURIComponent(item.path)}" 
+                        class="image-preview" 
+                        alt="${item.name}" 
+                        onclick="window.open('/browse/${encodeURIComponent(item.path)}', '_blank')"
+                        onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48cmVjdCBmaWxsPSIjZGRkIiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIvPjx0ZXh0IGZpbGw9IiM5OTkiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjE0IiB4PSI1MCUiIHk9IjUwJSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkVycm9yPC90ZXh0Pjwvc3ZnPg==';"
+                    >
+                    <div class="item-name">${item.name}</div>
+                    <div class="item-size">${(item.size / 1024).toFixed(2)} KB</div>
+                </div>
+            `).join('')}
+        </div>
+    </div>
+` : ''}
+
 
                         ${textFiles.length > 0 ? `
                             <div class="section">

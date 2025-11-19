@@ -1,0 +1,8 @@
+version: "2"
+authtoken: 35VD0aslNpus0KwMbBd0mQw4pu8_315xY8BFjw3reaRrMRJND
+tunnels:
+  maskan:
+    proto: http
+    addr: 5000
+    inspect: true
+    bind_tls: true
