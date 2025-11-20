@@ -479,8 +479,22 @@
     "userId": "1",
     "username": "admin",
     "loginTime": "2025-11-20T12:42:27.776Z",
-    "lastActivity": "2025-11-20T12:42:28.770Z",
+    "lastActivity": "2025-11-20T12:44:50.277Z",
     "expiresAt": "2025-11-21T12:42:27.776Z",
+    "ipAddress": "::ffff:127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0",
+    "isActive": false,
+    "logoutTime": "2025-11-20T12:44:50.279Z",
+    "logoutReason": "manual_logout",
+    "duration": 142
+  },
+  {
+    "sessionId": "f98a2492a9f11eedbf0e02e150082207a0de4fa7d69680eb9a60ac5f4bae952a",
+    "userId": "1",
+    "username": "admin",
+    "loginTime": "2025-11-20T12:45:00.204Z",
+    "lastActivity": "2025-11-20T12:45:00.204Z",
+    "expiresAt": "2025-11-21T12:45:00.204Z",
     "ipAddress": "::ffff:127.0.0.1",
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0",
     "isActive": true
