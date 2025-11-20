@@ -387,5 +387,23 @@
     "description": "Tizimga kirdi",
     "ipAddress": "92.253.198.196",
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-19T11:07:23.956Z",
+    "userId": "1",
+    "username": "admin",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "::ffff:127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-20T12:42:27.779Z",
+    "userId": "1",
+    "username": "admin",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "::ffff:127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
   }
 ]
