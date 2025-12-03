@@ -423,5 +423,185 @@
     "description": "Tizimga kirdi",
     "ipAddress": "::ffff:127.0.0.1",
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-20T13:02:55.590Z",
+    "userId": "1",
+    "username": "admin",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "92.253.198.196",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-23T05:43:29.578Z",
+    "userId": "1",
+    "username": "admin",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "213.230.74.199",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-29T04:34:06.345Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "84.54.78.209",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-29T06:54:48.160Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "84.54.78.209",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-29T06:56:13.318Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "logout",
+    "description": "Tizimdan chiqdi",
+    "ipAddress": "84.54.78.209",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-29T06:58:09.840Z",
+    "userId": "3",
+    "username": "Xusan",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "84.54.78.209",
+    "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Mobile Safari/537.36"
+  },
+  {
+    "timestamp": "2025-11-29T07:00:19.682Z",
+    "userId": "1",
+    "username": "admin",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "84.54.78.209",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-29T07:00:58.581Z",
+    "userId": "1",
+    "username": "admin",
+    "action": "create_user",
+    "description": "Yangi user yaratildi: Fazliddin",
+    "ipAddress": "84.54.78.209",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-29T07:05:53.371Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "84.54.78.209",
+    "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Mobile Safari/537.36"
+  },
+  {
+    "timestamp": "2025-11-29T07:10:10.310Z",
+    "userId": "1",
+    "username": "admin",
+    "action": "create_user",
+    "description": "Yangi user yaratildi: sevinch",
+    "ipAddress": "84.54.78.209",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-29T07:10:31.169Z",
+    "userId": "1764400210179",
+    "username": "sevinch",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "84.54.78.209",
+    "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Mobile Safari/537.36"
+  },
+  {
+    "timestamp": "2025-11-29T07:18:11.409Z",
+    "userId": "3",
+    "username": "Xusan",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "84.54.78.209",
+    "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Mobile Safari/537.36"
+  },
+  {
+    "timestamp": "2025-11-29T07:53:14.595Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "84.54.78.209",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-29T07:54:44.489Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "84.54.78.209",
+    "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Mobile Safari/537.36"
+  },
+  {
+    "timestamp": "2025-11-29T07:55:28.098Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "84.54.78.209",
+    "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Mobile Safari/537.36"
+  },
+  {
+    "timestamp": "2025-11-29T09:38:16.713Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "84.54.78.209",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-29T10:13:31.654Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "84.54.78.209",
+    "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Mobile Safari/537.36"
+  },
+  {
+    "timestamp": "2025-11-29T10:14:29.562Z",
+    "userId": "1",
+    "username": "admin",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "84.54.78.209",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
+  },
+  {
+    "timestamp": "2025-11-29T10:15:30.342Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "185.139.137.2",
+    "userAgent": "Mozilla/5.0 (Linux; Android 12; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.7444.102 Mobile Safari/537.36"
+  },
+  {
+    "timestamp": "2025-11-29T10:17:14.806Z",
+    "userId": "1763448927242",
+    "username": "Ibroxim123",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "185.139.137.2",
+    "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Mobile Safari/537.36"
   }
 ]

@@ -60,11 +60,9 @@ function browsePath(req, res) {
     const requestedPath = req.params[0] || '';
 
     try {
-        // Absolyut yo'l yaratish (process.cwd() dan boshlab)
         const baseDir = path.join(process.cwd(), UPLOADS_DIR);
         const fullPath = path.join(baseDir, requestedPath);
 
-        // Xavfsizlik tekshiruvi
         if (!fullPath.startsWith(baseDir)) {
             return res.status(403).json({ error: "Access denied" });
         }
@@ -91,12 +89,10 @@ function browsePath(req, res) {
 
         const stats = fs.statSync(fullPath);
 
-        // Agar fayl bo'lsa - yuklab berish (FIXED)
         if (stats.isFile()) {
             return res.sendFile(fullPath);
         }
 
-        // Agar papka bo'lsa - HTML render
         if (stats.isDirectory()) {
             const files = fs.readdirSync(fullPath);
 
@@ -157,6 +153,7 @@ function browsePath(req, res) {
                         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                         min-height: 100vh;
                         padding: 20px;
+                        user-select: none;
                     }
                     .container {
                         max-width: 1400px;
@@ -252,10 +249,15 @@ function browsePath(req, res) {
                         transition: 0.3s;
                         cursor: pointer;
                         position: relative;
+                        border: 3px solid transparent;
                     }
                     .item:hover {
                         transform: translateY(-5px);
                         box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+                    }
+                    .item.selected {
+                        border-color: #667eea;
+                        background: #e8ecff;
                     }
                     .item.directory {
                         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -265,25 +267,18 @@ function browsePath(req, res) {
                         font-size: 48px;
                         margin-bottom: 10px;
                         text-align: center;
+                        pointer-events: none;
                     }
                     .item-name {
                         font-weight: 600;
                         margin-bottom: 5px;
                         word-break: break-word;
+                        pointer-events: none;
                     }
                     .item-size {
                         font-size: 12px;
                         opacity: 0.7;
-                    }
-                    .checkbox-wrapper {
-                        position: absolute;
-                        top: 10px;
-                        right: 10px;
-                    }
-                    .checkbox-wrapper input[type="checkbox"] {
-                        width: 20px;
-                        height: 20px;
-                        cursor: pointer;
+                        pointer-events: none;
                     }
                     .image-preview {
                         width: 100%;
@@ -305,14 +300,143 @@ function browsePath(req, res) {
                         align-items: center;
                         gap: 15px;
                         transition: 0.3s;
+                        cursor: pointer;
+                        border: 3px solid transparent;
                     }
                     .list-item:hover {
                         background: #e9ecef;
                     }
+                    .list-item.selected {
+                        border-color: #667eea;
+                        background: #e8ecff;
+                    }
+                    
+                    /* Modal styles */
+                    .modal {
+                        display: none;
+                        position: fixed;
+                        z-index: 1000;
+                        left: 0;
+                        top: 0;
+                        width: 100%;
+                        height: 100%;
+                        background: rgba(0,0,0,0.9);
+                        animation: fadeIn 0.3s;
+                    }
+                    .modal.active {
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    }
+                    .modal-content {
+                        position: relative;
+                        max-width: 90%;
+                        max-height: 90%;
+                        background: white;
+                        border-radius: 12px;
+                        padding: 20px;
+                        animation: slideIn 0.3s;
+                    }
+                    .modal-image {
+                        max-width: 100%;
+                        max-height: 80vh;
+                        display: block;
+                        margin: 0 auto;
+                        border-radius: 8px;
+                    }
+                    .modal-text {
+                        width: 800px;
+                        max-width: 90vw;
+                        max-height: 70vh;
+                        overflow: auto;
+                        font-family: 'Courier New', monospace;
+                        font-size: 14px;
+                        line-height: 1.6;
+                        white-space: pre-wrap;
+                        background: #f8f9fa;
+                        padding: 20px;
+                        border-radius: 8px;
+                        user-select: text;
+                        cursor: text;
+                    }
+                    .modal-close {
+                        position: absolute;
+                        top: 10px;
+                        right: 10px;
+                        background: #e74c3c;
+                        color: white;
+                        border: none;
+                        width: 40px;
+                        height: 40px;
+                        border-radius: 50%;
+                        cursor: pointer;
+                        font-size: 24px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        transition: 0.3s;
+                        z-index: 10;
+                    }
+                    .modal-close:hover {
+                        background: #c0392b;
+                        transform: rotate(90deg);
+                    }
+                    .modal-copy {
+                        position: absolute;
+                        top: 10px;
+                        right: 60px;
+                        background: #10b981;
+                        color: white;
+                        border: none;
+                        padding: 10px 20px;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        font-weight: 600;
+                        transition: 0.3s;
+                    }
+                    .modal-copy:hover {
+                        background: #059669;
+                    }
+                    .modal-preview-btn {
+                        position: absolute;
+                        top: 10px;
+                        right: 180px;
+                        background: #667eea;
+                        color: white;
+                        border: none;
+                        padding: 10px 20px;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        font-weight: 600;
+                        transition: 0.3s;
+                    }
+                    .modal-preview-btn:hover {
+                        background: #5568d3;
+                    }
+                    .modal-title {
+                        font-size: 18px;
+                        font-weight: 600;
+                        margin-bottom: 15px;
+                        color: #333;
+                    }
+                    
+                    @keyframes fadeIn {
+                        from { opacity: 0; }
+                        to { opacity: 1; }
+                    }
+                    @keyframes slideIn {
+                        from { transform: scale(0.8); opacity: 0; }
+                        to { transform: scale(1); opacity: 1; }
+                    }
+                    
                     @media (max-width: 768px) {
                         .grid {
                             grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
                             gap: 10px;
+                        }
+                        .modal-content {
+                            max-width: 95%;
+                            padding: 15px;
                         }
                     }
                 </style>
@@ -353,47 +477,45 @@ function browsePath(req, res) {
                             </div>
                         ` : ''}
 
-                    
-
-${imageFiles.length > 0 ? `
-    <div class="section">
-        <h2>🖼️ Rasmlar (${imageFiles.length})</h2>
-        <div class="grid">
-            ${imageFiles.map(item => `
-                <div class="item">
-                    <div class="checkbox-wrapper">
-                        <input type="checkbox" class="file-checkbox" value="/browse/${encodeURIComponent(item.path)}" onchange="updateSelection()">
-                    </div>
-                   
-                    <img 
-                        src="/browse/${encodeURIComponent(item.path)}" 
-                        class="image-preview" 
-                        alt="${item.name}" 
-                        onclick="window.open('/browse/${encodeURIComponent(item.path)}', '_blank')"
-                        onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48cmVjdCBmaWxsPSIjZGRkIiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIvPjx0ZXh0IGZpbGw9IiM5OTkiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjE0IiB4PSI1MCUiIHk9IjUwJSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkVycm9yPC90ZXh0Pjwvc3ZnPg==';"
-                    >
-                    <div class="item-name">${item.name}</div>
-                    <div class="item-size">${(item.size / 1024).toFixed(2)} KB</div>
-                </div>
-            `).join('')}
-        </div>
-    </div>
-` : ''}
-
+                        ${imageFiles.length > 0 ? `
+                            <div class="section">
+                                <h2>🖼️ Rasmlar (${imageFiles.length})</h2>
+                                <div class="grid" id="imageGrid">
+                                    ${imageFiles.map((item, idx) => `
+                                        <div class="item selectable-item" 
+                                             data-path="/browse/${encodeURIComponent(item.path)}"
+                                             data-type="image"
+                                             data-name="${item.name}"
+                                             data-index="${idx}">
+                                            <img 
+                                                src="/browse/${encodeURIComponent(item.path)}" 
+                                                class="image-preview" 
+                                                alt="${item.name}"
+                                                onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48cmVjdCBmaWxsPSIjZGRkIiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIvPjx0ZXh0IGZpbGw9IiM5OTkiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjE0IiB4PSI1MCUiIHk9IjUwJSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkVycm9yPC90ZXh0Pjwvc3ZnPg==';"
+                                            >
+                                            <div class="item-name">${item.name}</div>
+                                            <div class="item-size">${(item.size / 1024).toFixed(2)} KB</div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
 
                         ${textFiles.length > 0 ? `
                             <div class="section">
                                 <h2>📄 Matn fayllar (${textFiles.length})</h2>
-                                <div class="list-view">
-                                    ${textFiles.map(item => `
-                                        <div class="list-item">
-                                            <input type="checkbox" class="file-checkbox" value="/browse/${encodeURIComponent(item.path)}" onchange="updateSelection()">
+                                <div class="list-view" id="textList">
+                                    ${textFiles.map((item, idx) => `
+                                        <div class="list-item selectable-item" 
+                                             data-path="/browse/${encodeURIComponent(item.path)}"
+                                             data-type="text"
+                                             data-name="${item.name}"
+                                             data-index="${idx}">
                                             <div class="item-icon">📄</div>
                                             <div style="flex: 1;">
                                                 <div class="item-name">${item.name}</div>
                                                 <div class="item-size">${(item.size / 1024).toFixed(2)} KB</div>
                                             </div>
-                                            <button class="btn btn-primary" onclick="window.open('/browse/${encodeURIComponent(item.path)}', '_blank')">Ko'rish</button>
                                         </div>
                                     `).join('')}
                                 </div>
@@ -403,16 +525,19 @@ ${imageFiles.length > 0 ? `
                         ${otherFiles.length > 0 ? `
                             <div class="section">
                                 <h2>📎 Boshqa fayllar (${otherFiles.length})</h2>
-                                <div class="list-view">
-                                    ${otherFiles.map(item => `
-                                        <div class="list-item">
-                                            <input type="checkbox" class="file-checkbox" value="/browse/${encodeURIComponent(item.path)}" onchange="updateSelection()">
+                                <div class="list-view" id="otherList">
+                                    ${otherFiles.map((item, idx) => `
+                                        <div class="list-item selectable-item" 
+                                             data-path="/browse/${encodeURIComponent(item.path)}"
+                                             data-type="other"
+                                             data-name="${item.name}"
+                                             data-index="${idx}">
                                             <div class="item-icon">📎</div>
                                             <div style="flex: 1;">
                                                 <div class="item-name">${item.name}</div>
                                                 <div class="item-size">${(item.size / 1024).toFixed(2)} KB</div>
                                             </div>
-                                            <button class="btn btn-primary" onclick="window.open('/browse/${encodeURIComponent(item.path)}', '_blank')">Yuklab olish</button>
+                                            <button class="btn btn-primary" onclick="event.stopPropagation(); window.open('/browse/${encodeURIComponent(item.path)}', '_blank')">Yuklab olish</button>
                                         </div>
                                     `).join('')}
                                 </div>
@@ -423,27 +548,231 @@ ${imageFiles.length > 0 ? `
                     </div>
                 </div>
 
+                <!-- Modal -->
+                <div id="previewModal" class="modal">
+                    <div class="modal-content">
+                        <button class="modal-close" onclick="closeModal()">×</button>
+                        <button class="modal-preview-btn" id="modalPreviewBtn" style="display: none;" onclick="openInNewTab()">🔗 Yangi oynada ochish</button>
+                        <button class="modal-copy" id="modalCopyBtn" style="display: none;" onclick="copyText()">📋 Nusxa olish</button>
+                        <div id="modalBody"></div>
+                    </div>
+                </div>
+
                 <script>
+                    let selectedItems = new Set();
+                    let lastSelectedIndex = null;
+                    let isDragging = false;
+                    let dragStartX, dragStartY;
+                    let currentPreviewPath = '';
+
+                    // Selection handlers
+                    document.addEventListener('DOMContentLoaded', function() {
+                        const items = document.querySelectorAll('.selectable-item');
+                        
+                        items.forEach((item, index) => {
+                            // Click selection
+                            item.addEventListener('click', function(e) {
+                                // Agar directory bo'lsa, sahifaga o'tish
+                                if (item.classList.contains('directory')) {
+                                    return;
+                                }
+                                
+                                // Agar download tugmasiga bosilgan bo'lsa, hech narsa qilma
+                                if (e.target.classList.contains('btn')) {
+                                    return;
+                                }
+                                
+                                if (e.ctrlKey || e.metaKey) {
+                                    // Ctrl/Cmd: toggle selection
+                                    toggleSelection(item);
+                                } else if (e.shiftKey && lastSelectedIndex !== null) {
+                                    // Shift: range selection
+                                    selectRange(lastSelectedIndex, index);
+                                } else {
+                                    // Regular click: select only this item
+                                    clearSelection();
+                                    toggleSelection(item);
+                                }
+                                lastSelectedIndex = index;
+                            });
+
+                            // Double click for preview
+                            item.addEventListener('dblclick', function(e) {
+                                if (item.classList.contains('directory')) return;
+                                
+                                const type = item.dataset.type;
+                                if (type === 'text') {
+                                    previewFile(item.dataset.path, type, item.dataset.name);
+                                }
+                            });
+
+                            // Mouse drag selection
+                            item.addEventListener('mousedown', function(e) {
+                                if (e.button === 0 && !e.ctrlKey && !e.shiftKey) {
+                                    isDragging = true;
+                                    dragStartX = e.clientX;
+                                    dragStartY = e.clientY;
+                                }
+                            });
+                        });
+
+                        document.addEventListener('mousemove', function(e) {
+                            if (isDragging) {
+                                const dx = Math.abs(e.clientX - dragStartX);
+                                const dy = Math.abs(e.clientY - dragStartY);
+                                if (dx > 5 || dy > 5) {
+                                    // Drag detected
+                                }
+                            }
+                        });
+
+                        document.addEventListener('mouseup', function() {
+                            isDragging = false;
+                        });
+                    });
+
+                    function toggleSelection(item) {
+                        const path = item.dataset.path;
+                        if (selectedItems.has(path)) {
+                            selectedItems.delete(path);
+                            item.classList.remove('selected');
+                        } else {
+                            selectedItems.add(path);
+                            item.classList.add('selected');
+                        }
+                        updateSelection();
+                    }
+
+                    function clearSelection() {
+                        selectedItems.clear();
+                        document.querySelectorAll('.selectable-item').forEach(item => {
+                            item.classList.remove('selected');
+                        });
+                        updateSelection();
+                    }
+
+                    function selectRange(start, end) {
+                        const items = Array.from(document.querySelectorAll('.selectable-item'));
+                        const min = Math.min(start, end);
+                        const max = Math.max(start, end);
+                        
+                        for (let i = min; i <= max; i++) {
+                            if (items[i] && !items[i].classList.contains('directory')) {
+                                selectedItems.add(items[i].dataset.path);
+                                items[i].classList.add('selected');
+                            }
+                        }
+                        updateSelection();
+                    }
+
                     function updateSelection() {
-                        const checkboxes = document.querySelectorAll('.file-checkbox');
-                        const selected = Array.from(checkboxes).filter(cb => cb.checked);
-                        document.getElementById('selectedCount').textContent = selected.length;
-                        document.getElementById('downloadBtn').disabled = selected.length === 0;
+                        document.getElementById('selectedCount').textContent = selectedItems.size;
+                        document.getElementById('downloadBtn').disabled = selectedItems.size === 0;
                     }
 
                     function selectAll() {
-                        document.querySelectorAll('.file-checkbox').forEach(cb => cb.checked = true);
+                        document.querySelectorAll('.selectable-item').forEach(item => {
+                            if (!item.classList.contains('directory')) {
+                                selectedItems.add(item.dataset.path);
+                                item.classList.add('selected');
+                            }
+                        });
                         updateSelection();
                     }
 
                     function deselectAll() {
-                        document.querySelectorAll('.file-checkbox').forEach(cb => cb.checked = false);
-                        updateSelection();
+                        clearSelection();
                     }
 
+                    // Preview functions
+                    async function previewFile(path, type, name) {
+                        const modal = document.getElementById('previewModal');
+                        const modalBody = document.getElementById('modalBody');
+                        const copyBtn = document.getElementById('modalCopyBtn');
+                        const previewBtn = document.getElementById('modalPreviewBtn');
+                        
+                        currentPreviewPath = path;
+                        
+                        if (type === 'text') {
+                            try {
+                                const response = await fetch(path);
+                                const text = await response.text();
+                                modalBody.innerHTML = \`
+                                    <div class="modal-title">\${name}</div>
+                                    <div class="modal-text" id="textContent">\${escapeHtml(text)}</div>
+                                \`;
+                                copyBtn.style.display = 'block';
+                                previewBtn.style.display = 'block';
+                            } catch (error) {
+                                modalBody.innerHTML = \`
+                                    <div class="modal-title">\${name}</div>
+                                    <p style="color: #e74c3c; padding: 20px;">❌ Faylni yuklashda xato yuz berdi</p>
+                                \`;
+                                copyBtn.style.display = 'none';
+                                previewBtn.style.display = 'none';
+                            }
+                        }
+                        
+                        modal.classList.add('active');
+                    }
+
+                    function openInNewTab() {
+                        if (currentPreviewPath) {
+                            window.open(currentPreviewPath, '_blank');
+                        }
+                    }
+
+                    function closeModal() {
+                        const modal = document.getElementById('previewModal');
+                        modal.classList.remove('active');
+                    }
+
+                    function copyText() {
+                        const textContent = document.getElementById('textContent');
+                        if (textContent) {
+                            const selection = window.getSelection();
+                            const selectedText = selection.toString();
+                            
+                            // Agar matn tanlangan bo'lsa, faqat tanlangan qismni ko'chir
+                            const textToCopy = selectedText || textContent.innerText;
+                            
+                            navigator.clipboard.writeText(textToCopy).then(() => {
+                                const btn = document.getElementById('modalCopyBtn');
+                                const originalText = btn.innerHTML;
+                                if (selectedText) {
+                                    btn.innerHTML = '✅ Tanlangan qism nusxa olindi!';
+                                } else {
+                                    btn.innerHTML = '✅ Nusxa olindi!';
+                                }
+                                setTimeout(() => {
+                                    btn.innerHTML = originalText;
+                                }, 2000);
+                            });
+                        }
+                    }
+
+                    function escapeHtml(text) {
+                        const div = document.createElement('div');
+                        div.textContent = text;
+                        return div.innerHTML;
+                    }
+
+                    // Close modal on outside click
+                    document.getElementById('previewModal').addEventListener('click', function(e) {
+                        if (e.target === this) {
+                            closeModal();
+                        }
+                    });
+
+                    // Close modal on Escape key
+                    document.addEventListener('keydown', function(e) {
+                        if (e.key === 'Escape') {
+                            closeModal();
+                        }
+                    });
+
                     async function downloadSelected() {
-                        const checkboxes = document.querySelectorAll('.file-checkbox:checked');
-                        const files = Array.from(checkboxes).map(cb => cb.value);
+                        const files = Array.from(selectedItems);
 
                         if (files.length === 0) {
                             alert('⚠️ Hech qanday fayl tanlanmagan!');

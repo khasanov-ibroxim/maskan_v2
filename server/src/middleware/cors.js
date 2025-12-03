@@ -27,8 +27,8 @@ function corsMiddleware(req, res, next) {
                 'http://localhost:5173',
                 'http://localhost:5174',
                 'http://localhost:3000',
-                'https://maskan-six.vercel.app',
-                'https://app.yourdomain.com'
+                'https://maskan-v2.vercel.app',
+                'http://192.168.1.6:5173'
             ];
 
             if (allowedOrigins.includes(origin)) {

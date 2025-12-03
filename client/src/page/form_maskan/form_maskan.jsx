@@ -418,7 +418,7 @@ const FormMaskan = () => {
 
                 <Form form={form} autoComplete="off" layout="vertical" onFinish={onFinish}>
                     <Form.Item
-                        label="Sotuv yoki arenda"
+                        label="Sotuv yoki Ijara"
                         name="sheetType"
                         rules={[{required: true, message: "Turini tanlang!"}]}
                     >

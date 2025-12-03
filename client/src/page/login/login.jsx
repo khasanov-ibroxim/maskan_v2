@@ -1,6 +1,7 @@
 // Login.jsx
 import { useState } from 'react';
 import api, { authAPI } from '../../utils/api.jsx';
+import {Button, Input} from "antd";
 
 const Login = () => {
     const [credentials, setCredentials] = useState({
@@ -48,10 +49,20 @@ const Login = () => {
     };
 
     return (
-        <form onSubmit={handleLogin}>
+        <form onSubmit={handleLogin}   style={{
+            maxWidth: 350,
+            margin: "100px auto",
+            padding: 24,
+            borderRadius: 12,
+            boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+            background: "#fff",
+            display:"flex",
+            gap:"20px",
+            flexDirection:"column"
+        }}>
             {error && <div className="error">{error}</div>}
 
-            <input
+            <Input
                 type="text"
                 placeholder="Username"
                 value={credentials.username}
@@ -62,7 +73,7 @@ const Login = () => {
                 required
             />
 
-            <input
+            <Input
                 type="password"
                 placeholder="Password"
                 value={credentials.password}
@@ -73,9 +84,9 @@ const Login = () => {
                 required
             />
 
-            <button type="submit" disabled={loading}>
+            <Button type="primary" htmlType="submit" block disabled={loading}>
                 {loading ? 'Kirish...' : 'Kirish'}
-            </button>
+            </Button>
         </form>
     );
 };

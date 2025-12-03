@@ -43,5 +43,23 @@
     "role": "rieltor",
     "isActive": true,
     "createdAt": "2025-11-18T10:45:33.126Z"
+  },
+  {
+    "id": "1764399658441",
+    "username": "Fazliddin",
+    "password": "$2b$10$qcrNJEDdIZzOmMmSKX7zG.jSS3tTd6CgbOMTagGCZLgw87UHCzlle",
+    "fullName": "Fazliddin",
+    "role": "rieltor",
+    "isActive": true,
+    "createdAt": "2025-11-29T07:00:58.578Z"
+  },
+  {
+    "id": "1764400210179",
+    "username": "sevinch",
+    "password": "$2b$10$C78X/3VaAiMC9Luwk7J8xe8H.Nv7XWNvAviXuwTjwniIW31qtR4b.",
+    "fullName": "sevinch",
+    "role": "user",
+    "isActive": true,
+    "createdAt": "2025-11-29T07:10:10.308Z"
   }
 ]
