@@ -7,6 +7,7 @@ const { saveToLocalExcel } = require('../services/localExcelService');
 const { HERO_APP_SCRIPT } = require('../config/env');
 const fs = require('fs');
 const path = require('path');
+const SimpleUser = require('../models/SimpleUser');
 
 async function sendData(req, res, appScriptQueue) {
     try {
@@ -80,14 +81,18 @@ async function sendData(req, res, appScriptQueue) {
         }
 
         // 3. Rieltor ma'lumotlarini topish
-        const rielterInfo = rielterData.find(r => r.name === data.rieltor);
+        const users = SimpleUser.getUsers();
+        const rielterInfo = users.find(u =>
+            u.role === 'rieltor' &&
+            u.username === data.rieltor
+        );
 
         if (!rielterInfo) {
             console.log("⚠️ Rieltor topilmadi:", data.rieltor);
         } else {
-            console.log("✅ Rieltor topildi:", rielterInfo.name);
-            console.log("  Chat ID:", rielterInfo.rielterChatId);
-            console.log("  Excel URL:", rielterInfo.rielterExcelId?.substring(0, 50) + "...");
+            console.log("✅ Rieltor topildi:", rielterInfo.username);
+            console.log("  App Script URL:", rielterInfo.appScriptUrl?.substring(0, 50) + "...");
+            console.log("  Telegram Theme ID:", rielterInfo.telegramThemeId);
         }
 
         // 4. Telegram xabarni tayyorlash
@@ -131,31 +136,36 @@ ${data.osmotir ? `🕐 <b>Ko'rikdan o'tish:</b> ${data.osmotir}` : ''}
             };
 
             // TELEGRAM
-            if (rielterInfo && rielterInfo.rielterChatId && telegramMessage) {
-                console.log("\n📱 Telegram'ga yuborish boshlandi...");
-                console.log(`   Rasmlar soni: ${data.rasmlar?.length || 0}`);
-
+            if (rielterInfo && rielterInfo.appScriptUrl) {
+                console.log("\n📤 Rielter Excel'ga yuborish...");
                 try {
-                    const telegramResult = await sendToTelegram(
-                        rielterInfo.rielterChatId,
-                        telegramMessage,
-                        data.rasmlar || [],
-                        rielterInfo.themeId
-                    );
-                    results.telegram = telegramResult;
+                    const rielterExcelData = {
+                        ...data,
+                        rasmlar: folderLink || "",
+                        sana: data.sana || new Date().toLocaleString('uz-UZ', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        })
+                    };
 
-                    if (telegramResult.success) {
-                        console.log("✅ Telegram'ga yuborildi");
-                    } else {
-                        console.log("❌ Telegram xato:", telegramResult.error);
-                    }
-                } catch (telegramError) {
-                    console.error("❌ Telegram kritik xato:", telegramError.message);
-                    results.telegram = { success: false, error: telegramError.message };
+                    console.log("   URL:", rielterInfo.appScriptUrl.substring(0, 50) + "...");
+
+                    const rielterResult = await sendToAppScriptWithRetry(
+                        rielterInfo.appScriptUrl,
+                        rielterExcelData,
+                        rielterInfo.id // Xato bo'lganda notification uchun
+                    );
+                    results.rielter = { success: true, data: rielterResult };
+                    console.log("✅ Rielter Excel'ga yuborildi");
+                } catch (rielterError) {
+                    console.error("❌ Rielter Excel xato:", rielterError.message);
+                    results.rielter = { success: false, error: rielterError.message };
                 }
-            } else {
-                console.log("⚠️ Telegram yuborilmadi (rieltor yoki chat ID yo'q)");
             }
+
 
             // GLAVNIY EXCEL
             console.log("\n📤 GLAVNIY Excel'ga yuborish...");

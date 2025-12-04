@@ -1,7 +1,10 @@
+
 const axios = require('axios');
 const { APP_SCRIPT_TIMEOUT, APP_SCRIPT_MAX_RETRIES } = require('../config/constants');
+const { sendToTelegram } = require('./telegramService');
+const SimpleUser = require('../models/SimpleUser');
 
-async function sendToAppScriptWithRetry(url, data, maxRetries = APP_SCRIPT_MAX_RETRIES) {
+async function sendToAppScriptWithRetry(url, data, realtorId, maxRetries = APP_SCRIPT_MAX_RETRIES) {
     let lastError;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -25,6 +28,11 @@ async function sendToAppScriptWithRetry(url, data, maxRetries = APP_SCRIPT_MAX_R
             lastError = error;
             console.error(`❌ App Script xato (urinish ${attempt}/${maxRetries}):`, error.message);
 
+            // Oxirgi urinishdan so'ng Telegram xabarnoma yuborish
+            if (attempt === maxRetries && realtorId) {
+                await notifyRealtorAboutError(realtorId, error, data);
+            }
+
             if (attempt < maxRetries) {
                 const waitTime = attempt * 3000;
                 console.log(`⏳ ${waitTime}ms kutib qayta uriniladi...`);
@@ -36,4 +44,55 @@ async function sendToAppScriptWithRetry(url, data, maxRetries = APP_SCRIPT_MAX_R
     throw lastError;
 }
 
-module.exports = { sendToAppScriptWithRetry };
+/**
+ * Realtorga xato haqida Telegram orqali xabar berish
+ */
+async function notifyRealtorAboutError(realtorId, error, data) {
+    try {
+        // Realtorni topish
+        const realtor = SimpleUser.findById(realtorId);
+
+        if (!realtor || !realtor.telegramThemeId) {
+            console.log('⚠️ Realtor yoki Telegram Theme ID topilmadi');
+            return;
+        }
+
+        const errorMessage = `
+⚠️ <b>App Script Xatosi</b>
+
+🔴 Ma'lumotlarni yuborishda xatolik yuz berdi
+
+📊 <b>Ma'lumot:</b>
+• Kvartil: ${data.kvartil || 'N/A'}
+• X/E/T: ${data.xet || 'N/A'}
+• Telefon: ${data.tell || 'N/A'}
+
+❌ <b>Xato:</b>
+${error.message}
+
+⏰ <b>Vaqt:</b> ${new Date().toLocaleString('uz-UZ')}
+
+💡 Iltimos, ma'lumotlarni qo'lda tekshiring.
+        `.trim();
+
+        // Telegram chat ID - bu environment variable yoki config'dan keladi
+        const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '-1003298985470';
+
+        await sendToTelegram(
+            TELEGRAM_CHAT_ID,
+            errorMessage,
+            [], // Rasmlar yo'q
+            realtor.telegramThemeId
+        );
+
+        console.log(`✅ Realtor ${realtor.username} ga xato haqida xabar yuborildi`);
+
+    } catch (notifyError) {
+        console.error('❌ Telegram xabarnoma yuborishda xato:', notifyError.message);
+    }
+}
+
+module.exports = {
+    sendToAppScriptWithRetry,
+    notifyRealtorAboutError
+};

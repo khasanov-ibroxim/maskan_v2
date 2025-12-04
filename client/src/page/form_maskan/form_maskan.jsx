@@ -16,10 +16,10 @@ import {
 import { InboxOutlined, WifiOutlined, DisconnectOutlined } from "@ant-design/icons";
 import axios from "axios";
 import "./form_maskan.css"
-import { Rielter } from "./db/rielter.jsx";
+import api from '../../utils/api.jsx';
 
 const { Option } = Select;
-import api from '../../utils/api.jsx';
+
 // SERVER URL
 const SERVER_URL = import.meta.env.VITE_API_URL;
 
@@ -38,7 +38,7 @@ const checkInternetSpeed = async () => {
 
         const durationInSeconds = (endTime - startTime) / 1000;
         const speedBps = fileSize / durationInSeconds;
-        const speedMbps = (speedBps / (1024 * 1024)) * 8; // Convert to Mbps
+        const speedMbps = (speedBps / (1024 * 1024)) * 8;
 
         return speedMbps;
     } catch (error) {
@@ -124,6 +124,10 @@ const FormMaskan = () => {
     const [uploadProgress, setUploadProgress] = useState(0);
     const [fileList, setFileList] = useState([]);
 
+    // ✅ Realtor list state
+    const [realtors, setRealtors] = useState([]);
+    const [loadingRealtors, setLoadingRealtors] = useState(false);
+
     // Internet tezligi state
     const [internetSpeed, setInternetSpeed] = useState(null);
     const [isCheckingSpeed, setIsCheckingSpeed] = useState(false);
@@ -136,7 +140,43 @@ const FormMaskan = () => {
             message.warning("Iltimos, tizimga kiring!");
             window.location.href = "/login";
         }
+
+        // ✅ Realtor'larni yuklash
+        loadRealtors();
     }, []);
+
+    // ✅ Realtor'larni serverdan yuklash
+    const loadRealtors = async () => {
+        setLoadingRealtors(true);
+        try {
+            console.log('📥 Realtor\'lar yuklanmoqda...');
+
+            const response = await api.get('/api/users/users');
+
+            if (response.data.success) {
+                // Faqat rieltor role'li userlarni filter qilish
+                const realtorUsers = response.data.users.filter(
+                    user => user.role === 'rieltor' && user.isActive
+                );
+
+                setRealtors(realtorUsers);
+                console.log('✅ Realtor\'lar yuklandi:', realtorUsers.length);
+
+                if (realtorUsers.length === 0) {
+                    message.warning('⚠️ Hozircha realtor\'lar mavjud emas');
+                }
+            }
+        } catch (error) {
+            console.error('❌ Realtor\'larni yuklashda xato:', error);
+            message.error('Realtor\'larni yuklashda xato. Iltimos, sahifani yangilang.');
+
+            // Fallback - eski static list (agar kerak bo'lsa)
+            setRealtors([]);
+        } finally {
+            setLoadingRealtors(false);
+        }
+    };
+
     useEffect(() => {
         checkSpeed();
 
@@ -276,7 +316,7 @@ const FormMaskan = () => {
 
             const serverResponse = await axios.post(`${SERVER_URL}/api/send-data`, formData, {
                 headers: { "Content-Type": "multipart/form-data" },
-                timeout: 60000, // 60 sekund
+                timeout: 60000,
             });
 
             await progressPromise;
@@ -573,16 +613,63 @@ const FormMaskan = () => {
                         />
                     </Form.Item>
 
-                    <Form.Item label="Rielter" name="rieltor" rules={[{required: true, message: "Rielter tanlang!"}]}>
-                        <Select placeholder="Rielter tanlang">
-                            {Rielter.map((item, index) => (
-                                <Option value={item.name} key={index}>
-                                    {item.name}
+                    {/* ✅ Realtor select - serverdan olingan list */}
+                    <Form.Item
+                        label="Rielter"
+                        name="rieltor"
+                        rules={[{required: true, message: "Rielter tanlang!"}]}
+                    >
+                        <Select
+                            placeholder="Rielter tanlang"
+                            loading={loadingRealtors}
+                            notFoundContent={
+                                loadingRealtors ? (
+                                    <div style={{textAlign: 'center', padding: '10px'}}>
+                                        <Spin size="small" />
+                                        <div>Yuklanmoqda...</div>
+                                    </div>
+                                ) : (
+                                    <div style={{textAlign: 'center', padding: '10px'}}>
+                                        Realtor topilmadi
+                                    </div>
+                                )
+                            }
+                            showSearch
+                            filterOption={(input, option) =>
+                                option.children.toLowerCase().includes(input.toLowerCase())
+                            }
+                            suffixIcon={loadingRealtors ? <Spin size="small" /> : undefined}
+                        >
+                            {realtors.map((realtor) => (
+                                <Option value={realtor.username} key={realtor.id}>
+                                    {realtor.fullName} ({realtor.username})
                                 </Option>
                             ))}
                         </Select>
                     </Form.Item>
 
+                    {/* Agar realtor'lar yuklanmagan bo'lsa, reload tugmasi */}
+                    {!loadingRealtors && realtors.length === 0 && (
+                        <Alert
+                            message="Realtor'lar topilmadi"
+                            description={
+                                <span>
+                                    Realtor'lar yuklanmadi.
+                                    <Button
+                                        type="link"
+                                        size="small"
+                                        onClick={loadRealtors}
+                                        style={{padding: 0, marginLeft: 5}}
+                                    >
+                                        Qayta urinish
+                                    </Button>
+                                </span>
+                            }
+                            type="warning"
+                            showIcon
+                            style={{ marginBottom: 16 }}
+                        />
+                    )}
                     <Form.Item label="Primichaniya (Izohlash)" name="opisaniya">
                         <Input.TextArea placeholder="Remont yaxshi, mebel bor..." rows={3}/>
                     </Form.Item>

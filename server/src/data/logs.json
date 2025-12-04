@@ -621,5 +621,86 @@
     "description": "Tizimga kirdi",
     "ipAddress": "::1",
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+  },
+  {
+    "timestamp": "2025-12-04T19:20:55.922Z",
+    "userId": "1",
+    "username": "admin",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+  },
+  {
+    "timestamp": "2025-12-04T19:45:51.507Z",
+    "userId": "1",
+    "username": "admin",
+    "action": "create_user",
+    "description": "Yangi user yaratildi: Aziz (rieltor)",
+    "ipAddress": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+  },
+  {
+    "timestamp": "2025-12-04T19:55:11.731Z",
+    "userId": "1",
+    "username": "admin",
+    "action": "delete_user",
+    "description": "User o'chirildi: sevinch",
+    "ipAddress": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+  },
+  {
+    "timestamp": "2025-12-04T19:55:14.343Z",
+    "userId": "1",
+    "username": "admin",
+    "action": "delete_user",
+    "description": "User o'chirildi: Fazliddin",
+    "ipAddress": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+  },
+  {
+    "timestamp": "2025-12-04T19:55:17.120Z",
+    "userId": "1",
+    "username": "admin",
+    "action": "delete_user",
+    "description": "User o'chirildi: Doniyor",
+    "ipAddress": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+  },
+  {
+    "timestamp": "2025-12-04T19:55:19.534Z",
+    "userId": "1",
+    "username": "admin",
+    "action": "delete_user",
+    "description": "User o'chirildi: Ibroxim123",
+    "ipAddress": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+  },
+  {
+    "timestamp": "2025-12-04T19:55:22.181Z",
+    "userId": "1",
+    "username": "admin",
+    "action": "delete_user",
+    "description": "User o'chirildi: Xusan",
+    "ipAddress": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+  },
+  {
+    "timestamp": "2025-12-04T19:55:24.370Z",
+    "userId": "1",
+    "username": "admin",
+    "action": "delete_user",
+    "description": "User o'chirildi: Dovron",
+    "ipAddress": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+  },
+  {
+    "timestamp": "2025-12-04T19:55:37.217Z",
+    "userId": "1",
+    "username": "admin",
+    "action": "delete_user",
+    "description": "User o'chirildi: Aziz",
+    "ipAddress": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
   }
 ]

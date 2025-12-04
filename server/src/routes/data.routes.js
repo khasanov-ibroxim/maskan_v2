@@ -1,9 +1,9 @@
-// src/routes/data.routes.js
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const { sendData } = require('../controllers/dataController');
 const { TEMP_DIR, MAX_FILE_SIZE } = require('../config/constants');
+const { fileFilterForUpload } = require('../middleware/fileFilter'); // ✅ To'g'ri import
 
 const router = express.Router();
 
@@ -19,23 +19,16 @@ const storage = multer.diskStorage({
     }
 });
 
+// ✅ fileFilterForUpload ishlatish (temp tekshirmaydi)
 const upload = multer({
     storage,
     limits: { fileSize: MAX_FILE_SIZE },
-    fileFilter: (req, file, cb) => {
-        // Rasm fayllari uchun tekshirish
-        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-        if (allowedTypes.includes(file.mimetype)) {
-            cb(null, true);
-        } else {
-            cb(new Error('Faqat rasm fayllari ruxsat etilgan!'));
-        }
-    }
+    fileFilter: fileFilterForUpload // Simple function
 });
 
 function dataRoutes(appScriptQueue) {
     // PUBLIC ROUTE - Auth kerak emas!
-    // Path: /api/send-data (chunki app.js da "/api" prefix bor)
+    // Path: /api/send-data
     router.post('/send-data', upload.array("images"), (req, res) => {
         console.log('📥 /send-data endpoint ga sorov keldi');
         console.log('   Method:', req.method);
@@ -47,7 +40,6 @@ function dataRoutes(appScriptQueue) {
     });
 
     // PUBLIC ROUTE - Queue status
-    // Path: /api/queue-status
     router.get('/queue-status', (req, res) => {
         console.log('📊 /queue-status endpoint ga sorov keldi');
 

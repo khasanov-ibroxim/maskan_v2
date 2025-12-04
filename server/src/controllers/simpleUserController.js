@@ -160,7 +160,7 @@ exports.getAllUsers = async (req, res) => {
  */
 exports.createUser = async (req, res) => {
     try {
-        const { username, password, fullName, role } = req.body;
+        const { username, password, fullName, role, appScriptUrl, telegramThemeId } = req.body;
 
         // Validatsiya
         if (!username || !password || !fullName) {
@@ -184,6 +184,33 @@ exports.createUser = async (req, res) => {
             });
         }
 
+        // Realtor uchun qo'shimcha validatsiya
+        if (role === 'rieltor') {
+            if (!appScriptUrl) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Realtor uchun App Script URL kiritilishi kerak'
+                });
+            }
+
+            if (!telegramThemeId) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Realtor uchun Telegram Theme ID kiritilishi kerak'
+                });
+            }
+
+            // URL formatini tekshirish
+            try {
+                new URL(appScriptUrl);
+            } catch {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Noto\'g\'ri App Script URL formati'
+                });
+            }
+        }
+
         // Username band emasligini tekshirish
         const existingUser = SimpleUser.findByUsername(username);
         if (existingUser) {
@@ -198,17 +225,24 @@ exports.createUser = async (req, res) => {
             username,
             password,
             fullName,
-            role: role || 'user'
+            role: role || 'user',
+            appScriptUrl: role === 'rieltor' ? appScriptUrl : undefined,
+            telegramThemeId: role === 'rieltor' ? parseInt(telegramThemeId) : undefined
         });
 
         console.log(`✅ Yangi user yaratildi: ${username} (${role || 'user'})`);
+
+        if (role === 'rieltor') {
+            console.log(`   App Script URL: ${appScriptUrl}`);
+            console.log(`   Telegram Theme ID: ${telegramThemeId}`);
+        }
 
         // Log qo'shish
         logActivity(
             req.user.id,
             req.user.username,
             'create_user',
-            `Yangi user yaratildi: ${username}`,
+            `Yangi user yaratildi: ${username} (${role || 'user'})`,
             req.ip,
             req.get('user-agent')
         );
@@ -222,6 +256,8 @@ exports.createUser = async (req, res) => {
                 fullName: newUser.fullName,
                 role: newUser.role,
                 isActive: newUser.isActive,
+                appScriptUrl: newUser.appScriptUrl,
+                telegramThemeId: newUser.telegramThemeId,
                 createdAt: newUser.createdAt
             }
         });

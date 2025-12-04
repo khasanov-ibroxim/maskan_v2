@@ -127,6 +127,13 @@ class SimpleUser {
             isActive: true,
             createdAt: new Date().toISOString()
         };
+
+        // Realtor uchun qo'shimcha ma'lumotlar
+        if (userData.role === 'rieltor') {
+            newUser.appScriptUrl = userData.appScriptUrl;
+            newUser.telegramThemeId = userData.telegramThemeId;
+        }
+
         users.push(newUser);
         this.saveUsers(users);
         return newUser;

@@ -15,7 +15,8 @@ import {
     Statistic,
     Row,
     Col,
-    Spin
+    Alert,
+    Tooltip
 } from 'antd';
 import {
     UserOutlined,
@@ -25,7 +26,11 @@ import {
     DeleteOutlined,
     CheckCircleOutlined,
     CloseCircleOutlined,
-    ReloadOutlined
+    ReloadOutlined,
+    LinkOutlined,
+    MessageOutlined,
+    InfoCircleOutlined,
+    DownloadOutlined
 } from '@ant-design/icons';
 import api from '../../utils/api.jsx';
 import Header from "../../components/Header.jsx";
@@ -40,6 +45,7 @@ const AdminPanel = () => {
     const [activityLogs, setActivityLogs] = useState([]);
     const [loading, setLoading] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
+    const [selectedRole, setSelectedRole] = useState('user');
     const [form] = Form.useForm();
 
     useEffect(() => {
@@ -131,6 +137,7 @@ const AdminPanel = () => {
                 message.success('User muvaffaqiyatli yaratildi! 🎉');
                 setModalVisible(false);
                 form.resetFields();
+                setSelectedRole('user');
                 await loadUsers();
                 await loadActivityLogs();
             }
@@ -156,6 +163,33 @@ const AdminPanel = () => {
             console.error('User o\'chirishda xato:', error);
             const errorMsg = error.response?.data?.error || 'User o\'chirishda xato';
             message.error(errorMsg);
+        }
+    };
+
+    const handleDownloadBackup = async () => {
+        try {
+            message.loading('Excel backup yuklanmoqda...', 0);
+
+            const response = await api.get('/api/excel/download-backup', {
+                responseType: 'blob'
+            });
+
+            // Blob yaratish va yuklab olish
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `backup_database_${new Date().toISOString().split('T')[0]}.xlsx`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+
+            message.destroy();
+            message.success('Backup muvaffaqiyatli yuklandi!');
+        } catch (error) {
+            message.destroy();
+            console.error('Backup yuklashda xato:', error);
+            message.error('Backup yuklashda xato');
         }
     };
 
@@ -196,7 +230,9 @@ const AdminPanel = () => {
         todayLogins: activityLogs.filter(log => {
             const today = new Date().toDateString();
             return log.action === 'login' && new Date(log.timestamp).toDateString() === today;
-        }).length
+        }).length,
+        realtors: users.filter(u => u.role === 'rieltor').length,
+        managers: users.filter(u => u.role === 'manager').length
     };
 
     // Users table columns
@@ -205,29 +241,71 @@ const AdminPanel = () => {
             title: 'Username',
             dataIndex: 'username',
             key: 'username',
-            width: 150,
+            width: 120,
             fixed: 'left'
         },
         {
             title: 'To\'liq ism',
             dataIndex: 'fullName',
-            key: 'fullName'
+            key: 'fullName',
+            width: 150
         },
         {
             title: 'Role',
             dataIndex: 'role',
             key: 'role',
             width: 100,
-            render: (role) => (
-                <Tag color={role === 'admin' ? 'red' : role === 'rieltor' ? 'blue' : 'green'}>
-                    {role.toUpperCase()}
-                </Tag>
-            )
+            render: (role) => {
+                const roleConfig = {
+                    admin: { color: 'red', icon: '👑' },
+                    manager: { color: 'purple', icon: '🔧' },
+                    rieltor: { color: 'blue', icon: '🏠' },
+                    user: { color: 'green', icon: '👤' }
+                };
+                const config = roleConfig[role] || roleConfig.user;
+                return (
+                    <Tag color={config.color}>
+                        {config.icon} {role.toUpperCase()}
+                    </Tag>
+                );
+            }
+        },
+        {
+            title: 'App Script',
+            key: 'appScript',
+            width: 120,
+            render: (_, record) => {
+                if (record.role === 'rieltor' && record.appScriptUrl) {
+                    return (
+                        <Tooltip title={record.appScriptUrl}>
+                            <Tag color="cyan" icon={<LinkOutlined />}>
+                                Mavjud
+                            </Tag>
+                        </Tooltip>
+                    );
+                }
+                return '-';
+            }
+        },
+        {
+            title: 'Telegram Theme',
+            key: 'telegramTheme',
+            width: 130,
+            render: (_, record) => {
+                if (record.role === 'rieltor' && record.telegramThemeId) {
+                    return (
+                        <Tag color="green" icon={<MessageOutlined />}>
+                            ID: {record.telegramThemeId}
+                        </Tag>
+                    );
+                }
+                return '-';
+            }
         },
         {
             title: 'Status',
             key: 'status',
-            width: 120,
+            width: 100,
             render: (_, record) => {
                 const isOnline = activeSessions.some(s => s.userId === record.id);
                 return (
@@ -242,7 +320,7 @@ const AdminPanel = () => {
             title: 'Yaratilgan',
             dataIndex: 'createdAt',
             key: 'createdAt',
-            width: 180,
+            width: 150,
             render: (date) => formatDate(date)
         },
         {
@@ -447,10 +525,9 @@ const AdminPanel = () => {
                     <Col xs={24} sm={12} lg={6}>
                         <Card>
                             <Statistic
-                                title="Offline"
-                                value={stats.inactiveUsers}
-                                prefix={<CloseCircleOutlined/>}
-                                valueStyle={{color: '#cf1322'}}
+                                title="Rieltor / Manager"
+                                value={`${stats.realtors} / ${stats.managers}`}
+                                prefix="🏠"
                             />
                         </Card>
                     </Col>
@@ -491,6 +568,14 @@ const AdminPanel = () => {
                                 >
                                     Yangilash
                                 </Button>
+                                <Button
+                                    type="default"
+                                    icon={<DownloadOutlined/>}
+                                    onClick={handleDownloadBackup}
+                                    style={{marginLeft: 'auto'}}
+                                >
+                                    Excel Backup
+                                </Button>
                             </Space>
 
                             <Table
@@ -499,7 +584,7 @@ const AdminPanel = () => {
                                 rowKey="id"
                                 loading={loading}
                                 pagination={{pageSize: 10}}
-                                scroll={{x: 1000}}
+                                scroll={{x: 1200}}
                             />
                         </TabPane>
 
@@ -599,9 +684,10 @@ const AdminPanel = () => {
                     onCancel={() => {
                         setModalVisible(false);
                         form.resetFields();
+                        setSelectedRole('user');
                     }}
                     footer={null}
-                    width={500}
+                    width={600}
                 >
                     <Form
                         form={form}
@@ -655,12 +741,88 @@ const AdminPanel = () => {
                             rules={[{ required: true, message: 'Role tanlang!' }]}
                             initialValue="user"
                         >
-                            <Select>
-                                <Option value="user">User</Option>
-                                <Option value="rieltor">Rieltor</Option>
-                                <Option value="admin">Admin</Option>
+                            <Select onChange={(value) => setSelectedRole(value)}>
+                                <Option value="user">👤 User</Option>
+                                <Option value="rieltor">🏠 Rieltor</Option>
+                                <Option value="manager">🔧 Manager</Option>
+                                <Option value="admin">👑 Admin</Option>
                             </Select>
                         </Form.Item>
+
+                        {/* Realtor-specific fields */}
+                        {selectedRole === 'rieltor' && (
+                            <>
+                                <Alert
+                                    message="Rieltor uchun qo'shimcha ma'lumotlar"
+                                    description="App Script URL va Telegram Theme ID kiritish majburiy"
+                                    type="info"
+                                    icon={<InfoCircleOutlined />}
+                                    style={{ marginBottom: 16 }}
+                                />
+
+                                <Form.Item
+                                    name="appScriptUrl"
+                                    label={
+                                        <Space>
+                                            <LinkOutlined />
+                                            App Script URL
+                                        </Space>
+                                    }
+                                    rules={[
+                                        { required: true, message: 'App Script URL kiriting!' },
+                                        {
+                                            type: 'url',
+                                            message: 'To\'g\'ri URL formatida kiriting!'
+                                        },
+                                        {
+                                            pattern: /script\.google\.com/,
+                                            message: 'Google Apps Script URL bo\'lishi kerak'
+                                        }
+                                    ]}
+                                    tooltip="Google Apps Script'ning web app URL manzili"
+                                >
+                                    <Input
+                                        placeholder="https://script.google.com/macros/s/..."
+                                        prefix={<LinkOutlined />}
+                                    />
+                                </Form.Item>
+
+                                <Form.Item
+                                    name="telegramThemeId"
+                                    label={
+                                        <Space>
+                                            <MessageOutlined />
+                                            Telegram Theme ID
+                                        </Space>
+                                    }
+                                    rules={[
+                                        { required: true, message: 'Telegram Theme ID kiriting!' },
+                                        {
+                                            pattern: /^\d+$/,
+                                            message: 'Faqat raqam bo\'lishi kerak'
+                                        }
+                                    ]}
+                                    tooltip="Telegram guruh yoki kanalning theme/topic ID raqami"
+                                >
+                                    <Input
+                                        placeholder="masalan: 65"
+                                        prefix={<MessageOutlined />}
+                                        type="number"
+                                    />
+                                </Form.Item>
+                            </>
+                        )}
+
+                        {/* Manager info */}
+                        {selectedRole === 'manager' && (
+                            <Alert
+                                message="Manager huquqlari"
+                                description="Manager admin bilan bir xil huquqlarga ega"
+                                type="success"
+                                icon={<CheckCircleOutlined />}
+                                style={{ marginBottom: 16 }}
+                            />
+                        )}
 
                         <Form.Item style={{ marginBottom: 0, marginTop: 24 }}>
                             <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
@@ -668,6 +830,7 @@ const AdminPanel = () => {
                                     onClick={() => {
                                         setModalVisible(false);
                                         form.resetFields();
+                                        setSelectedRole('user');
                                     }}
                                 >
                                     Bekor qilish

@@ -9,6 +9,8 @@ const ACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 daqiqa millisoniyalarda
 /**
  * Yangi session yaratish
  */
+
+
 const createSession = (userId, username, ipAddress, userAgent) => {
     const sessionId = crypto.randomBytes(32).toString('hex');
     const sessions = SimpleUser.getSessions();
@@ -269,10 +271,8 @@ const protect = async (req, res, next) => {
  * Authorization middleware (Role tekshirish)
  * @param  {...string} roles - Ruxsat berilgan rollar
  */
-// ✅ TO'G'RI authorize:
 const authorize = (...roles) => {
     return (req, res, next) => {
-        // OPTIONS so'rovlarini o'tkazib yuborish
         if (req.method === 'OPTIONS') {
             return next();
         }
@@ -284,7 +284,18 @@ const authorize = (...roles) => {
             });
         }
 
-        if (!roles.includes(req.user.role)) {
+        // Realtor admin panelga kirishi mumkin emas
+        if (req.user.role === 'rieltor' && roles.includes('admin')) {
+            return res.status(403).json({
+                success: false,
+                error: 'Rieltorlarga admin panel kirish taqiqlangan'
+            });
+        }
+
+        // Manager = Admin huquqlari
+        const userRole = req.user.role === 'manager' ? 'admin' : req.user.role;
+
+        if (!roles.includes(userRole)) {
             return res.status(403).json({
                 success: false,
                 error: 'Bu amal uchun ruxsatingiz yo\'q'
@@ -294,6 +305,7 @@ const authorize = (...roles) => {
         next();
     };
 };
+
 module.exports = {
     protect,
     authorize,
