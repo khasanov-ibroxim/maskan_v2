@@ -53,12 +53,37 @@ class SimpleUser {
         fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
     }
 
+    // server/src/models/SimpleUser.js
+
     static getSessions() {
         if (!fs.existsSync(SESSIONS_FILE)) {
             fs.writeFileSync(SESSIONS_FILE, JSON.stringify([], null, 2));
             return [];
         }
-        return JSON.parse(fs.readFileSync(SESSIONS_FILE, 'utf8'));
+
+        try {
+            const content = fs.readFileSync(SESSIONS_FILE, 'utf8');
+
+            // Bo'sh fayl tekshiruvi
+            if (!content || content.trim() === '') {
+                fs.writeFileSync(SESSIONS_FILE, JSON.stringify([], null, 2));
+                return [];
+            }
+
+            return JSON.parse(content);
+        } catch (error) {
+            console.error('❌ Sessions faylni o\'qishda xato:', error.message);
+            console.log('🔧 Fayl qayta yaratilmoqda...');
+
+            // Backup yaratish
+            const backupFile = SESSIONS_FILE + `.backup.${Date.now()}`;
+            fs.copyFileSync(SESSIONS_FILE, backupFile);
+            console.log(`💾 Backup saqlandi: ${backupFile}`);
+
+            // Yangi fayl yaratish
+            fs.writeFileSync(SESSIONS_FILE, JSON.stringify([], null, 2));
+            return [];
+        }
     }
 
     static saveSessions(sessions) {
