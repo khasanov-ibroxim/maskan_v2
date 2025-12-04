@@ -6,7 +6,8 @@ const {
     getActivityLogs,
     getAllUsers,
     createUser,
-    deleteUser
+    deleteUser,
+    getRealtors
 } = require('../controllers/simpleUserController');
 const { protect, authorize } = require('../middleware/simpleAuth');
 
@@ -14,7 +15,7 @@ const { protect, authorize } = require('../middleware/simpleAuth');
 router.get('/sessions/active', protect, getActiveSessions);
 router.get('/sessions/history', protect, getSessionHistory);
 router.get('/logs', protect, getActivityLogs);
-
+router.get('/realtors', getRealtors);
 // Admin only routes
 router.get('/users', protect, authorize('admin'), getAllUsers);
 router.post('/users', protect, authorize('admin'), createUser);

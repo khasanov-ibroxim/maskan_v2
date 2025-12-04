@@ -154,6 +154,42 @@ exports.getAllUsers = async (req, res) => {
     }
 };
 
+
+exports.getRealtors = async (req, res) => {
+    try {
+        const users = SimpleUser.getUsers();
+
+        // Faqat faol rieltor'larni filter qilish
+        const realtors = users.filter(u =>
+            u.role === 'rieltor' &&
+            u.isActive === true
+        );
+
+        console.log(`📋 Realtor'lar ro'yxati so'ralmoqda: ${realtors.length} ta`);
+
+        // Faqat kerakli ma'lumotlarni yuborish
+        const realtorsList = realtors.map(r => ({
+            id: r.id,
+            username: r.username,
+            fullName: r.fullName,
+            role: r.role,
+            isActive: r.isActive
+        }));
+
+        res.json({
+            success: true,
+            count: realtorsList.length,
+            realtors: realtorsList
+        });
+
+    } catch (error) {
+        console.error('❌ Get realtors xato:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Server xatosi'
+        });
+    }
+};
 /**
  * Yangi user yaratish (admin only)
  * POST /api/users/users

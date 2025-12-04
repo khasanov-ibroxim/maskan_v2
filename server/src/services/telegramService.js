@@ -9,8 +9,17 @@ async function sendToTelegram(chatId, messageText, images, themeId) {
         return { success: false, error: "Chat ID yo'q" };
     }
 
+    if (!TELEGRAM_BOT_TOKEN) {
+        console.error("❌ TELEGRAM_BOT_TOKEN topilmadi!");
+        return { success: false, error: "Bot token yo'q" };
+    }
+
     try {
-        console.log(`📱 Telegram yuborish boshlandi: Chat=${chatId}, Theme=${themeId}`);
+        console.log(`📱 Telegram yuborish boshlandi:`);
+        console.log(`   Chat ID: ${chatId}`);
+        console.log(`   Theme ID: ${themeId || 'Yo\'q'}`);
+        console.log(`   Rasmlar: ${images?.length || 0} ta`);
+        console.log(`   Xabar uzunligi: ${messageText?.length || 0} belgi`);
 
         const base64ToBuffer = (base64Data) => {
             const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
@@ -26,8 +35,10 @@ async function sendToTelegram(chatId, messageText, images, themeId) {
 
         let response;
 
-        // Faqat matn
+        // ✅ Faqat matn
         if (images.length === 0) {
+            console.log("   📝 Faqat matn yuborilmoqda...");
+
             const payload = {
                 chat_id: chatId,
                 text: messageText,
@@ -41,16 +52,29 @@ async function sendToTelegram(chatId, messageText, images, themeId) {
             response = await axios.post(
                 `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
                 payload,
-                { timeout: TELEGRAM_TIMEOUT }
+                {
+                    timeout: TELEGRAM_TIMEOUT,
+                    headers: { 'Content-Type': 'application/json' }
+                }
             );
         }
-        // Bitta rasm
+        // ✅ Bitta rasm
         else if (images.length === 1) {
+            console.log("   🖼 1 ta rasm yuborilmoqda...");
+
             const formData = new FormData();
             formData.append("chat_id", chatId);
             formData.append("caption", messageText);
             formData.append("parse_mode", "HTML");
-            formData.append("photo", base64ToBuffer(images[0]), { filename: "photo.jpg" });
+
+            try {
+                const photoBuffer = base64ToBuffer(images[0]);
+                formData.append("photo", photoBuffer, { filename: "photo.jpg" });
+                console.log(`   ✅ Rasm hajmi: ${(photoBuffer.length / 1024).toFixed(2)} KB`);
+            } catch (bufferError) {
+                console.error("   ❌ Base64 o'girishda xato:", bufferError.message);
+                throw bufferError;
+            }
 
             if (themeId) {
                 formData.append("message_thread_id", themeId);
@@ -61,12 +85,16 @@ async function sendToTelegram(chatId, messageText, images, themeId) {
                 formData,
                 {
                     headers: formData.getHeaders(),
-                    timeout: TELEGRAM_TIMEOUT
+                    timeout: TELEGRAM_TIMEOUT,
+                    maxContentLength: Infinity,
+                    maxBodyLength: Infinity
                 }
             );
         }
-        // Ko'p rasmlar
+        // ✅ Ko'p rasmlar
         else {
+            console.log(`   🖼 ${images.length} ta rasm yuborilmoqda...`);
+
             const media = images.map((img, idx) => ({
                 type: "photo",
                 media: `attach://photo${idx}`,
@@ -83,7 +111,13 @@ async function sendToTelegram(chatId, messageText, images, themeId) {
             }
 
             images.forEach((img, idx) => {
-                formData.append(`photo${idx}`, base64ToBuffer(img), { filename: `photo${idx}.jpg` });
+                try {
+                    const photoBuffer = base64ToBuffer(img);
+                    formData.append(`photo${idx}`, photoBuffer, { filename: `photo${idx}.jpg` });
+                    console.log(`   ✅ Rasm ${idx + 1}: ${(photoBuffer.length / 1024).toFixed(2)} KB`);
+                } catch (bufferError) {
+                    console.error(`   ❌ Rasm ${idx + 1} xato:`, bufferError.message);
+                }
             });
 
             response = await axios.post(
@@ -91,21 +125,31 @@ async function sendToTelegram(chatId, messageText, images, themeId) {
                 formData,
                 {
                     headers: formData.getHeaders(),
-                    timeout: TELEGRAM_TIMEOUT
+                    timeout: TELEGRAM_TIMEOUT * 2, // Ko'p rasmlar uchun 2x timeout
+                    maxContentLength: Infinity,
+                    maxBodyLength: Infinity
                 }
             );
         }
 
         if (response.data && response.data.ok) {
             console.log("✅ Telegram'ga muvaffaqiyatli yuborildi");
-            return { success: true };
+            return { success: true, data: response.data };
         } else {
-            console.log(`❌ Telegram API xato: ${response.data?.description || "Unknown error"}`);
+            console.error(`❌ Telegram API xato: ${response.data?.description || "Unknown error"}`);
             return { success: false, error: response.data?.description || "Unknown error" };
         }
 
     } catch (error) {
-        console.log(`❌ Telegram xato: ${error.message}`);
+        console.error(`❌ Telegram xato: ${error.message}`);
+
+        if (error.response) {
+            console.error("   Response status:", error.response.status);
+            console.error("   Response data:", JSON.stringify(error.response.data, null, 2));
+        } else if (error.request) {
+            console.error("   No response received");
+        }
+
         return { success: false, error: error.message };
     }
 }

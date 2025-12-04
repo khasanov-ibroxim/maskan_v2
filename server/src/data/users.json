@@ -7,5 +7,16 @@
     "role": "admin",
     "isActive": true,
     "createdAt": "2025-11-18T06:00:03.785Z"
+  },
+  {
+    "id": "1764879315448",
+    "username": "Aziz",
+    "password": "$2b$10$A4ul.wLZO9dqq6qgiEF.1.AD9VTp0aFD9qykDc92U0Gj5aDSohAGK",
+    "fullName": "Aziz rielter",
+    "role": "rieltor",
+    "isActive": true,
+    "createdAt": "2025-12-04T20:15:15.624Z",
+    "appScriptUrl": "https://script.google.com/macros/s/AKfycbztEELm13Rpb8PFKRkqLlmqOG9P794T8hu_3cJF2m31UthyppkAsRyVoIlZEVldrLbc/exec",
+    "telegramThemeId": 65
   }
 ]

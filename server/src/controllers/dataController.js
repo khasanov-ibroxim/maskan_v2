@@ -1,4 +1,8 @@
-// src/controllers/dataController.js
+// ============================================
+// server/src/controllers/dataController.js
+// ✅ TO'LIQ YANGILANGAN KOD
+// ============================================
+
 const rielterData = require('../../rielter.js');
 const { sendToTelegram } = require('../services/telegramService');
 const { sendToAppScriptWithRetry } = require('../services/appScriptService');
@@ -32,7 +36,7 @@ async function sendData(req, res, appScriptQueue) {
         console.log("  Rieltor:", data.rieltor);
         console.log("  Sana:", data.sana);
 
-        // ✅ CRITICAL FIX: Agar multer orqali fayllar kelgan bo'lsa, ularni base64'ga o'girish
+        // ✅ CRITICAL FIX: Multer fayllarni base64'ga o'girish
         if (req.files && req.files.length > 0) {
             console.log("🔄 Multer fayllarni base64'ga o'girish boshlandi...");
 
@@ -56,31 +60,45 @@ async function sendData(req, res, appScriptQueue) {
                 }
             }
 
-            // Data'ga base64 rasmlarni qo'shish
             data.rasmlar = base64Images;
             console.log(`✅ ${base64Images.length} ta rasm base64'ga o'girildi`);
         }
 
         console.log("  Final rasmlar soni:", data.rasmlar?.length || 0);
 
-        // 1. Fayllarni saqlash
+        // ✅ 1. FAYLLARNI SAQLASH (Browse URL olish)
         let folderLink = null;
         try {
+            console.log("\n💾 Fayllarni saqlash boshlandi...");
+            console.log("  Request protocol:", req.protocol);
+            console.log("  Request host:", req.get('host'));
+            console.log("  Full URL:", `${req.protocol}://${req.get('host')}`);
+
             folderLink = await saveFiles(data, req);
-            console.log("✅ Fayllar saqlandi:", folderLink);
+
+            if (folderLink) {
+                console.log("✅ Folder link yaratildi:", folderLink);
+            } else {
+                console.warn("⚠️ Folder link null qaytdi");
+            }
         } catch (fileError) {
-            console.error("⚠️ Fayl saqlashda xato:", fileError.message);
+            console.error("❌ Fayl saqlashda xato:", fileError.message);
+            console.error(fileError.stack);
         }
 
-        // 2. Lokal Excel'ga saqlash (staxovka)
+        // ✅ 2. LOKAL EXCEL'GA SAQLASH (folderLink bilan)
         try {
+            console.log("\n📊 Lokal Excel'ga saqlash boshlandi...");
+            console.log("  Folder link:", folderLink || "YO'Q");
+
             await saveToLocalExcel(data, folderLink);
             console.log("✅ Lokal Excel'ga saqlandi");
         } catch (excelError) {
-            console.error("⚠️ Lokal Excel'ga saqlashda xato:", excelError.message);
+            console.error("❌ Lokal Excel'ga saqlashda xato:", excelError.message);
+            console.error(excelError.stack);
         }
 
-        // 3. Rieltor ma'lumotlarini topish
+        // ✅ 3. RIELTOR MA'LUMOTLARINI TOPISH
         const users = SimpleUser.getUsers();
         const rielterInfo = users.find(u =>
             u.role === 'rieltor' &&
@@ -95,10 +113,11 @@ async function sendData(req, res, appScriptQueue) {
             console.log("  Telegram Theme ID:", rielterInfo.telegramThemeId);
         }
 
-        // 4. Telegram xabarni tayyorlash
+        // ✅ 4. TELEGRAM XABARNI TAYYORLASH
         let telegramMessage = "";
-        if (rielterInfo && rielterInfo.rielterChatId) {
-            telegramMessage = `
+        const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '-1003298985470';
+
+        telegramMessage = `
 🏠 <b>Yangi uy ma'lumoti</b>
 
 📍 <b>Kvartil:</b> ${data.kvartil}
@@ -106,18 +125,13 @@ async function sendData(req, res, appScriptQueue) {
 📐 <b>Maydon:</b> ${data.m2} m²
 💰 <b>Narxi:</b> ${data.narx} $
 📞 <b>Telefon:</b> ${data.tell}
-${data.fio ? `👤 <b>Ega:</b> ${data.fio}` : ''}
-${data.uy_turi ? `🏗 <b>Uy turi:</b> ${data.uy_turi}` : ''}
-${data.xolati ? `🔧 <b>Holati:</b> ${data.xolati}` : ''}
-${data.opisaniya ? `📝 <b>Izoh:</b> ${data.opisaniya}` : ''}
-${data.osmotir ? `🕐 <b>Ko'rikdan o'tish:</b> ${data.osmotir}` : ''}
-
+${data.fio ? `👤 <b>Ega:</b> ${data.fio}\n` : ''}${data.uy_turi ? `🏗 <b>Uy turi:</b> ${data.uy_turi}\n` : ''}${data.xolati ? `🔧 <b>Holati:</b> ${data.xolati}\n` : ''}${data.opisaniya ? `📝 <b>Izoh:</b> ${data.opisaniya}\n` : ''}${data.osmotir ? `🕐 <b>Ko'rikdan o'tish:</b> ${data.osmotir}\n` : ''}
 👨‍💼 <b>Rieltor:</b> ${data.rieltor}
 📅 <b>Sana:</b> ${data.sana}
-            `.trim();
-        }
+${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''}
+        `.trim();
 
-        // 5. Javob yuborish (TEZKOR)
+        // ✅ 5. JAVOB YUBORISH (TEZKOR)
         res.json({
             success: true,
             message: "Ma'lumotlar qabul qilindi va navbatga qo'shildi",
@@ -127,7 +141,7 @@ ${data.osmotir ? `🕐 <b>Ko'rikdan o'tish:</b> ${data.osmotir}` : ''}
             queueStatus: appScriptQueue.getStatus()
         });
 
-        // 6. Background'da yuborish
+        // ✅ 6. BACKGROUND'DA YUBORISH
         appScriptQueue.add(async () => {
             const results = {
                 telegram: { success: false },
@@ -135,40 +149,34 @@ ${data.osmotir ? `🕐 <b>Ko'rikdan o'tish:</b> ${data.osmotir}` : ''}
                 rielter: { success: false }
             };
 
-            // TELEGRAM
-            if (rielterInfo && rielterInfo.appScriptUrl) {
-                console.log("\n📤 Rielter Excel'ga yuborish...");
-                try {
-                    const rielterExcelData = {
-                        ...data,
-                        rasmlar: folderLink || "",
-                        sana: data.sana || new Date().toLocaleString('uz-UZ', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                        })
-                    };
-
-                    console.log("   URL:", rielterInfo.appScriptUrl.substring(0, 50) + "...");
-
-                    const rielterResult = await sendToAppScriptWithRetry(
-                        rielterInfo.appScriptUrl,
-                        rielterExcelData,
-                        rielterInfo.id // Xato bo'lganda notification uchun
-                    );
-                    results.rielter = { success: true, data: rielterResult };
-                    console.log("✅ Rielter Excel'ga yuborildi");
-                } catch (rielterError) {
-                    console.error("❌ Rielter Excel xato:", rielterError.message);
-                    results.rielter = { success: false, error: rielterError.message };
+            // ✅ TELEGRAM'GA YUBORISH
+            console.log("\n📤 TELEGRAM'GA YUBORISH...");
+            try {
+                if (!TELEGRAM_CHAT_ID) {
+                    throw new Error("TELEGRAM_CHAT_ID topilmadi");
                 }
+
+                const themeId = rielterInfo?.telegramThemeId || null;
+                console.log(`   Chat ID: ${TELEGRAM_CHAT_ID}`);
+                console.log(`   Theme ID: ${themeId || 'Yo\'q'}`);
+                console.log(`   Rasmlar soni: ${data.rasmlar?.length || 0}`);
+
+                const telegramResult = await sendToTelegram(
+                    TELEGRAM_CHAT_ID,
+                    telegramMessage,
+                    data.rasmlar || [],  // ✅ Base64 rasmlarni yuborish
+                    themeId
+                );
+
+                results.telegram = { success: telegramResult.success, data: telegramResult };
+                console.log("✅ TELEGRAM'GA YUBORILDI");
+            } catch (telegramError) {
+                console.error("❌ TELEGRAM XATO:", telegramError.message);
+                results.telegram = { success: false, error: telegramError.message };
             }
 
-
-            // GLAVNIY EXCEL
-            console.log("\n📤 GLAVNIY Excel'ga yuborish...");
+            // ✅ GLAVNIY EXCEL'GA YUBORISH
+            console.log("\n📤 GLAVNIY EXCEL'GA YUBORISH...");
             try {
                 if (!HERO_APP_SCRIPT) {
                     throw new Error("HERO_APP_SCRIPT environment o'zgaruvchisi topilmadi");
@@ -176,7 +184,7 @@ ${data.osmotir ? `🕐 <b>Ko'rikdan o'tish:</b> ${data.osmotir}` : ''}
 
                 const glavniyData = {
                     ...data,
-                    rasmlar: folderLink || "",
+                    rasmlar: folderLink || "",  // ✅ Browse URL yuborish
                     sana: data.sana || new Date().toLocaleString('uz-UZ', {
                         day: '2-digit',
                         month: '2-digit',
@@ -189,25 +197,25 @@ ${data.osmotir ? `🕐 <b>Ko'rikdan o'tish:</b> ${data.osmotir}` : ''}
                 console.log("📊 Excel'ga yuboriladigan ma'lumotlar:");
                 console.log("   Kvartil:", glavniyData.kvartil);
                 console.log("   Sana:", glavniyData.sana);
-                console.log("   Rasmlar:", glavniyData.rasmlar);
+                console.log("   Rasmlar URL:", glavniyData.rasmlar);
                 console.log("   URL:", HERO_APP_SCRIPT.substring(0, 50) + "...");
 
                 const glavniyResult = await sendToAppScriptWithRetry(HERO_APP_SCRIPT, glavniyData);
                 results.glavniy = { success: true, data: glavniyResult };
-                console.log("✅ GLAVNIY Excel'ga yuborildi");
+                console.log("✅ GLAVNIY EXCEL'GA YUBORILDI");
             } catch (glavniyError) {
-                console.error("❌ GLAVNIY Excel xato:", glavniyError.message);
+                console.error("❌ GLAVNIY EXCEL XATO:", glavniyError.message);
                 console.error("   Stack:", glavniyError.stack);
                 results.glavniy = { success: false, error: glavniyError.message };
             }
 
-            // RIELTER EXCEL
-            if (rielterInfo && rielterInfo.rielterExcelId) {
-                console.log("\n📤 Rielter Excel'ga yuborish...");
+            // ✅ RIELTER EXCEL'GA YUBORISH
+            if (rielterInfo && rielterInfo.appScriptUrl) {
+                console.log("\n📤 RIELTER EXCEL'GA YUBORISH...");
                 try {
                     const rielterExcelData = {
                         ...data,
-                        rasmlar: folderLink || "",
+                        rasmlar: folderLink || "",  // ✅ Browse URL yuborish
                         sana: data.sana || new Date().toLocaleString('uz-UZ', {
                             day: '2-digit',
                             month: '2-digit',
@@ -217,17 +225,18 @@ ${data.osmotir ? `🕐 <b>Ko'rikdan o'tish:</b> ${data.osmotir}` : ''}
                         })
                     };
 
-                    console.log("   URL:", rielterInfo.rielterExcelId.substring(0, 50) + "...");
+                    console.log("   URL:", rielterInfo.appScriptUrl.substring(0, 50) + "...");
+                    console.log("   Rasmlar URL:", rielterExcelData.rasmlar);
 
                     const rielterResult = await sendToAppScriptWithRetry(
-                        rielterInfo.rielterExcelId,
-                        rielterExcelData
+                        rielterInfo.appScriptUrl,
+                        rielterExcelData,
+                        rielterInfo.id
                     );
                     results.rielter = { success: true, data: rielterResult };
-                    console.log("✅ Rielter Excel'ga yuborildi");
+                    console.log("✅ RIELTER EXCEL'GA YUBORILDI");
                 } catch (rielterError) {
-                    console.error("❌ Rielter Excel xato:", rielterError.message);
-                    console.error("   Stack:", rielterError.stack);
+                    console.error("❌ RIELTER EXCEL XATO:", rielterError.message);
                     results.rielter = { success: false, error: rielterError.message };
                 }
             } else {

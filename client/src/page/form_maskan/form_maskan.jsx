@@ -17,6 +17,7 @@ import { InboxOutlined, WifiOutlined, DisconnectOutlined } from "@ant-design/ico
 import axios from "axios";
 import "./form_maskan.css"
 import api from '../../utils/api.jsx';
+import {getRealtors} from "../../utils/api.jsx";
 
 const { Option } = Select;
 
@@ -151,26 +152,22 @@ const FormMaskan = () => {
         try {
             console.log('📥 Realtor\'lar yuklanmoqda...');
 
-            const response = await api.get('/api/users/users');
+            // ✅ Yangi endpoint
+            const response = await api.get('/api/users/realtors');
 
             if (response.data.success) {
-                // Faqat rieltor role'li userlarni filter qilish
-                const realtorUsers = response.data.users.filter(
-                    user => user.role === 'rieltor' && user.isActive
-                );
+                setRealtors(response.data.realtors);
+                console.log('✅ Realtor\'lar yuklandi:', response.data.realtors.length);
 
-                setRealtors(realtorUsers);
-                console.log('✅ Realtor\'lar yuklandi:', realtorUsers.length);
-
-                if (realtorUsers.length === 0) {
+                if (response.data.realtors.length === 0) {
                     message.warning('⚠️ Hozircha realtor\'lar mavjud emas');
                 }
+            } else {
+                throw new Error(response.data.error || 'Xato yuz berdi');
             }
         } catch (error) {
             console.error('❌ Realtor\'larni yuklashda xato:', error);
             message.error('Realtor\'larni yuklashda xato. Iltimos, sahifani yangilang.');
-
-            // Fallback - eski static list (agar kerak bo'lsa)
             setRealtors([]);
         } finally {
             setLoadingRealtors(false);

@@ -49,7 +49,15 @@ api.interceptors.response.use(
         return Promise.reject(error);
     }
 );
-
+export const getRealtors = async () => {
+    try {
+        const response = await api.get('/api/users/realtors');
+        return response.data;
+    } catch (error) {
+        console.error('Realtor\'larni yuklashda xato:', error);
+        throw error;
+    }
+};
 export default api;
 
 // Auth API
