@@ -5,6 +5,8 @@ const { sendToAppScriptWithRetry } = require('../services/appScriptService');
 const { saveFiles } = require('../services/fileService');
 const { saveToLocalExcel } = require('../services/localExcelService');
 const { HERO_APP_SCRIPT } = require('../config/env');
+const fs = require('fs');
+const path = require('path');
 
 async function sendData(req, res, appScriptQueue) {
     try {
@@ -24,9 +26,41 @@ async function sendData(req, res, appScriptQueue) {
         console.log("  Kvartil:", data.kvartil);
         console.log("  XET:", data.xet);
         console.log("  Telefon:", data.tell);
-        console.log("  Rasmlar:", data.rasmlar?.length || 0);
+        console.log("  Multer files:", req.files?.length || 0);
+        console.log("  Data rasmlar:", data.rasmlar?.length || 0);
         console.log("  Rieltor:", data.rieltor);
         console.log("  Sana:", data.sana);
+
+        // ✅ CRITICAL FIX: Agar multer orqali fayllar kelgan bo'lsa, ularni base64'ga o'girish
+        if (req.files && req.files.length > 0) {
+            console.log("🔄 Multer fayllarni base64'ga o'girish boshlandi...");
+
+            const base64Images = [];
+            for (const file of req.files) {
+                try {
+                    const imageBuffer = fs.readFileSync(file.path);
+                    const base64 = `data:${file.mimetype};base64,${imageBuffer.toString('base64')}`;
+                    base64Images.push(base64);
+
+                    console.log(`  ✅ ${file.originalname} o'girildi (${(base64.length / 1024).toFixed(2)} KB)`);
+
+                    // Temp faylni o'chirish
+                    try {
+                        fs.unlinkSync(file.path);
+                    } catch (unlinkErr) {
+                        console.warn(`  ⚠️ Temp fayl o'chirilmadi: ${file.path}`);
+                    }
+                } catch (err) {
+                    console.error(`  ❌ Fayl o'girishda xato: ${file.originalname}`, err.message);
+                }
+            }
+
+            // Data'ga base64 rasmlarni qo'shish
+            data.rasmlar = base64Images;
+            console.log(`✅ ${base64Images.length} ta rasm base64'ga o'girildi`);
+        }
+
+        console.log("  Final rasmlar soni:", data.rasmlar?.length || 0);
 
         // 1. Fayllarni saqlash
         let folderLink = null;
@@ -83,6 +117,7 @@ ${data.osmotir ? `🕐 <b>Ko'rikdan o'tish:</b> ${data.osmotir}` : ''}
             success: true,
             message: "Ma'lumotlar qabul qilindi va navbatga qo'shildi",
             localFolder: folderLink,
+            imageCount: data.rasmlar?.length || 0,
             queuePosition: appScriptQueue.queue.length + 1,
             queueStatus: appScriptQueue.getStatus()
         });
@@ -98,6 +133,8 @@ ${data.osmotir ? `🕐 <b>Ko'rikdan o'tish:</b> ${data.osmotir}` : ''}
             // TELEGRAM
             if (rielterInfo && rielterInfo.rielterChatId && telegramMessage) {
                 console.log("\n📱 Telegram'ga yuborish boshlandi...");
+                console.log(`   Rasmlar soni: ${data.rasmlar?.length || 0}`);
+
                 try {
                     const telegramResult = await sendToTelegram(
                         rielterInfo.rielterChatId,
