@@ -1,7 +1,9 @@
+// src/controllers/dataController.js
 const rielterData = require('../../rielter.js');
 const { sendToTelegram } = require('../services/telegramService');
 const { sendToAppScriptWithRetry } = require('../services/appScriptService');
 const { saveFiles } = require('../services/fileService');
+const { saveToLocalExcel } = require('../services/localExcelService');
 const { HERO_APP_SCRIPT } = require('../config/env');
 
 async function sendData(req, res, appScriptQueue) {
@@ -11,28 +13,50 @@ async function sendData(req, res, appScriptQueue) {
         console.log("=".repeat(60));
 
         let data = typeof req.body.data === 'string' ? JSON.parse(req.body.data) : req.body.data;
-        if (!data) return res.status(400).json({ success: false, error: "Ma'lumot topilmadi" });
+        if (!data) {
+            return res.status(400).json({
+                success: false,
+                error: "Ma'lumot topilmadi"
+            });
+        }
 
+        console.log("📊 Qabul qilingan ma'lumotlar:");
         console.log("  Kvartil:", data.kvartil);
         console.log("  XET:", data.xet);
         console.log("  Telefon:", data.tell);
         console.log("  Rasmlar:", data.rasmlar?.length || 0);
         console.log("  Rieltor:", data.rieltor);
-        console.log("  Sana:", data.sana); // ✅ QUSHILDI
+        console.log("  Sana:", data.sana);
 
-        // Fayllarni saqlash
-        const folderLink = await saveFiles(data, req);
+        // 1. Fayllarni saqlash
+        let folderLink = null;
+        try {
+            folderLink = await saveFiles(data, req);
+            console.log("✅ Fayllar saqlandi:", folderLink);
+        } catch (fileError) {
+            console.error("⚠️ Fayl saqlashda xato:", fileError.message);
+        }
 
-        // Rieltor ma'lumotlarini topish
+        // 2. Lokal Excel'ga saqlash (staxovka)
+        try {
+            await saveToLocalExcel(data, folderLink);
+            console.log("✅ Lokal Excel'ga saqlandi");
+        } catch (excelError) {
+            console.error("⚠️ Lokal Excel'ga saqlashda xato:", excelError.message);
+        }
+
+        // 3. Rieltor ma'lumotlarini topish
         const rielterInfo = rielterData.find(r => r.name === data.rieltor);
 
         if (!rielterInfo) {
             console.log("⚠️ Rieltor topilmadi:", data.rieltor);
         } else {
             console.log("✅ Rieltor topildi:", rielterInfo.name);
+            console.log("  Chat ID:", rielterInfo.rielterChatId);
+            console.log("  Excel URL:", rielterInfo.rielterExcelId?.substring(0, 50) + "...");
         }
 
-        // Telegram xabarni tayyorlash
+        // 4. Telegram xabarni tayyorlash
         let telegramMessage = "";
         if (rielterInfo && rielterInfo.rielterChatId) {
             telegramMessage = `
@@ -54,7 +78,7 @@ ${data.osmotir ? `🕐 <b>Ko'rikdan o'tish:</b> ${data.osmotir}` : ''}
             `.trim();
         }
 
-        // Javob yuborish
+        // 5. Javob yuborish (TEZKOR)
         res.json({
             success: true,
             message: "Ma'lumotlar qabul qilindi va navbatga qo'shildi",
@@ -63,7 +87,7 @@ ${data.osmotir ? `🕐 <b>Ko'rikdan o'tish:</b> ${data.osmotir}` : ''}
             queueStatus: appScriptQueue.getStatus()
         });
 
-        // Background'da Telegram va App Script'ga yuborish
+        // 6. Background'da yuborish
         appScriptQueue.add(async () => {
             const results = {
                 telegram: { success: false },
@@ -89,14 +113,20 @@ ${data.osmotir ? `🕐 <b>Ko'rikdan o'tish:</b> ${data.osmotir}` : ''}
                         console.log("❌ Telegram xato:", telegramResult.error);
                     }
                 } catch (telegramError) {
-                    console.error("❌ Telegram xato:", telegramError.message);
+                    console.error("❌ Telegram kritik xato:", telegramError.message);
                     results.telegram = { success: false, error: telegramError.message };
                 }
+            } else {
+                console.log("⚠️ Telegram yuborilmadi (rieltor yoki chat ID yo'q)");
             }
 
             // GLAVNIY EXCEL
             console.log("\n📤 GLAVNIY Excel'ga yuborish...");
             try {
+                if (!HERO_APP_SCRIPT) {
+                    throw new Error("HERO_APP_SCRIPT environment o'zgaruvchisi topilmadi");
+                }
+
                 const glavniyData = {
                     ...data,
                     rasmlar: folderLink || "",
@@ -106,19 +136,21 @@ ${data.osmotir ? `🕐 <b>Ko'rikdan o'tish:</b> ${data.osmotir}` : ''}
                         year: 'numeric',
                         hour: '2-digit',
                         minute: '2-digit'
-                    }) // ✅ SANA QUSHILDI va fallback bor
+                    })
                 };
 
                 console.log("📊 Excel'ga yuboriladigan ma'lumotlar:");
                 console.log("   Kvartil:", glavniyData.kvartil);
-                console.log("   Sana:", glavniyData.sana); // ✅ LOG QUSHILDI
+                console.log("   Sana:", glavniyData.sana);
                 console.log("   Rasmlar:", glavniyData.rasmlar);
+                console.log("   URL:", HERO_APP_SCRIPT.substring(0, 50) + "...");
 
                 const glavniyResult = await sendToAppScriptWithRetry(HERO_APP_SCRIPT, glavniyData);
                 results.glavniy = { success: true, data: glavniyResult };
                 console.log("✅ GLAVNIY Excel'ga yuborildi");
             } catch (glavniyError) {
                 console.error("❌ GLAVNIY Excel xato:", glavniyError.message);
+                console.error("   Stack:", glavniyError.stack);
                 results.glavniy = { success: false, error: glavniyError.message };
             }
 
@@ -135,8 +167,10 @@ ${data.osmotir ? `🕐 <b>Ko'rikdan o'tish:</b> ${data.osmotir}` : ''}
                             year: 'numeric',
                             hour: '2-digit',
                             minute: '2-digit'
-                        }) // ✅ SANA QUSHILDI
+                        })
                     };
+
+                    console.log("   URL:", rielterInfo.rielterExcelId.substring(0, 50) + "...");
 
                     const rielterResult = await sendToAppScriptWithRetry(
                         rielterInfo.rielterExcelId,
@@ -146,8 +180,11 @@ ${data.osmotir ? `🕐 <b>Ko'rikdan o'tish:</b> ${data.osmotir}` : ''}
                     console.log("✅ Rielter Excel'ga yuborildi");
                 } catch (rielterError) {
                     console.error("❌ Rielter Excel xato:", rielterError.message);
+                    console.error("   Stack:", rielterError.stack);
                     results.rielter = { success: false, error: rielterError.message };
                 }
+            } else {
+                console.log("⚠️ Rielter Excel yuborilmadi (URL yo'q)");
             }
 
             console.log("\n" + "=".repeat(60));
@@ -163,7 +200,7 @@ ${data.osmotir ? `🕐 <b>Ko'rikdan o'tish:</b> ${data.osmotir}` : ''}
         console.log("=".repeat(60) + "\n");
 
     } catch (err) {
-        console.error("\n❌ XATO:", err.message);
+        console.error("\n❌ KRITIK XATO:", err.message);
         console.error(err.stack);
         res.status(500).json({ success: false, error: err.message });
     }

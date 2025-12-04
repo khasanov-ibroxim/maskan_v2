@@ -11,7 +11,7 @@ const server = app.listen(PORT, () => {
 
     console.log(`\n📂 Asosiy endpoint'lar:`);
     console.log(`   🔐 Login: POST http://localhost:${PORT}/api/auth/login`);
-    console.log(`   👤 Get Me: GET http://localhost:${PORT}/api/auth/me`);
+    console.log (`   👤 Get Me: GET http://localhost:${PORT}/api/auth/me`);
     console.log(`   👥 Users: GET http://localhost:${PORT}/api/users/users`);
     console.log(`   📤 Send Data: POST http://localhost:${PORT}/send-data`);
     console.log(`   📊 Queue Status: GET http://localhost:${PORT}/queue-status`);

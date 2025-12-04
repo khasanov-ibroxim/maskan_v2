@@ -13,9 +13,13 @@ const dataRoutes = require('./routes/data.routes');
 const fileRoutes = require('./routes/file.routes');
 const simpleAuthRoutes = require('./routes/simpleAuth.routes');
 const simpleUserRoutes = require('./routes/simpleUser.routes');
+const excelRoutes = require('./routes/excel.routes');
 
 // Utils
 const RequestQueue = require('./utils/queue');
+
+// Services
+const { setupCleanupSchedules } = require('./services/cleanupScheduler');
 
 // Config
 const {
@@ -51,17 +55,16 @@ console.log('✅ Body parser middleware yuklandi');
 // ============================================
 // 4. CREATE DIRECTORIES
 // ============================================
-if (!fs.existsSync(UPLOADS_DIR)) {
-    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-    console.log('📂 Uploads papka yaratildi');
-}
-if (!fs.existsSync(TEMP_DIR)) {
-    fs.mkdirSync(TEMP_DIR, { recursive: true });
-    console.log('📂 Temp papka yaratildi');
-}
+const requiredDirs = [UPLOADS_DIR, TEMP_DIR, 'storage/excel', 'logs'];
+requiredDirs.forEach(dir => {
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+        console.log(`📂 ${dir} papka yaratildi`);
+    }
+});
 
 // ============================================
-// 5. STATIC FILES - /uploads dan to'g'ridan-to'g'ri
+// 5. STATIC FILES
 // ============================================
 app.use('/uploads', express.static(UPLOADS_DIR));
 console.log('✅ Static files middleware yuklandi');
@@ -76,7 +79,12 @@ const appScriptQueue = new RequestQueue(
 console.log('✅ Request queue yaratildi');
 
 // ============================================
-// 7. LOGGING MIDDLEWARE (optional)
+// 7. SETUP CLEANUP SCHEDULER
+// ============================================
+setupCleanupSchedules();
+
+// ============================================
+// 8. LOGGING MIDDLEWARE
 // ============================================
 app.use((req, res, next) => {
     console.log(`📥 ${req.method} ${req.path}`);
@@ -84,14 +92,14 @@ app.use((req, res, next) => {
 });
 
 // ============================================
-// 8. BROWSE ROUTE - /api dan TASHQARIDA! (MUHIM!)
+// 9. BROWSE ROUTE (PREFIX YO'Q!)
 // ============================================
 console.log('\n📁 Browse route yuklanmoqda...');
-app.use('/', fileRoutes); // ✅ "/browse" uchun prefix yo'q!
+app.use('/', fileRoutes);
 console.log('✅ Browse route yuklandi');
 
 // ============================================
-// 9. AUTH ROUTES
+// 10. AUTH ROUTES
 // ============================================
 console.log('\n🔐 Auth routes yuklanmoqda...');
 app.use('/api/auth', simpleAuthRoutes);
@@ -99,14 +107,21 @@ app.use('/api/users', simpleUserRoutes);
 console.log('✅ Auth routes yuklandi');
 
 // ============================================
-// 10. PUBLIC DATA ROUTES
+// 11. EXCEL ROUTES (YANGI!)
+// ============================================
+console.log('\n📊 Excel routes yuklanmoqda...');
+app.use('/api/excel', excelRoutes);
+console.log('✅ Excel routes yuklandi');
+
+// ============================================
+// 12. PUBLIC DATA ROUTES
 // ============================================
 console.log('\n📂 Data routes yuklanmoqda...');
 app.use('/api', dataRoutes(appScriptQueue));
 console.log('✅ Data routes yuklandi');
 
 // ============================================
-// 11. HEALTH CHECK
+// 13. HEALTH CHECK
 // ============================================
 app.get("/api/health", (req, res) => {
     const queueStatus = appScriptQueue.getStatus();
@@ -114,36 +129,64 @@ app.get("/api/health", (req, res) => {
     res.json({
         status: "ok",
         message: "Maskan Lux Server (Telegram Integration) ishlayapti ✅",
-        version: "9.3",
-        storage: "Local filesystem",
+        version: "10.0",
+        storage: "Local filesystem + Excel backup",
         uploadsDir: UPLOADS_DIR,
         queue: queueStatus,
-        timestamp: new Date().toLocaleString("uz-UZ")
-    });
-});
-
-// ============================================
-// 12. ROOT ENDPOINT
-// ============================================
-app.get("/", (req, res) => {
-    res.json({
-        status: "ok",
-        message: "Maskan Lux API",
-        version: "9.3",
-        endpoints: {
-            health: "/api/health",
-            auth: "/api/auth/*",
-            users: "/api/users/*",
-            sendData: "/api/send-data",
-            queueStatus: "/api/queue-status",
-            browse: "/browse/*",
-            downloadZip: "/api/download-zip"
+        timestamp: new Date().toLocaleString("uz-UZ"),
+        features: {
+            telegramIntegration: true,
+            googleSheetsIntegration: true,
+            localExcelBackup: true,
+            autoCleanup: true,
+            userAuthentication: true,
+            fileManagement: true
         }
     });
 });
 
 // ============================================
-// 13. 404 HANDLER
+// 14. ROOT ENDPOINT
+// ============================================
+app.get("/", (req, res) => {
+    res.json({
+        status: "ok",
+        message: "Maskan Lux API v10.0",
+        version: "10.0",
+        endpoints: {
+            health: "/api/health",
+            auth: {
+                login: "POST /api/auth/login",
+                logout: "POST /api/auth/logout",
+                me: "GET /api/auth/me"
+            },
+            users: {
+                sessions: "GET /api/users/sessions/active",
+                history: "GET /api/users/sessions/history",
+                logs: "GET /api/users/logs",
+                users: "GET /api/users/users (admin)"
+            },
+            data: {
+                sendData: "POST /api/send-data",
+                queueStatus: "GET /api/queue-status"
+            },
+            files: {
+                browse: "GET /browse/*",
+                downloadZip: "POST /download-zip"
+            },
+            excel: {
+                stats: "GET /api/excel/stats",
+                all: "GET /api/excel/all (admin)",
+                clear: "POST /api/excel/clear (admin)",
+                cleanupTemp: "POST /api/excel/cleanup-temp (admin)",
+                tempSize: "GET /api/excel/temp-size"
+            }
+        }
+    });
+});
+
+// ============================================
+// 15. 404 HANDLER
 // ============================================
 app.use((req, res, next) => {
     console.log('❌ 404 - Path not found:', req.path);
@@ -155,7 +198,7 @@ app.use((req, res, next) => {
 });
 
 // ============================================
-// 14. ERROR HANDLER (ENG OXIRIDA)
+// 16. ERROR HANDLER
 // ============================================
 app.use(errorHandler);
 
