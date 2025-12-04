@@ -753,5 +753,16 @@
     "logoutTime": "2025-12-04T04:35:31.341Z",
     "logoutReason": "auto_logout",
     "duration": 2033
+  },
+  {
+    "sessionId": "29f6ae22a63223b0191d441e7a6e9ca57179eddfbb4275315f480fcd5b6e910f",
+    "userId": "1",
+    "username": "admin",
+    "loginTime": "2025-12-04T18:09:28.733Z",
+    "lastActivity": "2025-12-04T18:09:29.299Z",
+    "expiresAt": "2025-12-05T18:09:28.733Z",
+    "ipAddress": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "isActive": true
   }
 ]
