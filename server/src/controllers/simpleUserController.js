@@ -368,3 +368,164 @@ exports.deleteUser = async (req, res) => {
         });
     }
 };
+
+exports.updateUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { username, password, fullName, role, appScriptUrl, telegramThemeId } = req.body;
+
+        console.log(`✏️ User yangilanmoqda: ${id}`);
+        console.log('  Yangi ma\'lumotlar:', { username, fullName, role });
+
+        // Userni topish
+        const user = SimpleUser.findById(id);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                error: 'User topilmadi'
+            });
+        }
+
+        // Admin o'zini tahrirlay olmaydi (username/role o'zgartirish)
+        if (id === req.user.id && (username !== user.username || role !== user.role)) {
+            return res.status(400).json({
+                success: false,
+                error: 'O\'z username yoki role\'ingizni o\'zgartira olmaysiz'
+            });
+        }
+
+        // Admin rolini o'zgartirish mumkin emas
+        if (user.role === 'admin' && role !== 'admin') {
+            return res.status(400).json({
+                success: false,
+                error: 'Admin rolini o\'zgartirish mumkin emas'
+            });
+        }
+
+        // Username band emasligini tekshirish (agar o'zgartirilgan bo'lsa)
+        if (username && username !== user.username) {
+            const existingUser = SimpleUser.findByUsername(username);
+            if (existingUser) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Bu username band'
+                });
+            }
+        }
+
+        // Yangilash uchun ma'lumotlar
+        const updates = {};
+
+        if (username) updates.username = username.trim();
+        if (fullName) updates.fullName = fullName.trim();
+        if (role) updates.role = role;
+
+        // Parol yangilash (agar kiritilgan bo'lsa)
+        if (password && password.length >= 5) {
+            const bcrypt = require('bcryptjs');
+            updates.password = bcrypt.hashSync(password, 10);
+            console.log('  ✅ Yangi parol belgilandi');
+        }
+
+        // Realtor uchun qo'shimcha validatsiya
+        if (role === 'rieltor') {
+            if (!appScriptUrl) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Realtor uchun App Script URL kiritilishi kerak'
+                });
+            }
+
+            if (!telegramThemeId) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Realtor uchun Telegram Theme ID kiritilishi kerak'
+                });
+            }
+
+            // URL formatini tekshirish
+            try {
+                new URL(appScriptUrl);
+            } catch {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Noto\'g\'ri App Script URL formati'
+                });
+            }
+
+            updates.appScriptUrl = appScriptUrl.trim();
+            updates.telegramThemeId = parseInt(telegramThemeId);
+
+            console.log('  📝 Rieltor ma\'lumotlari yangilandi');
+            console.log('    App Script URL:', appScriptUrl.substring(0, 50) + '...');
+            console.log('    Telegram Theme ID:', telegramThemeId);
+        } else {
+            // Agar role rieltor emas bo'lsa, bu ma'lumotlarni o'chirish
+            updates.appScriptUrl = undefined;
+            updates.telegramThemeId = undefined;
+        }
+
+        // Userni yangilash
+        const updatedUser = SimpleUser.updateUser(id, updates);
+
+        if (!updatedUser) {
+            return res.status(500).json({
+                success: false,
+                error: 'User yangilashda xato'
+            });
+        }
+
+        console.log(`✅ User yangilandi: ${updatedUser.username}`);
+
+        // Log qo'shish
+        const changes = [];
+        if (username && username !== user.username) changes.push(`username: ${user.username} → ${username}`);
+        if (fullName && fullName !== user.fullName) changes.push(`fullName: ${user.fullName} → ${fullName}`);
+        if (role && role !== user.role) changes.push(`role: ${user.role} → ${role}`);
+        if (password) changes.push('password o\'zgartirildi');
+        if (appScriptUrl) changes.push('App Script URL yangilandi');
+        if (telegramThemeId) changes.push(`Telegram Theme ID: ${telegramThemeId}`);
+
+        logActivity(
+            req.user.id,
+            req.user.username,
+            'update_user',
+            `User yangilandi: ${updatedUser.username} (${changes.join(', ')})`,
+            req.ip,
+            req.get('user-agent')
+        );
+
+        res.json({
+            success: true,
+            message: 'User muvaffaqiyatli yangilandi',
+            user: {
+                id: updatedUser.id,
+                username: updatedUser.username,
+                fullName: updatedUser.fullName,
+                role: updatedUser.role,
+                isActive: updatedUser.isActive,
+                appScriptUrl: updatedUser.appScriptUrl,
+                telegramThemeId: updatedUser.telegramThemeId,
+                createdAt: updatedUser.createdAt
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Update user xato:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Server xatosi'
+        });
+    }
+};
+
+module.exports = {
+    getActiveSessions: exports.getActiveSessions,
+    getSessionHistory: exports.getSessionHistory,
+    getActivityLogs: exports.getActivityLogs,
+    getAllUsers: exports.getAllUsers,
+    createUser: exports.createUser,
+    deleteUser: exports.deleteUser,
+    getRealtors: exports.getRealtors,
+    updateUser: exports.updateUser
+};

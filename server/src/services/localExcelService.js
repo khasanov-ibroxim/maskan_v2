@@ -66,11 +66,12 @@ async function getWorkbook() {
 }
 
 /**
- * Ma'lumotni Excel'ga saqlash
+ * ✅ FIXED: Ma'lumotni Excel'ga saqlash
  */
 async function saveToLocalExcel(data, folderLink) {
     try {
         console.log('\n💾 Lokal Excel\'ga saqlash boshlandi...');
+        console.log('  Folder Link:', folderLink || 'Yo\'q');
 
         const workbook = await getWorkbook();
         const worksheet = workbook.getWorksheet('Ma\'lumotlar');
@@ -78,6 +79,16 @@ async function saveToLocalExcel(data, folderLink) {
         if (!worksheet) {
             throw new Error('Worksheet topilmadi');
         }
+
+        // ✅ CRITICAL FIX: Rasmlar URL ni to'g'ri saqlash
+        let rasmlarUrl = folderLink || '';
+
+        // Bo'sh yoki null bo'lsa, "Yo'q" deb belgilash
+        if (!rasmlarUrl || rasmlarUrl === 'null' || rasmlarUrl === 'undefined') {
+            rasmlarUrl = 'Yo\'q';
+        }
+
+        console.log('  Saqlanadigan URL:', rasmlarUrl);
 
         // Yangi qator qo'shish
         const newRow = {
@@ -107,7 +118,7 @@ async function saveToLocalExcel(data, folderLink) {
             rieltor: data.rieltor || '',
             xodim: data.xodim || '',
             sheetType: data.sheetType || 'Sotuv',
-            rasmlar: folderLink || ''
+            rasmlar: rasmlarUrl  // ✅ To'g'ri URL
         };
 
         worksheet.addRow(newRow);
@@ -118,11 +129,13 @@ async function saveToLocalExcel(data, folderLink) {
         console.log('✅ Lokal Excel\'ga saqlandi');
         console.log('   Fayl:', EXCEL_FILE);
         console.log('   Qatorlar:', worksheet.rowCount);
+        console.log('   URL:', rasmlarUrl);
 
         return true;
 
     } catch (error) {
         console.error('❌ Lokal Excel\'ga saqlashda xato:', error.message);
+        console.error('   Stack:', error.stack);
         throw error;
     }
 }

@@ -8,6 +8,7 @@ pnpm-debug.log*
 lerna-debug.log*
 uploads
 temp
+/src/data
 node_modules
 dist
 dist-ssr
