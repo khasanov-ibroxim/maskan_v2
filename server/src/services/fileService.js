@@ -33,10 +33,20 @@ async function saveFiles(data, req) {
         saveTextFile("olx.txt", olxText, objectPath);
         saveTextFile("telegram.txt", telegramText, objectPath);
 
-        const serverUrl = `${req.protocol}://${req.get('host')}`;
+        // ✅ CRITICAL FIX: Contabo uchun to'g'ri URL
+        const protocol = req.protocol;
+        const host = req.get('host');
+
+        // ✅ Environment variable orqali base URL ni belgilash (ixtiyoriy)
+        const baseUrl = process.env.BASE_URL || `${protocol}://${host}`;
+
+        console.log('  Base URL:', baseUrl);
+        console.log('  Protocol:', protocol);
+        console.log('  Host:', host);
+
         const relativePath = path.relative(UPLOADS_DIR, objectPath).replace(/\\/g, '/');
         const encodedPath = relativePath.split('/').map(segment => encodeURIComponent(segment)).join('/');
-        const folderLink = `${serverUrl}/browse/${encodedPath}`;
+        const folderLink = `${baseUrl}/browse/${encodedPath}`;
 
         console.log(`✅ Lokal papka yaratildi: ${objectPath}`);
         console.log(`🔗 Browse URL: ${folderLink}`);

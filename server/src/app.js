@@ -1,9 +1,11 @@
-// src/app.js
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const cookieParser = require('cookie-parser');
-const { filterIgnoredPaths } = require('./middleware/fileFilter');
+
+// ✅ CRITICAL FIX: To'g'ri import
+const { filterIgnoredPaths } = require('./middleware/fileFilter');  // ✅ Destructuring
+
 // Middleware
 const corsMiddleware = require('./middleware/cors');
 const errorHandler = require('./middleware/errorHandler');
@@ -91,9 +93,10 @@ app.use((req, res, next) => {
     next();
 });
 
-
+// ✅ CRITICAL FIX: filterIgnoredPaths to'g'ri ishlatish
 app.use('/browse', filterIgnoredPaths);  // ✅ Browse'da uploads/storage bloklash
 app.use('/download-zip', filterIgnoredPaths);  // ✅ Download'da ham bloklash
+
 // ============================================
 // 9. BROWSE ROUTE (PREFIX YO'Q!)
 // ============================================

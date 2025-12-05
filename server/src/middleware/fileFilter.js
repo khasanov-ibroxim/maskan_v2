@@ -68,8 +68,9 @@ const fileFilterForUpload = (req, file, cb) => {
     }
 };
 
+// ✅ CRITICAL FIX: To'g'ri export
 module.exports = {
-    filterIgnoredPaths,
+    filterIgnoredPaths,      // ✅ Bu yerda export qiling
     fileFilterForUpload,
     isPathIgnored
 };
