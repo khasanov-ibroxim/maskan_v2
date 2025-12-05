@@ -25,16 +25,28 @@ function isPathIgnored(filePath) {
  * Browse va download operations uchun
  */
 const filterIgnoredPaths = (req, res, next) => {
-    // Body'da path mavjudligini tekshirish
     const pathsToCheck = [];
 
-    if (req.body.path) pathsToCheck.push(req.body.path);
-    if (req.body.filePath) pathsToCheck.push(req.body.filePath);
-    if (req.body.folderPath) pathsToCheck.push(req.body.folderPath);
+    // ✅ GET requestlar uchun params tekshirish
+    if (req.params && req.params[0]) {
+        pathsToCheck.push(req.params[0]);
+    }
 
-    // Files array tekshirish (download-zip uchun)
-    if (Array.isArray(req.body.files)) {
-        pathsToCheck.push(...req.body.files);
+    // ✅ POST requestlar uchun body tekshirish
+    if (req.body) {
+        if (req.body.path) pathsToCheck.push(req.body.path);
+        if (req.body.filePath) pathsToCheck.push(req.body.filePath);
+        if (req.body.folderPath) pathsToCheck.push(req.body.folderPath);
+
+        // Files array tekshirish (download-zip uchun)
+        if (Array.isArray(req.body.files)) {
+            pathsToCheck.push(...req.body.files);
+        }
+    }
+
+    // ✅ Query params tekshirish
+    if (req.query && req.query.path) {
+        pathsToCheck.push(req.query.path);
     }
 
     // Ignored pathlarni tekshirish
@@ -70,7 +82,7 @@ const fileFilterForUpload = (req, file, cb) => {
 
 // ✅ CRITICAL FIX: To'g'ri export
 module.exports = {
-    filterIgnoredPaths,      // ✅ Bu yerda export qiling
+    filterIgnoredPaths,
     fileFilterForUpload,
     isPathIgnored
 };
