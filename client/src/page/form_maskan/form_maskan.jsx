@@ -24,29 +24,6 @@ const { Option } = Select;
 // SERVER URL
 const SERVER_URL = import.meta.env.VITE_API_URL;
 
-/* ----------------- Internet tezligini tekshirish ----------------- */
-const checkInternetSpeed = async () => {
-    try {
-        const fileSize = 500000; // 500 KB
-        const testUrl = 'https://www.google.com/images/branding/googleg/1x/googleg_standard_color_128dp.png';
-
-        const startTime = performance.now();
-        const response = await fetch(testUrl + '?t=' + Date.now(), {
-            cache: 'no-store',
-            mode: 'no-cors'
-        });
-        const endTime = performance.now();
-
-        const durationInSeconds = (endTime - startTime) / 1000;
-        const speedBps = fileSize / durationInSeconds;
-        const speedMbps = (speedBps / (1024 * 1024)) * 8;
-
-        return speedMbps;
-    } catch (error) {
-        console.error('Internet tezligini tekshirishda xato:', error);
-        return 0;
-    }
-};
 
 /* ----------------- helper functions ----------------- */
 
@@ -174,36 +151,9 @@ const FormMaskan = () => {
         }
     };
 
-    useEffect(() => {
-        checkSpeed();
 
-        // Har 30 sekundda tekshirish
-        const interval = setInterval(() => {
-            checkSpeed();
-        }, 30000);
 
-        return () => clearInterval(interval);
-    }, []);
 
-    const checkSpeed = async () => {
-        setIsCheckingSpeed(true);
-        try {
-            const speed = await checkInternetSpeed();
-            setInternetSpeed(speed);
-            setSpeedCheckCount(prev => prev + 1);
-
-            if (speed < 2) {
-                message.warning(`⚠️ Internet tezligi juda past: ${speed.toFixed(2)} Mbps`);
-            } else {
-                console.log(`✅ Internet tezligi: ${speed.toFixed(2)} Mbps`);
-            }
-        } catch (error) {
-            console.error('Tezlikni tekshirishda xato:', error);
-            setInternetSpeed(0);
-        } finally {
-            setIsCheckingSpeed(false);
-        }
-    };
 
     useEffect(() => {
         const savedSheet = localStorage.getItem("selectedSheetName");
@@ -214,16 +164,6 @@ const FormMaskan = () => {
     }, [form]);
 
     const onFinish = async (values) => {
-        // Internet tezligini qayta tekshirish
-        if (internetSpeed === null || internetSpeed < 2) {
-            message.warning("⏳ Internet tezligi tekshirilmoqda...");
-            await checkSpeed();
-
-            if (internetSpeed < 2) {
-                message.error("❌ Internet tezligi juda past! Iltimos, internetni tekshiring.");
-                return;
-            }
-        }
 
         setLoading(true);
         setUploadProgress(0);
@@ -360,15 +300,18 @@ const FormMaskan = () => {
     const uploadProps = {
         multiple: true,
         accept: "image/*",
-        beforeUpload: (file) => {
-            return false;
-        },
+        beforeUpload: () => false, // avtomatik upload bloklanadi
         onChange: ({ fileList: newList }) => {
+            if (newList.length > 10) {
+                message.warning("Maksimal 10 ta rasm yuklaysiz!");
+                newList = newList.slice(0, 10); // ortiqchasini kesib tashlaymiz
+            }
             setFileList(newList);
         },
         fileList,
         listType: "picture",
     };
+
 
     const handleSheetChange = (value) => {
         localStorage.setItem("selectedSheetName", value);
@@ -380,61 +323,6 @@ const FormMaskan = () => {
         form.setFieldsValue({ sheetType: value });
     };
 
-    // Internet holati alertni render qilish
-    const renderInternetAlert = () => {
-        if (isCheckingSpeed) {
-            return (
-                <Alert
-                    message={
-                        <span>
-                            <Spin size="small" style={{ marginRight: 8 }} />
-                            Internet tezligi tekshirilmoqda...
-                        </span>
-                    }
-                    type="info"
-                    showIcon
-                    icon={<WifiOutlined />}
-                    style={{ marginBottom: 16 }}
-                />
-            );
-        }
-
-        if (internetSpeed === null) {
-            return null;
-        }
-
-        if (internetSpeed < 2) {
-            return (
-                <Alert
-                    message={`⚠️ Internet tezligi juda past: ${internetSpeed.toFixed(2)} Mbps`}
-                    description="Yuklanishi sekin bo'lishi mumkin. Iltimos, internetni tekshiring yoki Wi-Fi ga ulaning."
-                    type="error"
-                    showIcon
-                    icon={<DisconnectOutlined />}
-                    action={
-                        <Button size="small" onClick={checkSpeed}>
-                            Qayta tekshirish
-                        </Button>
-                    }
-                    style={{ marginBottom: 16 }}
-                />
-            );
-        }
-
-        return (
-            <Alert
-                message={`✅ Internet tezligi: ${internetSpeed.toFixed(2)} Mbps`}
-                type="success"
-                showIcon
-                icon={<WifiOutlined />}
-                closable
-                style={{ marginBottom: 16 }}
-            />
-        );
-    };
-
-    // Button disabled logikasi
-    const isSubmitDisabled = loading || internetSpeed < 2 || internetSpeed === null;
 
     return (
         <div className={"form_maskan"}>
@@ -450,8 +338,6 @@ const FormMaskan = () => {
             >
                 <h2 style={{textAlign: "center", marginBottom: 20}}>🏠 Uy ma'lumotlari</h2>
 
-                {/* Internet holati */}
-                {renderInternetAlert()}
 
                 <Form form={form} autoComplete="off" layout="vertical" onFinish={onFinish}>
                     <Form.Item
@@ -755,18 +641,15 @@ const FormMaskan = () => {
                                 type="primary"
                                 htmlType="submit"
                                 loading={loading}
-                                disabled={isSubmitDisabled}
+                                disabled={loading}
                                 style={{
-                                    backgroundColor: isSubmitDisabled ? "#d9d9d9" : "#1677ff",
                                     borderRadius: 8,
                                     padding: "0 100px",
                                     margin: "20px 0",
                                     width: "100%",
                                 }}
                             >
-                                {loading ? "Yuborilmoqda..." :
-                                    internetSpeed < 2 ? "Internet tezligi pastroq" :
-                                        "Yuborish"}
+                                {loading ? "Yuborilmoqda..." : "Yuborish"}
                             </Button>
                         </Col>
                     </Row>
