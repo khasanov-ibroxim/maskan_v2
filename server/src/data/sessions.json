@@ -791,7 +791,10 @@
     "expiresAt": "2025-12-06T07:58:09.228Z",
     "ipAddress": "::1",
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
-    "isActive": true
+    "isActive": false,
+    "logoutTime": "2025-12-07T07:36:03.715Z",
+    "logoutReason": "auto_logout",
+    "duration": 171474
   },
   {
     "sessionId": "28208cacd50b33632ab61d367693adea40c27c56b574904a4819f7cc53879671",
@@ -800,6 +803,28 @@
     "loginTime": "2025-12-07T07:20:38.924Z",
     "lastActivity": "2025-12-07T07:20:39.232Z",
     "expiresAt": "2025-12-08T07:20:38.924Z",
+    "ipAddress": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "isActive": true
+  },
+  {
+    "sessionId": "579a082b80e1f3af5952266b79921b43854cd37119a13b8c15dbae0a5b1d5243",
+    "userId": "1",
+    "username": "admin",
+    "loginTime": "2025-12-07T07:31:23.863Z",
+    "lastActivity": "2025-12-07T07:31:24.182Z",
+    "expiresAt": "2025-12-08T07:31:23.863Z",
+    "ipAddress": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "isActive": true
+  },
+  {
+    "sessionId": "3afa38b367ae4d5fa49f087b0a4d9211b95b311c4a8c9227e2e0efbe76a4ed12",
+    "userId": "1",
+    "username": "admin",
+    "loginTime": "2025-12-07T07:31:46.452Z",
+    "lastActivity": "2025-12-07T07:31:46.746Z",
+    "expiresAt": "2025-12-08T07:31:46.452Z",
     "ipAddress": "::1",
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
     "isActive": true

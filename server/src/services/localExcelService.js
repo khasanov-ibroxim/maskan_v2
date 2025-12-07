@@ -1,6 +1,6 @@
 // ============================================
 // server/src/services/localExcelService.js
-// ✅ EXCEL SAQLASH TO'G'RILANDI
+// ✅ FIXED: Ustma-ust yozilmasligi va saralash qo'shildi
 // ============================================
 
 const ExcelJS = require('exceljs');
@@ -20,6 +20,98 @@ if (!fs.existsSync(EXCEL_DIR)) {
     console.log('✅ Excel papka yaratildi:', EXCEL_DIR);
 } else {
     console.log('✅ Excel papka mavjud');
+}
+
+/**
+ * ✅ Kvartil tartiblash funksiyasi (Google Sheets kabi)
+ */
+function getKvartilOrder(kvartil) {
+    kvartil = String(kvartil || '').trim();
+
+    if (!kvartil || kvartil === '') {
+        return { group: 9999, number: 0 };
+    }
+
+    // Yunusobod-N
+    if (/^Yunusobod\s*-\s*\d+$/i.test(kvartil)) {
+        const match = kvartil.match(/\d+/);
+        const num = match ? parseInt(match[0]) : 999;
+
+        if (num === 0) {
+            return { group: 1, number: 9999 };
+        }
+
+        if (num >= 1 && num <= 19) {
+            return { group: 1, number: num };
+        }
+
+        return { group: 1, number: num };
+    }
+
+    // Ц-N
+    if (/^Ц\s*-\s*\d+$/i.test(kvartil)) {
+        const match = kvartil.match(/\d+/);
+        return { group: 2, number: match ? parseInt(match[0]) : 0 };
+    }
+
+    // Bodomzor
+    if (/^Bodomzor$/i.test(kvartil)) {
+        return { group: 3, number: 0 };
+    }
+
+    // Minor
+    if (/^Minor$/i.test(kvartil)) {
+        return { group: 4, number: 0 };
+    }
+
+    // Ll-N
+    if (/^Ll\s*-\s*\d+$/i.test(kvartil)) {
+        const match = kvartil.match(/\d+/);
+        return { group: 5, number: match ? parseInt(match[0]) : 0 };
+    }
+
+    return { group: 999, number: 0 };
+}
+
+/**
+ * ✅ XET bo'yicha saralash (1/2/3 format)
+ */
+function parseXET(xet) {
+    const cleanXet = String(xet || '').replace(/^'/, '').trim();
+    const parts = cleanXet.split('/').map(s => parseInt(s) || 0);
+    return {
+        xona: parts[0] || 0,
+        etaj: parts[1] || 0,
+        etajnost: parts[2] || 0
+    };
+}
+
+/**
+ * ✅ Barcha ma'lumotlarni saralash
+ */
+function sortExcelData(data) {
+    console.log('🔄 Ma\'lumotlarni saralash boshlandi...');
+
+    return data.sort((a, b) => {
+        // 1. Kvartil bo'yicha
+        const orderA = getKvartilOrder(a.kvartil);
+        const orderB = getKvartilOrder(b.kvartil);
+
+        if (orderA.group !== orderB.group) {
+            return orderA.group - orderB.group;
+        }
+        if (orderA.number !== orderB.number) {
+            return orderA.number - orderB.number;
+        }
+
+        // 2. XET bo'yicha
+        const xetA = parseXET(a.xet);
+        const xetB = parseXET(b.xet);
+
+        if (xetA.xona !== xetB.xona) return xetA.xona - xetB.xona;
+        if (xetA.etaj !== xetB.etaj) return xetA.etaj - xetB.etaj;
+        return xetA.etajnost - xetB.etajnost;
+    });
 }
 
 /**
@@ -84,7 +176,7 @@ async function getWorkbook() {
 }
 
 /**
- * ✅ FIXED: Ma'lumotni Excel'ga saqlash
+ * ✅ FIXED: Ma'lumotni Excel'ga saqlash (Saralash bilan)
  */
 async function saveToLocalExcel(data, folderLink) {
     console.log('\n' + '='.repeat(60));
@@ -97,7 +189,6 @@ async function saveToLocalExcel(data, folderLink) {
         console.log('  Kvartil:', data.kvartil || 'YO\'Q');
         console.log('  XET:', data.xet || 'YO\'Q');
         console.log('  Folder Link:', folderLink || 'YO\'Q');
-        console.log('  Data keys:', Object.keys(data).join(', '));
 
         if (!data.kvartil || !data.xet) {
             throw new Error('Minimal ma\'lumotlar topilmadi (kvartil yoki xet)');
@@ -109,7 +200,7 @@ async function saveToLocalExcel(data, folderLink) {
 
         // 3. Worksheet olish
         console.log('\n3️⃣ Worksheet olish...');
-        const worksheet = workbook.getWorksheet('Ma\'lumotlar');
+        let worksheet = workbook.getWorksheet('Ma\'lumotlar');
 
         if (!worksheet) {
             throw new Error('Worksheet "Ma\'lumotlar" topilmadi');
@@ -123,11 +214,10 @@ async function saveToLocalExcel(data, folderLink) {
         if (!rasmlarUrl || rasmlarUrl === 'null' || rasmlarUrl === 'undefined') {
             rasmlarUrl = 'Yo\'q';
         }
-        console.log('\n4️⃣ Saqlanadigan URL:', rasmlarUrl);
 
-        // 5. Yangi qator yaratish
-        console.log('\n5️⃣ Yangi qator yaratish...');
-        const newRow = {
+        // 5. ✅ Yangi ma'lumot yaratish
+        console.log('\n5️⃣ Yangi ma\'lumot yaratish...');
+        const newEntry = {
             id: Date.now().toString(),
             sana: data.sana || new Date().toLocaleString('uz-UZ', {
                 day: '2-digit',
@@ -157,25 +247,104 @@ async function saveToLocalExcel(data, folderLink) {
             rasmlar: rasmlarUrl
         };
 
-        console.log('  Yangi qator yaratildi:');
-        console.log('    ID:', newRow.id);
-        console.log('    Sana:', newRow.sana);
-        console.log('    Kvartil:', newRow.kvartil);
-        console.log('    URL:', newRow.rasmlar);
+        // 6. ✅ Eski ma'lumotlarni o'qish
+        console.log('\n6️⃣ Eski ma\'lumotlarni o\'qish...');
+        const existingData = [];
 
-        // 6. Qatorni qo'shish
-        console.log('\n6️⃣ Qatorni worksheet\'ga qo\'shish...');
-        const addedRow = worksheet.addRow(newRow);
-        console.log('  Qator qo\'shildi, row number:', addedRow.number);
+        worksheet.eachRow((row, rowNumber) => {
+            if (rowNumber === 1) return; // Header'ni o'tkazish
 
-        // 7. Faylga saqlash
-        console.log('\n7️⃣ Faylga saqlash...');
-        console.log('  Fayl yo\'li:', EXCEL_FILE);
+            existingData.push({
+                id: row.getCell(1).value,
+                sana: row.getCell(2).value,
+                kvartil: row.getCell(3).value,
+                xet: row.getCell(4).value,
+                tell: row.getCell(5).value,
+                m2: row.getCell(6).value,
+                narx: row.getCell(7).value,
+                fio: row.getCell(8).value,
+                uy_turi: row.getCell(9).value,
+                xolati: row.getCell(10).value,
+                planirovka: row.getCell(11).value,
+                balkon: row.getCell(12).value,
+                torets: row.getCell(13).value,
+                dom: row.getCell(14).value,
+                kvartira: row.getCell(15).value,
+                osmotir: row.getCell(16).value,
+                opisaniya: row.getCell(17).value,
+                rieltor: row.getCell(18).value,
+                xodim: row.getCell(19).value,
+                sheetType: row.getCell(20).value,
+                rasmlar: row.getCell(21).value
+            });
+        });
 
+        console.log(`  Mavjud ma'lumotlar: ${existingData.length} ta`);
+
+        // 7. ✅ Yangi ma'lumotni qo'shish
+        existingData.push(newEntry);
+        console.log(`\n7️⃣ Jami ma'lumotlar: ${existingData.length} ta`);
+
+        // 8. ✅ Saralash
+        console.log('\n8️⃣ Saralash boshlandi...');
+        const sortedData = sortExcelData(existingData);
+        console.log('  ✅ Saralash tugadi');
+
+        // 9. ✅ Worksheet'ni tozalash va qayta yozish
+        console.log('\n9️⃣ Worksheet\'ni qayta yozish...');
+
+        // Eski worksheet'ni o'chirish
+        workbook.removeWorksheet(worksheet.id);
+
+        // Yangi worksheet yaratish
+        worksheet = workbook.addWorksheet('Ma\'lumotlar');
+
+        // Header qo'shish
+        worksheet.columns = [
+            { header: 'ID', key: 'id', width: 15 },
+            { header: 'Sana', key: 'sana', width: 20 },
+            { header: 'Kvartil', key: 'kvartil', width: 20 },
+            { header: 'X/E/T', key: 'xet', width: 15 },
+            { header: 'Telefon', key: 'tell', width: 15 },
+            { header: 'M²', key: 'm2', width: 10 },
+            { header: 'Narxi ($)', key: 'narx', width: 12 },
+            { header: 'F.I.O', key: 'fio', width: 20 },
+            { header: 'Uy turi', key: 'uy_turi', width: 15 },
+            { header: 'Xolati', key: 'xolati', width: 15 },
+            { header: 'Planirovka', key: 'planirovka', width: 15 },
+            { header: 'Balkon', key: 'balkon', width: 10 },
+            { header: 'Torets', key: 'torets', width: 10 },
+            { header: 'Dom', key: 'dom', width: 15 },
+            { header: 'Kvartira', key: 'kvartira', width: 15 },
+            { header: 'Osmotir', key: 'osmotir', width: 20 },
+            { header: 'Opisaniya', key: 'opisaniya', width: 30 },
+            { header: 'Rieltor', key: 'rieltor', width: 15 },
+            { header: 'Xodim', key: 'xodim', width: 15 },
+            { header: 'Sheet Type', key: 'sheetType', width: 12 },
+            { header: 'Rasmlar URL', key: 'rasmlar', width: 50 }
+        ];
+
+        // Header styling
+        worksheet.getRow(1).font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
+        worksheet.getRow(1).fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FF4285F4' }
+        };
+
+        // ✅ Saralangan ma'lumotlarni yozish
+        sortedData.forEach(row => {
+            worksheet.addRow(row);
+        });
+
+        console.log(`  ✅ ${sortedData.length} ta qator yozildi`);
+
+        // 10. ✅ Faylga saqlash
+        console.log('\n🔟 Faylga saqlash...');
         await workbook.xlsx.writeFile(EXCEL_FILE);
 
-        // 8. Saqlangandan keyin tekshirish
-        console.log('\n8️⃣ Saqlash tekshiruvi:');
+        // 11. Tekshirish
+        console.log('\n1️⃣1️⃣ Saqlash tekshiruvi:');
         const fileExists = fs.existsSync(EXCEL_FILE);
         console.log('  Fayl mavjudmi:', fileExists ? '✅ HA' : '❌ YO\'Q');
 
@@ -185,19 +354,10 @@ async function saveToLocalExcel(data, folderLink) {
             console.log('  Oxirgi o\'zgarish:', stats.mtime.toLocaleString('uz-UZ'));
         }
 
-        // 9. Qatorlar sonini tekshirish
-        const newWorkbook = new ExcelJS.Workbook();
-        await newWorkbook.xlsx.readFile(EXCEL_FILE);
-        const verifySheet = newWorkbook.getWorksheet('Ma\'lumotlar');
-        const finalRowCount = verifySheet.rowCount;
-
-        console.log('\n9️⃣ Yakuniy tekshiruv:');
-        console.log('  Oldingi qatorlar:', currentRows);
-        console.log('  Yangi qatorlar:', finalRowCount);
-        console.log('  Qo\'shildi:', finalRowCount - currentRows, 'ta qator');
-
         console.log('\n' + '='.repeat(60));
         console.log('✅✅✅ EXCEL\'GA MUVAFFAQIYATLI SAQLANDI!');
+        console.log('  Jami:', sortedData.length, 'ta qator');
+        console.log('  Yangi ma\'lumot ID:', newEntry.id);
         console.log('='.repeat(60) + '\n');
 
         return true;
@@ -208,9 +368,6 @@ async function saveToLocalExcel(data, folderLink) {
         console.error('='.repeat(60));
         console.error('  Message:', error.message);
         console.error('  Stack:', error.stack);
-        console.error('  Excel file:', EXCEL_FILE);
-        console.error('  Excel dir exists:', fs.existsSync(EXCEL_DIR));
-        console.error('  Excel file exists:', fs.existsSync(EXCEL_FILE));
         console.error('='.repeat(60) + '\n');
 
         throw error;
