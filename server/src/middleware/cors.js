@@ -28,7 +28,7 @@ function corsMiddleware(req, res, next) {
                 'http://localhost:5174',
                 'http://localhost:3000',
                 'https://maskan-v2.vercel.app',
-                'https://maskanrielter.vercel.app/',
+                'https://maskanrielter.vercel.app',
                 'http://192.168.1.6:5173',
                 'http://194.163.140.30:5000',
                 'https://maskanlux.uz'

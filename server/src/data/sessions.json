@@ -792,5 +792,16 @@
     "ipAddress": "::1",
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
     "isActive": true
+  },
+  {
+    "sessionId": "28208cacd50b33632ab61d367693adea40c27c56b574904a4819f7cc53879671",
+    "userId": "1",
+    "username": "admin",
+    "loginTime": "2025-12-07T07:20:38.924Z",
+    "lastActivity": "2025-12-07T07:20:39.232Z",
+    "expiresAt": "2025-12-08T07:20:38.924Z",
+    "ipAddress": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "isActive": true
   }
 ]

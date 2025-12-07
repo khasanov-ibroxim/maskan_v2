@@ -738,5 +738,14 @@
     "description": "User yangilandi: Aziz (App Script URL yangilandi, Telegram Theme ID: 65)",
     "ipAddress": "::1",
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+  },
+  {
+    "timestamp": "2025-12-07T07:20:38.925Z",
+    "userId": "1",
+    "username": "admin",
+    "action": "login",
+    "description": "Tizimga kirdi",
+    "ipAddress": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
   }
 ]

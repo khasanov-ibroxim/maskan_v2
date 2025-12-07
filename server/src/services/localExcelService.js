@@ -1,4 +1,8 @@
-// src/services/localExcelService.js
+// ============================================
+// server/src/services/localExcelService.js
+// ✅ EXCEL SAQLASH TO'G'RILANDI
+// ============================================
+
 const ExcelJS = require('exceljs');
 const path = require('path');
 const fs = require('fs');
@@ -6,62 +10,76 @@ const fs = require('fs');
 const EXCEL_DIR = path.join(__dirname, '../../storage/excel');
 const EXCEL_FILE = path.join(EXCEL_DIR, 'backup_database.xlsx');
 
+console.log('\n📂 EXCEL KONFIGURATSIYASI:');
+console.log('  Excel dir:', EXCEL_DIR);
+console.log('  Excel file:', EXCEL_FILE);
+
 // Excel papkasini yaratish
 if (!fs.existsSync(EXCEL_DIR)) {
     fs.mkdirSync(EXCEL_DIR, { recursive: true });
-    console.log('📁 Excel papka yaratildi:', EXCEL_DIR);
+    console.log('✅ Excel papka yaratildi:', EXCEL_DIR);
+} else {
+    console.log('✅ Excel papka mavjud');
 }
 
 /**
  * Excel faylni yaratish yoki ochish
  */
 async function getWorkbook() {
-    if (fs.existsSync(EXCEL_FILE)) {
-        const workbook = new ExcelJS.Workbook();
-        await workbook.xlsx.readFile(EXCEL_FILE);
-        return workbook;
-    } else {
-        const workbook = new ExcelJS.Workbook();
-        const worksheet = workbook.addWorksheet('Ma\'lumotlar');
+    try {
+        if (fs.existsSync(EXCEL_FILE)) {
+            console.log('📖 Mavjud Excel faylni ochish...');
+            const workbook = new ExcelJS.Workbook();
+            await workbook.xlsx.readFile(EXCEL_FILE);
+            console.log('✅ Excel fayl ochildi');
+            return workbook;
+        } else {
+            console.log('📝 Yangi Excel fayl yaratish...');
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet('Ma\'lumotlar');
 
-        // Header yaratish
-        worksheet.columns = [
-            { header: 'ID', key: 'id', width: 15 },
-            { header: 'Sana', key: 'sana', width: 20 },
-            { header: 'Kvartil', key: 'kvartil', width: 20 },
-            { header: 'X/E/T', key: 'xet', width: 15 },
-            { header: 'Telefon', key: 'tell', width: 15 },
-            { header: 'M²', key: 'm2', width: 10 },
-            { header: 'Narxi ($)', key: 'narx', width: 12 },
-            { header: 'F.I.O', key: 'fio', width: 20 },
-            { header: 'Uy turi', key: 'uy_turi', width: 15 },
-            { header: 'Xolati', key: 'xolati', width: 15 },
-            { header: 'Planirovka', key: 'planirovka', width: 15 },
-            { header: 'Balkon', key: 'balkon', width: 10 },
-            { header: 'Torets', key: 'torets', width: 10 },
-            { header: 'Dom', key: 'dom', width: 15 },
-            { header: 'Kvartira', key: 'kvartira', width: 15 },
-            { header: 'Osmotir', key: 'osmotir', width: 20 },
-            { header: 'Opisaniya', key: 'opisaniya', width: 30 },
-            { header: 'Rieltor', key: 'rieltor', width: 15 },
-            { header: 'Xodim', key: 'xodim', width: 15 },
-            { header: 'Sheet Type', key: 'sheetType', width: 12 },
-            { header: 'Rasmlar URL', key: 'rasmlar', width: 50 }
-        ];
+            // Header yaratish
+            worksheet.columns = [
+                { header: 'ID', key: 'id', width: 15 },
+                { header: 'Sana', key: 'sana', width: 20 },
+                { header: 'Kvartil', key: 'kvartil', width: 20 },
+                { header: 'X/E/T', key: 'xet', width: 15 },
+                { header: 'Telefon', key: 'tell', width: 15 },
+                { header: 'M²', key: 'm2', width: 10 },
+                { header: 'Narxi ($)', key: 'narx', width: 12 },
+                { header: 'F.I.O', key: 'fio', width: 20 },
+                { header: 'Uy turi', key: 'uy_turi', width: 15 },
+                { header: 'Xolati', key: 'xolati', width: 15 },
+                { header: 'Planirovka', key: 'planirovka', width: 15 },
+                { header: 'Balkon', key: 'balkon', width: 10 },
+                { header: 'Torets', key: 'torets', width: 10 },
+                { header: 'Dom', key: 'dom', width: 15 },
+                { header: 'Kvartira', key: 'kvartira', width: 15 },
+                { header: 'Osmotir', key: 'osmotir', width: 20 },
+                { header: 'Opisaniya', key: 'opisaniya', width: 30 },
+                { header: 'Rieltor', key: 'rieltor', width: 15 },
+                { header: 'Xodim', key: 'xodim', width: 15 },
+                { header: 'Sheet Type', key: 'sheetType', width: 12 },
+                { header: 'Rasmlar URL', key: 'rasmlar', width: 50 }
+            ];
 
-        // Header styling
-        worksheet.getRow(1).font = { bold: true, size: 12 };
-        worksheet.getRow(1).fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: 'FF4285F4' }
-        };
-        worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            // Header styling
+            worksheet.getRow(1).font = { bold: true, size: 12 };
+            worksheet.getRow(1).fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FF4285F4' }
+            };
+            worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
 
-        await workbook.xlsx.writeFile(EXCEL_FILE);
-        console.log('✅ Yangi Excel fayl yaratildi:', EXCEL_FILE);
+            await workbook.xlsx.writeFile(EXCEL_FILE);
+            console.log('✅ Yangi Excel fayl yaratildi:', EXCEL_FILE);
 
-        return workbook;
+            return workbook;
+        }
+    } catch (error) {
+        console.error('❌ Workbook olishda xato:', error.message);
+        throw error;
     }
 }
 
@@ -69,28 +87,46 @@ async function getWorkbook() {
  * ✅ FIXED: Ma'lumotni Excel'ga saqlash
  */
 async function saveToLocalExcel(data, folderLink) {
-    try {
-        console.log('\n💾 Lokal Excel\'ga saqlash boshlandi...');
-        console.log('  Folder Link:', folderLink || 'Yo\'q');
+    console.log('\n' + '='.repeat(60));
+    console.log('💾 LOKAL EXCEL\'GA SAQLASH BOSHLANDI');
+    console.log('='.repeat(60));
 
+    try {
+        // 1. Ma'lumotlarni tekshirish
+        console.log('1️⃣ Ma\'lumotlarni tekshirish:');
+        console.log('  Kvartil:', data.kvartil || 'YO\'Q');
+        console.log('  XET:', data.xet || 'YO\'Q');
+        console.log('  Folder Link:', folderLink || 'YO\'Q');
+        console.log('  Data keys:', Object.keys(data).join(', '));
+
+        if (!data.kvartil || !data.xet) {
+            throw new Error('Minimal ma\'lumotlar topilmadi (kvartil yoki xet)');
+        }
+
+        // 2. Workbook olish
+        console.log('\n2️⃣ Workbook olish...');
         const workbook = await getWorkbook();
+
+        // 3. Worksheet olish
+        console.log('\n3️⃣ Worksheet olish...');
         const worksheet = workbook.getWorksheet('Ma\'lumotlar');
 
         if (!worksheet) {
-            throw new Error('Worksheet topilmadi');
+            throw new Error('Worksheet "Ma\'lumotlar" topilmadi');
         }
 
-        // ✅ CRITICAL FIX: Rasmlar URL ni to'g'ri saqlash
-        let rasmlarUrl = folderLink || '';
+        const currentRows = worksheet.rowCount;
+        console.log('  Joriy qatorlar soni:', currentRows);
 
-        // Bo'sh yoki null bo'lsa, "Yo'q" deb belgilash
+        // 4. Rasmlar URL ni to'g'ri saqlash
+        let rasmlarUrl = folderLink || '';
         if (!rasmlarUrl || rasmlarUrl === 'null' || rasmlarUrl === 'undefined') {
             rasmlarUrl = 'Yo\'q';
         }
+        console.log('\n4️⃣ Saqlanadigan URL:', rasmlarUrl);
 
-        console.log('  Saqlanadigan URL:', rasmlarUrl);
-
-        // Yangi qator qo'shish
+        // 5. Yangi qator yaratish
+        console.log('\n5️⃣ Yangi qator yaratish...');
         const newRow = {
             id: Date.now().toString(),
             sana: data.sana || new Date().toLocaleString('uz-UZ', {
@@ -118,24 +154,65 @@ async function saveToLocalExcel(data, folderLink) {
             rieltor: data.rieltor || '',
             xodim: data.xodim || '',
             sheetType: data.sheetType || 'Sotuv',
-            rasmlar: rasmlarUrl  // ✅ To'g'ri URL
+            rasmlar: rasmlarUrl
         };
 
-        worksheet.addRow(newRow);
+        console.log('  Yangi qator yaratildi:');
+        console.log('    ID:', newRow.id);
+        console.log('    Sana:', newRow.sana);
+        console.log('    Kvartil:', newRow.kvartil);
+        console.log('    URL:', newRow.rasmlar);
 
-        // Saqlash
+        // 6. Qatorni qo'shish
+        console.log('\n6️⃣ Qatorni worksheet\'ga qo\'shish...');
+        const addedRow = worksheet.addRow(newRow);
+        console.log('  Qator qo\'shildi, row number:', addedRow.number);
+
+        // 7. Faylga saqlash
+        console.log('\n7️⃣ Faylga saqlash...');
+        console.log('  Fayl yo\'li:', EXCEL_FILE);
+
         await workbook.xlsx.writeFile(EXCEL_FILE);
 
-        console.log('✅ Lokal Excel\'ga saqlandi');
-        console.log('   Fayl:', EXCEL_FILE);
-        console.log('   Qatorlar:', worksheet.rowCount);
-        console.log('   URL:', rasmlarUrl);
+        // 8. Saqlangandan keyin tekshirish
+        console.log('\n8️⃣ Saqlash tekshiruvi:');
+        const fileExists = fs.existsSync(EXCEL_FILE);
+        console.log('  Fayl mavjudmi:', fileExists ? '✅ HA' : '❌ YO\'Q');
+
+        if (fileExists) {
+            const stats = fs.statSync(EXCEL_FILE);
+            console.log('  Fayl hajmi:', (stats.size / 1024).toFixed(2), 'KB');
+            console.log('  Oxirgi o\'zgarish:', stats.mtime.toLocaleString('uz-UZ'));
+        }
+
+        // 9. Qatorlar sonini tekshirish
+        const newWorkbook = new ExcelJS.Workbook();
+        await newWorkbook.xlsx.readFile(EXCEL_FILE);
+        const verifySheet = newWorkbook.getWorksheet('Ma\'lumotlar');
+        const finalRowCount = verifySheet.rowCount;
+
+        console.log('\n9️⃣ Yakuniy tekshiruv:');
+        console.log('  Oldingi qatorlar:', currentRows);
+        console.log('  Yangi qatorlar:', finalRowCount);
+        console.log('  Qo\'shildi:', finalRowCount - currentRows, 'ta qator');
+
+        console.log('\n' + '='.repeat(60));
+        console.log('✅✅✅ EXCEL\'GA MUVAFFAQIYATLI SAQLANDI!');
+        console.log('='.repeat(60) + '\n');
 
         return true;
 
     } catch (error) {
-        console.error('❌ Lokal Excel\'ga saqlashda xato:', error.message);
-        console.error('   Stack:', error.stack);
+        console.error('\n' + '='.repeat(60));
+        console.error('❌❌❌ EXCEL\'GA SAQLASHDA XATO:');
+        console.error('='.repeat(60));
+        console.error('  Message:', error.message);
+        console.error('  Stack:', error.stack);
+        console.error('  Excel file:', EXCEL_FILE);
+        console.error('  Excel dir exists:', fs.existsSync(EXCEL_DIR));
+        console.error('  Excel file exists:', fs.existsSync(EXCEL_FILE));
+        console.error('='.repeat(60) + '\n');
+
         throw error;
     }
 }
@@ -146,6 +223,7 @@ async function saveToLocalExcel(data, folderLink) {
 async function readFromLocalExcel() {
     try {
         if (!fs.existsSync(EXCEL_FILE)) {
+            console.log('ℹ️ Excel fayl topilmadi');
             return [];
         }
 
@@ -197,7 +275,7 @@ async function readFromLocalExcel() {
 }
 
 /**
- * Excel faylni tozalash (faqat header qoldirish)
+ * Excel faylni tozalash
  */
 async function clearLocalExcel() {
     try {
@@ -216,7 +294,7 @@ async function clearLocalExcel() {
         // Faylni o'chirish
         fs.unlinkSync(EXCEL_FILE);
 
-        // Yangi fayl yaratish (faqat header bilan)
+        // Yangi fayl yaratish
         await getWorkbook();
 
         console.log('✅ Excel fayl tozalandi');

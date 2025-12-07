@@ -1,6 +1,6 @@
 // ============================================
 // server/src/controllers/dataController.js
-// ✅ TO'LIQ YANGILANGAN KOD
+// ✅ EXCEL SAQLASH TO'G'IRLANDI
 // ============================================
 
 const rielterData = require('../../rielter.js');
@@ -85,19 +85,33 @@ async function sendData(req, res, appScriptQueue) {
             console.error("❌ Fayl saqlashda xato:", fileError.message);
             console.error(fileError.stack);
         }
-// ✅ 2. LOKAL EXCEL'GA SAQLASH (folderLink bilan)
-        try {
-            console.log("\n📊 Lokal Excel'ga saqlash boshlandi...");
-            console.log("  Folder link:", folderLink || "YO'Q");
-            console.log("  Data keys:", Object.keys(data));
 
-            await saveToLocalExcel(data, folderLink); // ✅ folderLink uzatish
-            console.log("✅ Lokal Excel'ga saqlandi");
+        // ✅ 2. LOKAL EXCEL'GA SAQLASH (PRIORITY FIX!)
+        console.log("\n" + "=".repeat(60));
+        console.log("📊 LOKAL EXCEL'GA SAQLASH");
+        console.log("=".repeat(60));
+
+        try {
+            console.log("  Folder link:", folderLink || "YO'Q");
+            console.log("  Ma'lumot keys:", Object.keys(data));
+            console.log("  Kvartil:", data.kvartil);
+            console.log("  Sana:", data.sana);
+
+            // ✅ CRITICAL: Excel saqlashni bloklamaymiz
+            const excelResult = await saveToLocalExcel(data, folderLink);
+
+            if (excelResult) {
+                console.log("✅✅✅ LOKAL EXCEL'GA MUVAFFAQIYATLI SAQLANDI!");
+            } else {
+                console.error("❌❌❌ EXCEL'GA SAQLASH FAILED!");
+            }
         } catch (excelError) {
-            console.error("❌ Lokal Excel'ga saqlashda xato:", excelError.message);
+            console.error("❌❌❌ KRITIK: LOKAL EXCEL'GA SAQLASHDA XATO:");
+            console.error("   Message:", excelError.message);
             console.error("   Stack:", excelError.stack);
-            // ❌ CRITICAL: Xato bo'lsa ham davom ettirish
+            // ⚠️ Excel xatosi bo'lsa ham davom ettirish (boshqa servislar ishlashi uchun)
         }
+        console.log("=".repeat(60) + "\n");
 
         // ✅ 3. RIELTOR MA'LUMOTLARINI TOPISH
         const users = SimpleUser.getUsers();
@@ -165,7 +179,7 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                 const telegramResult = await sendToTelegram(
                     TELEGRAM_CHAT_ID,
                     telegramMessage,
-                    data.rasmlar || [],  // ✅ Base64 rasmlarni yuborish
+                    data.rasmlar || [],
                     themeId
                 );
 
@@ -175,17 +189,17 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                 console.error("❌ TELEGRAM XATO:", telegramError.message);
                 results.telegram = { success: false, error: telegramError.message };
             }
- //GLAVNIY EXCEL'GA YUBORISH
+
+            // ✅ GLAVNIY EXCEL'GA YUBORISH
             console.log("\n📤 GLAVNIY EXCEL'GA YUBORISH...");
             try {
                 if (!HERO_APP_SCRIPT) {
                     throw new Error("HERO_APP_SCRIPT environment o'zgaruvchisi topilmadi");
                 }
 
-                // ✅ FAQAT folderLink yuborish
                 const glavniyData = {
                     ...data,
-                    folderLink: folderLink || "Yo'q",  // ✅ FAQAT folderLink
+                    folderLink: folderLink || "Yo'q",
                     sana: data.sana || new Date().toLocaleString('uz-UZ', {
                         day: '2-digit',
                         month: '2-digit',
@@ -198,7 +212,7 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                 console.log("📊 Excel'ga yuboriladigan ma'lumotlar:");
                 console.log("   Kvartil:", glavniyData.kvartil);
                 console.log("   Sana:", glavniyData.sana);
-                console.log("   folderLink:", glavniyData.folderLink);  // ✅ folderLink
+                console.log("   folderLink:", glavniyData.folderLink);
                 console.log("   URL:", HERO_APP_SCRIPT.substring(0, 50) + "...");
 
                 const glavniyResult = await sendToAppScriptWithRetry(HERO_APP_SCRIPT, glavniyData);
@@ -209,14 +223,13 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                 results.glavniy = { success: false, error: glavniyError.message };
             }
 
-// ✅ RIELTER EXCEL'GA YUBORISH (260-qator atrofida)
+            // ✅ RIELTER EXCEL'GA YUBORISH
             if (rielterInfo && rielterInfo.appScriptUrl) {
                 console.log("\n📤 RIELTER EXCEL'GA YUBORISH...");
                 try {
-                    // ✅ FAQAT folderLink yuborish
                     const rielterExcelData = {
                         ...data,
-                        folderLink: folderLink || "Yo'q",  // ✅ FAQAT folderLink
+                        folderLink: folderLink || "Yo'q",
                         sana: data.sana || new Date().toLocaleString('uz-UZ', {
                             day: '2-digit',
                             month: '2-digit',
@@ -227,7 +240,7 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                     };
 
                     console.log("   URL:", rielterInfo.appScriptUrl.substring(0, 50) + "...");
-                    console.log("   folderLink:", rielterExcelData.folderLink);  // ✅ folderLink
+                    console.log("   folderLink:", rielterExcelData.folderLink);
 
                     const rielterResult = await sendToAppScriptWithRetry(
                         rielterInfo.appScriptUrl,
@@ -241,7 +254,6 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                     results.rielter = { success: false, error: rielterError.message };
                 }
             }
-
 
             console.log("\n" + "=".repeat(60));
             console.log("📊 NATIJALAR:");
