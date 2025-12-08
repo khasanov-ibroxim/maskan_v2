@@ -6,9 +6,10 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-uploads
-temp
-/src/data
+uploads/
+temp/
+/src/data.
+/storage/*.xlsx
 node_modules
 dist
 dist-ssr
