@@ -10,7 +10,12 @@
     "cleanup": "node -e \"require('./src/services/cleanupScheduler').manualCleanup({ cleanTemp: true, cleanLogs: true })\"",
     "excel-stats": "node -e \"require('./src/services/localExcelService').getExcelStats().then(console.log)\""
   },
-  "keywords": ["real-estate", "telegram", "excel", "backup"],
+  "keywords": [
+    "real-estate",
+    "telegram",
+    "excel",
+    "backup"
+  ],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
@@ -29,6 +34,7 @@
     "mongoose": "^8.19.3",
     "multer": "^2.0.2",
     "node-cron": "^3.0.3",
+    "puppeteer": "^24.32.1",
     "sharp": "^0.34.5",
     "xlsx": "^0.18.5"
   },

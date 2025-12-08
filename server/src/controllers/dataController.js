@@ -1,16 +1,9 @@
-// ============================================
 // server/src/controllers/dataController.js
-// ✅ EXCEL SAQLASH TO'G'IRLANDI
-// ============================================
-
-const rielterData = require('../../rielter.js');
 const { sendToTelegram } = require('../services/telegramService');
 const { sendToAppScriptWithRetry } = require('../services/appScriptService');
 const { saveFiles } = require('../services/fileService');
-const { saveToLocalExcel } = require('../services/localExcelService');
+const { saveObject } = require('../services/serverDBService');
 const { HERO_APP_SCRIPT } = require('../config/env');
-const fs = require('fs');
-const path = require('path');
 const SimpleUser = require('../models/SimpleUser');
 
 async function sendData(req, res, appScriptQueue) {
@@ -20,6 +13,7 @@ async function sendData(req, res, appScriptQueue) {
         console.log("=".repeat(60));
 
         let data = typeof req.body.data === 'string' ? JSON.parse(req.body.data) : req.body.data;
+
         if (!data) {
             return res.status(400).json({
                 success: false,
@@ -31,87 +25,48 @@ async function sendData(req, res, appScriptQueue) {
         console.log("  Kvartil:", data.kvartil);
         console.log("  XET:", data.xet);
         console.log("  Telefon:", data.tell);
-        console.log("  Multer files:", req.files?.length || 0);
-        console.log("  Data rasmlar:", data.rasmlar?.length || 0);
         console.log("  Rieltor:", data.rieltor);
-        console.log("  Sana:", data.sana);
 
-        // ✅ CRITICAL FIX: Multer fayllarni base64'ga o'girish
-        if (req.files && req.files.length > 0) {
-            console.log("🔄 Multer fayllarni base64'ga o'girish boshlandi...");
-
-            const base64Images = [];
-            for (const file of req.files) {
-                try {
-                    const imageBuffer = fs.readFileSync(file.path);
-                    const base64 = `data:${file.mimetype};base64,${imageBuffer.toString('base64')}`;
-                    base64Images.push(base64);
-
-                    console.log(`  ✅ ${file.originalname} o'girildi (${(base64.length / 1024).toFixed(2)} KB)`);
-
-                    // Temp faylni o'chirish
-                    try {
-                        fs.unlinkSync(file.path);
-                    } catch (unlinkErr) {
-                        console.warn(`  ⚠️ Temp fayl o'chirilmadi: ${file.path}`);
-                    }
-                } catch (err) {
-                    console.error(`  ❌ Fayl o'girishda xato: ${file.originalname}`, err.message);
-                }
-            }
-
-            data.rasmlar = base64Images;
-            console.log(`✅ ${base64Images.length} ta rasm base64'ga o'girildi`);
-        }
-
-        console.log("  Final rasmlar soni:", data.rasmlar?.length || 0);
-
-        // ✅ 1. FAYLLARNI SAQLASH (Browse URL olish)
+        // ✅ 1. FAYLLARNI SAQLASH
         let folderLink = null;
         try {
-            console.log("\n💾 Fayllarni saqlash boshlandi...");
-            console.log("  Request protocol:", req.protocol);
-            console.log("  Request host:", req.get('host'));
-            console.log("  Full URL:", `${req.protocol}://${req.get('host')}`);
-
+            console.log("\n💾 Fayllarni saqlash...");
             folderLink = await saveFiles(data, req);
-
-            if (folderLink) {
-                console.log("✅ Folder link yaratildi:", folderLink);
-            } else {
-                console.warn("⚠️ Folder link null qaytdi");
-            }
+            console.log("✅ Folder link:", folderLink || "Yo'q");
         } catch (fileError) {
             console.error("❌ Fayl saqlashda xato:", fileError.message);
-            console.error(fileError.stack);
         }
 
-        // ✅ 2. LOKAL EXCEL'GA SAQLASH (PRIORITY FIX!)
-        console.log("\n" + "=".repeat(60));
-        console.log("📊 LOKAL EXCEL'GA SAQLASH");
-        console.log("=".repeat(60));
-
+        // ✅ 2. SERVERDB.JSON GA SAQLASH
+        console.log("\n📊 ServerDB.json ga saqlash...");
         try {
-            console.log("  Folder link:", folderLink || "YO'Q");
-            console.log("  Ma'lumot keys:", Object.keys(data));
-            console.log("  Kvartil:", data.kvartil);
-            console.log("  Sana:", data.sana);
+            const savedObject = saveObject({
+                kvartil: data.kvartil,
+                xet: data.xet,
+                tell: data.tell,
+                m2: data.m2,
+                narx: data.narx,
+                fio: data.fio,
+                uy_turi: data.uy_turi,
+                xolati: data.xolati,
+                planirovka: data.planirovka,
+                balkon: data.balkon,
+                torets: data.torets,
+                dom: data.dom,
+                kvartira: data.kvartira,
+                osmotir: data.osmotir,
+                opisaniya: data.opisaniya,
+                rieltor: data.rieltor,
+                xodim: data.xodim,
+                sheetType: data.sheetType,
+                rasmlar: folderLink || "Yo'q",
+                sana: data.sana || new Date().toLocaleString('uz-UZ')
+            });
 
-            // ✅ CRITICAL: Excel saqlashni bloklamaymiz
-            const excelResult = await saveToLocalExcel(data, folderLink);
-
-            if (excelResult) {
-                console.log("✅✅✅ LOKAL EXCEL'GA MUVAFFAQIYATLI SAQLANDI!");
-            } else {
-                console.error("❌❌❌ EXCEL'GA SAQLASH FAILED!");
-            }
-        } catch (excelError) {
-            console.error("❌❌❌ KRITIK: LOKAL EXCEL'GA SAQLASHDA XATO:");
-            console.error("   Message:", excelError.message);
-            console.error("   Stack:", excelError.stack);
-            // ⚠️ Excel xatosi bo'lsa ham davom ettirish (boshqa servislar ishlashi uchun)
+            console.log("✅ ServerDB.json ga saqlandi, ID:", savedObject.id);
+        } catch (dbError) {
+            console.error("❌ ServerDB ga saqlashda xato:", dbError.message);
         }
-        console.log("=".repeat(60) + "\n");
 
         // ✅ 3. RIELTOR MA'LUMOTLARINI TOPISH
         const users = SimpleUser.getUsers();
@@ -124,15 +79,11 @@ async function sendData(req, res, appScriptQueue) {
             console.log("⚠️ Rieltor topilmadi:", data.rieltor);
         } else {
             console.log("✅ Rieltor topildi:", rielterInfo.username);
-            console.log("  App Script URL:", rielterInfo.appScriptUrl?.substring(0, 50) + "...");
-            console.log("  Telegram Theme ID:", rielterInfo.telegramThemeId);
         }
 
-        // ✅ 4. TELEGRAM XABARNI TAYYORLASH
-        let telegramMessage = "";
+        // ✅ 4. TELEGRAM XABAR
         const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '-1003298985470';
-
-        telegramMessage = `
+        const telegramMessage = `
 🏠 <b>Yangi uy ma'lumoti</b>
 
 📍 <b>Kvartil:</b> ${data.kvartil}
@@ -151,8 +102,6 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
             success: true,
             message: "Ma'lumotlar qabul qilindi va navbatga qo'shildi",
             localFolder: folderLink,
-            imageCount: data.rasmlar?.length || 0,
-            queuePosition: appScriptQueue.queue.length + 1,
             queueStatus: appScriptQueue.getStatus()
         });
 
@@ -164,112 +113,65 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                 rielter: { success: false }
             };
 
-            // ✅ TELEGRAM'GA YUBORISH
-            console.log("\n📤 TELEGRAM'GA YUBORISH...");
+            // TELEGRAM'GA YUBORISH
             try {
-                if (!TELEGRAM_CHAT_ID) {
-                    throw new Error("TELEGRAM_CHAT_ID topilmadi");
-                }
-
                 const themeId = rielterInfo?.telegramThemeId || null;
-                console.log(`   Chat ID: ${TELEGRAM_CHAT_ID}`);
-                console.log(`   Theme ID: ${themeId || 'Yo\'q'}`);
-                console.log(`   Rasmlar soni: ${data.rasmlar?.length || 0}`);
-
                 const telegramResult = await sendToTelegram(
                     TELEGRAM_CHAT_ID,
                     telegramMessage,
                     data.rasmlar || [],
                     themeId
                 );
-
-                results.telegram = { success: telegramResult.success, data: telegramResult };
+                results.telegram = { success: telegramResult.success };
                 console.log("✅ TELEGRAM'GA YUBORILDI");
-            } catch (telegramError) {
-                console.error("❌ TELEGRAM XATO:", telegramError.message);
-                results.telegram = { success: false, error: telegramError.message };
+            } catch (error) {
+                console.error("❌ TELEGRAM XATO:", error.message);
             }
 
-            // ✅ GLAVNIY EXCEL'GA YUBORISH
-            console.log("\n📤 GLAVNIY EXCEL'GA YUBORISH...");
+            // GLAVNIY EXCEL'GA YUBORISH
             try {
-                if (!HERO_APP_SCRIPT) {
-                    throw new Error("HERO_APP_SCRIPT environment o'zgaruvchisi topilmadi");
+                if (HERO_APP_SCRIPT) {
+                    const glavniyData = {
+                        ...data,
+                        folderLink: folderLink || "Yo'q"
+                    };
+                    await sendToAppScriptWithRetry(HERO_APP_SCRIPT, glavniyData);
+                    results.glavniy = { success: true };
+                    console.log("✅ GLAVNIY EXCEL'GA YUBORILDI");
                 }
-
-                const glavniyData = {
-                    ...data,
-                    folderLink: folderLink || "Yo'q",
-                    sana: data.sana || new Date().toLocaleString('uz-UZ', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    })
-                };
-
-                console.log("📊 Excel'ga yuboriladigan ma'lumotlar:");
-                console.log("   Kvartil:", glavniyData.kvartil);
-                console.log("   Sana:", glavniyData.sana);
-                console.log("   folderLink:", glavniyData.folderLink);
-                console.log("   URL:", HERO_APP_SCRIPT.substring(0, 50) + "...");
-
-                const glavniyResult = await sendToAppScriptWithRetry(HERO_APP_SCRIPT, glavniyData);
-                results.glavniy = { success: true, data: glavniyResult };
-                console.log("✅ GLAVNIY EXCEL'GA YUBORILDI");
-            } catch (glavniyError) {
-                console.error("❌ GLAVNIY EXCEL XATO:", glavniyError.message);
-                results.glavniy = { success: false, error: glavniyError.message };
+            } catch (error) {
+                console.error("❌ GLAVNIY EXCEL XATO:", error.message);
             }
 
-            // ✅ RIELTER EXCEL'GA YUBORISH
-            if (rielterInfo && rielterInfo.appScriptUrl) {
-                console.log("\n📤 RIELTER EXCEL'GA YUBORISH...");
+            // RIELTER EXCEL'GA YUBORISH
+            if (rielterInfo?.appScriptUrl) {
                 try {
-                    const rielterExcelData = {
+                    const rielterData = {
                         ...data,
-                        folderLink: folderLink || "Yo'q",
-                        sana: data.sana || new Date().toLocaleString('uz-UZ', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                        })
+                        folderLink: folderLink || "Yo'q"
                     };
-
-                    console.log("   URL:", rielterInfo.appScriptUrl.substring(0, 50) + "...");
-                    console.log("   folderLink:", rielterExcelData.folderLink);
-
-                    const rielterResult = await sendToAppScriptWithRetry(
+                    await sendToAppScriptWithRetry(
                         rielterInfo.appScriptUrl,
-                        rielterExcelData,
+                        rielterData,
                         rielterInfo.id
                     );
-                    results.rielter = { success: true, data: rielterResult };
+                    results.rielter = { success: true };
                     console.log("✅ RIELTER EXCEL'GA YUBORILDI");
-                } catch (rielterError) {
-                    console.error("❌ RIELTER EXCEL XATO:", rielterError.message);
-                    results.rielter = { success: false, error: rielterError.message };
+                } catch (error) {
+                    console.error("❌ RIELTER EXCEL XATO:", error.message);
                 }
             }
 
-            console.log("\n" + "=".repeat(60));
-            console.log("📊 NATIJALAR:");
+            console.log("\n📊 NATIJALAR:");
             console.log("  Telegram:", results.telegram.success ? "✅" : "❌");
             console.log("  GLAVNIY:", results.glavniy.success ? "✅" : "❌");
             console.log("  Rielter:", results.rielter.success ? "✅" : "❌");
-            console.log("=".repeat(60) + "\n");
 
             return results;
         });
 
-        console.log("=".repeat(60) + "\n");
-
     } catch (err) {
-        console.error("\n❌ KRITIK XATO:", err.message);
-        console.error(err.stack);
+        console.error("❌ KRITIK XATO:", err.message);
         res.status(500).json({ success: false, error: err.message });
     }
 }

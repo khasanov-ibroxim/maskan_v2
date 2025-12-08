@@ -1,34 +1,18 @@
 // server/src/controllers/excelController.js
-const { readFromLocalExcel } = require('../services/localExcelService');
+const {
+    getAllObjects,
+    getObjectById,
+    updateObjectStatus
+} = require('../services/serverDBService');
+const { postToOLX } = require('../services/olxAutomationService');
 
 /**
- * Barcha obyektlarni olish (elon statusli)
+ * Barcha obyektlarni olish
  * GET /api/excel/objects
  */
 exports.getObjects = async (req, res) => {
     try {
-        const data = await readFromLocalExcel();
-
-        // Obyektlarni formatlash va elon statusi qo'shish
-        const objects = data.map(item => ({
-            id: item.id,
-            kvartil: item.kvartil,
-            xet: item.xet,
-            m2: item.m2,
-            narx: item.narx,
-            tell: item.tell,
-            rieltor: item.rieltor,
-            folderLink: item.rasmlar,
-            sana: item.sana,
-            elonStatus: item.elonStatus || 'waiting', // waiting, processing, posted
-            elonDate: item.elonDate || null,
-            opisaniya: item.opisaniya,
-            fio: item.fio,
-            xolati: item.xolati,
-            uy_turi: item.uy_turi,
-            balkon: item.balkon,
-            planirovka: item.planirovka
-        }));
+        const objects = getAllObjects();
 
         res.json({
             success: true,
@@ -46,7 +30,7 @@ exports.getObjects = async (req, res) => {
 };
 
 /**
- * Elon berish (OLX)
+ * OLX ga elon berish
  * POST /api/excel/post-ad
  */
 exports.postAd = async (req, res) => {
@@ -61,8 +45,7 @@ exports.postAd = async (req, res) => {
         }
 
         // Obyektni topish
-        const data = await readFromLocalExcel();
-        const object = data.find(item => item.id === objectId);
+        const object = getObjectById(objectId);
 
         if (!object) {
             return res.status(404).json({
@@ -71,24 +54,25 @@ exports.postAd = async (req, res) => {
             });
         }
 
-        // Elon berish statusini yangilash
-        object.elonStatus = 'processing';
+        // Status yangilash - processing
+        updateObjectStatus(objectId, 'processing');
 
         // Navbatga qo'shish
         global.adQueue = global.adQueue || [];
         global.adQueue.push(objectId);
 
-        // Agar navbat bo'sh bo'lsa, darhol ishga tushirish
-        if (global.adQueue.length === 1) {
-            processAdQueue();
-        }
-
+        // Response yuborish (tezkor)
         res.json({
             success: true,
             message: 'Elon navbatga qo\'shildi',
             queuePosition: global.adQueue.length,
             status: 'processing'
         });
+
+        // Background'da elon berish
+        if (global.adQueue.length === 1) {
+            processAdQueue();
+        }
 
     } catch (error) {
         console.error('❌ Elon berishda xato:', error);
@@ -111,33 +95,32 @@ async function processAdQueue() {
     const objectId = global.adQueue[0];
 
     try {
-        console.log(`📤 Elon berilmoqda: ${objectId}`);
+        console.log(`\n📤 Elon berilmoqda: ${objectId}`);
 
         // Obyektni olish
-        const data = await readFromLocalExcel();
-        const object = data.find(item => item.id === objectId);
+        const object = getObjectById(objectId);
 
         if (!object) {
             throw new Error('Obyekt topilmadi');
         }
 
-        // OLX.uz ga elon berish (hozircha simulyatsiya)
-        await postToOLX(object);
+        // ✅ OLX.uz ga HAQIQIY elon berish
+        const result = await postToOLX(object);
 
-        // Statusni yangilash
-        object.elonStatus = 'posted';
-        object.elonDate = new Date().toISOString();
-
-        // Excel'ga saqlash
-        const { saveToLocalExcel } = require('../services/localExcelService');
-        await saveToLocalExcel(object, object.rasmlar);
+        // Status yangilash - posted
+        updateObjectStatus(
+            objectId,
+            'posted',
+            new Date().toISOString()
+        );
 
         console.log(`✅ Elon muvaffaqiyatli berildi: ${objectId}`);
+        console.log(`   OLX URL: ${result.adUrl}`);
 
         // Navbatdan o'chirish
         global.adQueue.shift();
 
-        // 10 soniya kutish
+        // 10 soniya kutish (OLX rate limit)
         if (global.adQueue.length > 0) {
             console.log(`⏳ 10 soniya kutish... (Navbatda: ${global.adQueue.length})`);
             setTimeout(() => {
@@ -147,6 +130,9 @@ async function processAdQueue() {
 
     } catch (error) {
         console.error(`❌ Elon berishda xato: ${objectId}`, error);
+
+        // Status yangilash - error
+        updateObjectStatus(objectId, 'waiting');
 
         // Navbatdan o'chirish
         global.adQueue.shift();
@@ -158,21 +144,6 @@ async function processAdQueue() {
             }, 10000);
         }
     }
-}
-
-/**
- * OLX.uz ga elon berish
- */
-async function postToOLX(object) {
-    // Bu yerda OLX.uz API integratsiyasi bo'lishi kerak
-    // Hozircha simulyatsiya
-
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            console.log('📝 OLX.uz ga elon berildi (simulyatsiya)');
-            resolve({ success: true });
-        }, 2000);
-    });
 }
 
 /**
