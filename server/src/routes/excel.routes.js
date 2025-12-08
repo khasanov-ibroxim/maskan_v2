@@ -1,4 +1,4 @@
-// src/routes/excel.routes.js
+// server/src/routes/excel.routes.js (yangilangan)
 const express = require('express');
 const router = express.Router();
 const { protect, authorize } = require('../middleware/simpleAuth');
@@ -9,18 +9,20 @@ const {
 } = require('../services/localExcelService');
 
 const {
+    getObjects,
+    postAd,
+    getQueueStatus
+} = require('../controllers/excelController');
+
+const {
     manualCleanup,
     getTempFolderSize
 } = require('../services/cleanupScheduler');
 
-/**
- * Excel statistika (barcha userlar)
- * GET /api/excel/stats
- */
+// Excel statistika
 router.get('/stats', protect, async (req, res) => {
     try {
         const stats = await getExcelStats();
-
         res.json({
             success: true,
             stats
@@ -33,14 +35,10 @@ router.get('/stats', protect, async (req, res) => {
     }
 });
 
-/**
- * Barcha ma'lumotlarni olish (admin only)
- * GET /api/excel/all
- */
+// Barcha ma'lumotlar (admin only)
 router.get('/all', protect, authorize('admin'), async (req, res) => {
     try {
         const data = await readFromLocalExcel();
-
         res.json({
             success: true,
             count: data.length,
@@ -54,14 +52,19 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
     }
 });
 
-/**
- * Excel faylni tozalash (admin only)
- * POST /api/excel/clear
- */
+// ✅ YANGI: Obyektlar ro'yxati (elon uchun)
+router.get('/objects', protect, authorize('admin'), getObjects);
+
+// ✅ YANGI: Elon berish
+router.post('/post-ad', protect, authorize('admin'), postAd);
+
+// ✅ YANGI: Navbat statusi
+router.get('/queue-status', protect, authorize('admin'), getQueueStatus);
+
+// Excel faylni tozalash
 router.post('/clear', protect, authorize('admin'), async (req, res) => {
     try {
         const result = await clearLocalExcel();
-
         res.json({
             success: result,
             message: result ? 'Excel fayl tozalandi' : 'Xato yuz berdi'
@@ -74,14 +77,10 @@ router.post('/clear', protect, authorize('admin'), async (req, res) => {
     }
 });
 
-/**
- * Temp papkani tozalash (admin only)
- * POST /api/excel/cleanup-temp
- */
+// Temp papkani tozalash
 router.post('/cleanup-temp', protect, authorize('admin'), async (req, res) => {
     try {
         const result = await manualCleanup({ cleanTemp: true });
-
         res.json({
             success: true,
             result: result.temp
@@ -94,14 +93,10 @@ router.post('/cleanup-temp', protect, authorize('admin'), async (req, res) => {
     }
 });
 
-/**
- * Temp papka hajmi
- * GET /api/excel/temp-size
- */
+// Temp papka hajmi
 router.get('/temp-size', protect, async (req, res) => {
     try {
         const size = getTempFolderSize();
-
         res.json({
             success: true,
             ...size
@@ -113,13 +108,11 @@ router.get('/temp-size', protect, async (req, res) => {
         });
     }
 });
+
+// Backup yuklab olish
 const fs = require('fs');
 const path = require('path');
 
-/**
- * Excel backup faylni yuklab olish (admin va manager)
- * GET /api/excel/download-backup
- */
 router.get('/download-backup', protect, authorize('admin', 'manager'), async (req, res) => {
     try {
         const backupFile = path.join(__dirname, '../../storage/excel/backup_database.xlsx');
@@ -131,7 +124,6 @@ router.get('/download-backup', protect, authorize('admin', 'manager'), async (re
             });
         }
 
-        // Faylni yuborish
         res.download(backupFile, 'backup_database.xlsx', (err) => {
             if (err) {
                 console.error('❌ Download xato:', err);
