@@ -20,7 +20,7 @@ const ObjectsList = () => {
     useEffect(() => {
         loadObjects();
         loadQueueStatus();
-        const interval = setInterval(loadQueueStatus, 5000);
+        const interval = setInterval(loadQueueStatus, 300000);
         return () => clearInterval(interval);
     }, []);
 
