@@ -37,38 +37,7 @@ async function sendData(req, res, appScriptQueue) {
             console.error("❌ Fayl saqlashda xato:", fileError.message);
         }
 
-        // ✅ 2. SERVERDB.JSON GA SAQLASH
-        console.log("\n📊 ServerDB.json ga saqlash...");
-        try {
-            const savedObject = saveObject({
-                kvartil: data.kvartil,
-                xet: data.xet,
-                tell: data.tell,
-                m2: data.m2,
-                narx: data.narx,
-                fio: data.fio,
-                uy_turi: data.uy_turi,
-                xolati: data.xolati,
-                planirovka: data.planirovka,
-                balkon: data.balkon,
-                torets: data.torets,
-                dom: data.dom,
-                kvartira: data.kvartira,
-                osmotir: data.osmotir,
-                opisaniya: data.opisaniya,
-                rieltor: data.rieltor,
-                xodim: data.xodim,
-                sheetType: data.sheetType,
-                rasmlar: folderLink || "Yo'q",
-                sana: data.sana || new Date().toLocaleString('uz-UZ')
-            });
-
-            console.log("✅ ServerDB.json ga saqlandi, ID:", savedObject.id);
-        } catch (dbError) {
-            console.error("❌ ServerDB ga saqlashda xato:", dbError.message);
-        }
-
-        // ✅ 3. RIELTOR MA'LUMOTLARINI TOPISH
+        // ✅ 2. RIELTOR MA'LUMOTLARINI TOPISH
         const users = SimpleUser.getUsers();
         const rielterInfo = users.find(u =>
             u.role === 'rieltor' &&
@@ -81,7 +50,7 @@ async function sendData(req, res, appScriptQueue) {
             console.log("✅ Rieltor topildi:", rielterInfo.username);
         }
 
-        // ✅ 4. TELEGRAM XABAR
+        // ✅ 3. TELEGRAM XABAR TAYYORLASH
         const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '-1003298985470';
         const telegramMessage = `
 🏠 <b>Yangi uy ma'lumoti</b>
@@ -97,7 +66,7 @@ ${data.fio ? `👤 <b>Ega:</b> ${data.fio}\n` : ''}${data.uy_turi ? `🏗 <b>Uy 
 ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''}
         `.trim();
 
-        // ✅ 5. JAVOB YUBORISH (TEZKOR)
+        // ✅ 4. JAVOB YUBORISH (TEZKOR)
         res.json({
             success: true,
             message: "Ma'lumotlar qabul qilindi va navbatga qo'shildi",
@@ -105,15 +74,16 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
             queueStatus: appScriptQueue.getStatus()
         });
 
-        // ✅ 6. BACKGROUND'DA YUBORISH
+        // ✅ 5. BACKGROUND'DA YUBORISH
         appScriptQueue.add(async () => {
             const results = {
                 telegram: { success: false },
                 glavniy: { success: false },
-                rielter: { success: false }
+                rielter: { success: false },
+                serverDB: { success: false }
             };
 
-            // TELEGRAM'GA YUBORISH
+            // ✅ 5.1 TELEGRAM'GA YUBORISH
             try {
                 const themeId = rielterInfo?.telegramThemeId || null;
                 const telegramResult = await sendToTelegram(
@@ -128,7 +98,7 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                 console.error("❌ TELEGRAM XATO:", error.message);
             }
 
-            // GLAVNIY EXCEL'GA YUBORISH
+            // ✅ 5.2 GLAVNIY EXCEL'GA YUBORISH
             try {
                 if (HERO_APP_SCRIPT) {
                     const glavniyData = {
@@ -143,7 +113,7 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                 console.error("❌ GLAVNIY EXCEL XATO:", error.message);
             }
 
-            // RIELTER EXCEL'GA YUBORISH
+            // ✅ 5.3 RIELTER EXCEL'GA YUBORISH
             if (rielterInfo?.appScriptUrl) {
                 try {
                     const rielterData = {
@@ -162,10 +132,45 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                 }
             }
 
+            // ✅ 5.4 SERVERDB GA SAQLASH (YANGI!)
+            try {
+                console.log("\n💾 ServerDB ga saqlash...");
+                const savedObject = saveObject({
+                    kvartil: data.kvartil,
+                    xet: data.xet,
+                    tell: data.tell,
+                    m2: data.m2,
+                    narx: data.narx,
+                    fio: data.fio,
+                    uy_turi: data.uy_turi,
+                    xolati: data.xolati,
+                    planirovka: data.planirovka,
+                    balkon: data.balkon,
+                    torets: data.torets,
+                    dom: data.dom,
+                    kvartira: data.kvartira,
+                    osmotir: data.osmotir,
+                    opisaniya: data.opisaniya,
+                    rieltor: data.rieltor,
+                    xodim: data.xodim,
+                    sheetType: data.sheetType,
+                    rasmlar: folderLink || "Yo'q",
+                    sana: data.sana || new Date().toLocaleString('uz-UZ')
+                });
+
+                if (savedObject) {
+                    results.serverDB = { success: true };
+                    console.log("✅ SERVERDB GA SAQLANDI, ID:", savedObject.id);
+                }
+            } catch (error) {
+                console.error("❌ SERVERDB XATO:", error.message);
+            }
+
             console.log("\n📊 NATIJALAR:");
             console.log("  Telegram:", results.telegram.success ? "✅" : "❌");
             console.log("  GLAVNIY:", results.glavniy.success ? "✅" : "❌");
             console.log("  Rielter:", results.rielter.success ? "✅" : "❌");
+            console.log("  ServerDB:", results.serverDB.success ? "✅" : "❌");
 
             return results;
         });

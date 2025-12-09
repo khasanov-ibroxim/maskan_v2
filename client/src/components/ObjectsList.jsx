@@ -10,6 +10,7 @@ import {
     SyncOutlined
 } from '@ant-design/icons';
 import api from '../utils/api.jsx';
+import { DownloadOutlined } from '@ant-design/icons';
 
 const ObjectsList = () => {
     const [objects, setObjects] = useState([]);
@@ -23,6 +24,35 @@ const ObjectsList = () => {
         const interval = setInterval(loadQueueStatus, 300000);
         return () => clearInterval(interval);
     }, []);
+
+
+    const handleDownloadUploads = async () => {
+        try {
+            message.loading('Uploads papka yuklanmoqda... (Bu biroz vaqt olishi mumkin)', 0);
+
+            const response = await api.get('/download-uploads-zip', {
+                responseType: 'blob',
+                timeout: 300000 // 5 daqiqa
+            });
+
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `uploads_backup_${Date.now()}.zip`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+
+            message.destroy();
+            message.success('Uploads papka muvaffaqiyatli yuklandi! 📦');
+
+        } catch (error) {
+            message.destroy();
+            console.error('Uploads yuklab olishda xato:', error);
+            message.error('Xato: ' + (error.response?.data?.error || error.message));
+        }
+    };
 
     const loadObjects = async () => {
         setLoading(true);
@@ -150,8 +180,8 @@ const ObjectsList = () => {
                             type="default"
                             size="small"
                             icon={<FolderOpenOutlined />}
-                            onClick={() => openFolder(record.folderLink)}
-                            disabled={!record.folderLink || record.folderLink === "Yo'q"}
+                            onClick={() => openFolder(record.rasmlar)}
+                            disabled={!record.rasmlar || record.rasmlar === "Yo'q"}
                         />
 
                         <Button
@@ -188,7 +218,22 @@ const ObjectsList = () => {
                         </Tag>
                     )}
                 </Space>
+                <Space style={{marginBottom: 16}}>
 
+                    {/* ✅ YANGI: Uploads Backup */}
+                    <Button
+                        type="default"
+                        icon={<FolderOpenOutlined/>}
+                        onClick={handleDownloadUploads}
+                        style={{
+                            background: '#52c41a',
+                            color: 'white',
+                            borderColor: '#52c41a'
+                        }}
+                    >
+                        Uploads Papka (ZIP)
+                    </Button>
+                </Space>
                 <div>
                     <span style={{ color: '#666' }}>Jami: </span>
                     <span style={{ fontWeight: 'bold', fontSize: 16 }}>{objects.length}</span>
