@@ -9,7 +9,7 @@ lerna-debug.log*
 uploads/*
 temp/
 /src/data.
-/storage/*.xlsx
+storage
 node_modules
 dist
 dist-ssr
