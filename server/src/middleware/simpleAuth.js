@@ -1,175 +1,88 @@
-// middleware/simpleAuth.js
-const SimpleUser = require('../models/SimpleUser');
-const crypto = require('crypto');
+// server/src/middleware/simpleAuth.js - PostgreSQL VERSION
+const Session = require('../models/Session.pg');
+const User = require('../models/User.pg');
+const ActivityLog = require('../models/ActivityLog.pg');
 
-// Konstantalar
-const SESSION_LIFETIME = 24 * 60 * 60 * 1000; // 24 soat millisoniyalarda
-const ACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 daqiqa millisoniyalarda
+const ACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 
 /**
- * Yangi session yaratish
+ * Create new session
  */
+const createSession = async (userId, username, ipAddress, userAgent) => {
+    try {
+        const session = await Session.create(userId, username, ipAddress, userAgent);
 
+        // Log activity
+        await ActivityLog.create(
+            userId,
+            username,
+            'login',
+            'Tizimga kirdi',
+            ipAddress,
+            userAgent
+        );
 
-const createSession = (userId, username, ipAddress, userAgent) => {
-    const sessionId = crypto.randomBytes(32).toString('hex');
-    const sessions = SimpleUser.getSessions();
-    const now = new Date();
-
-    const newSession = {
-        sessionId,
-        userId,
-        username,
-        loginTime: now.toISOString(),
-        lastActivity: now.toISOString(),
-        expiresAt: new Date(Date.now() + SESSION_LIFETIME).toISOString(),
-        ipAddress: ipAddress || 'unknown',
-        userAgent: userAgent || 'unknown',
-        isActive: true
-    };
-
-    sessions.push(newSession);
-    SimpleUser.saveSessions(sessions);
-
-    // Login log qo'shish
-    logActivity(
-        userId,
-        username,
-        'login',
-        'Tizimga kirdi',
-        ipAddress,
-        userAgent
-    );
-
-    console.log(`✅ Session yaratildi: ${username} (${sessionId.substring(0, 8)}...)`);
-    return sessionId;
+        console.log(`✅ Session created: ${username} (${session.session_id.substring(0, 8)}...)`);
+        return session.session_id;
+    } catch (error) {
+        console.error('❌ Session creation error:', error);
+        throw error;
+    }
 };
 
 /**
- * Sessionni tugatish
+ * End session
  */
-const endSession = (sessionId, reason = 'manual_logout') => {
-    const sessions = SimpleUser.getSessions();
-    const sessionIndex = sessions.findIndex(s => s.sessionId === sessionId);
+const endSession = async (sessionId, reason = 'manual_logout') => {
+    try {
+        const session = await Session.end(sessionId, reason);
 
-    if (sessionIndex !== -1) {
-        const session = sessions[sessionIndex];
-        const loginTime = new Date(session.loginTime).getTime();
-        const duration = Math.floor((Date.now() - loginTime) / 1000);
-
-        sessions[sessionIndex] = {
-            ...session,
-            isActive: false,
-            logoutTime: new Date().toISOString(),
-            logoutReason: reason,
-            duration: duration
-        };
-
-        SimpleUser.saveSessions(sessions);
-
-        // Manual logout bo'lsa log qo'shish
-        if (reason === 'manual_logout') {
-            logActivity(
-                session.userId,
+        if (session && reason === 'manual_logout') {
+            await ActivityLog.create(
+                session.user_id,
                 session.username,
                 'logout',
                 'Tizimdan chiqdi',
-                session.ipAddress,
-                session.userAgent
+                session.ip_address,
+                session.user_agent
             );
         }
-
-        console.log(`🔴 Session tugatildi: ${session.username} - ${reason}`);
+    } catch (error) {
+        console.error('❌ End session error:', error);
     }
 };
 
 /**
- * Activity log qo'shish
+ * Log activity
  */
-const logActivity = (userId, username, action, description, ipAddress, userAgent) => {
-    const logs = SimpleUser.getLogs();
-
-    const newLog = {
-        timestamp: new Date().toISOString(),
-        userId,
-        username,
-        action,
-        description,
-        ipAddress: ipAddress || 'unknown',
-        userAgent: userAgent || 'unknown'
-    };
-
-    logs.push(newLog);
-
-    // Faqat oxirgi 1000 ta logni saqlash
-    if (logs.length > 1000) {
-        logs.splice(0, logs.length - 1000);
+const logActivity = async (userId, username, action, description, ipAddress, userAgent) => {
+    try {
+        await ActivityLog.create(userId, username, action, description, ipAddress, userAgent);
+    } catch (error) {
+        console.error('❌ Log activity error:', error);
     }
-
-    SimpleUser.saveLogs(logs);
 };
 
 /**
- * Eski va nofaol sesiyalarni tozalash
+ * Cleanup old sessions
  */
-const cleanupOldSessions = () => {
-    const sessions = SimpleUser.getSessions();
-    const now = Date.now();
-    let cleanedCount = 0;
-
-    const updatedSessions = sessions.map(session => {
-        // Agar allaqachon nofaol bo'lsa, o'zgartirmaslik
-        if (!session.isActive) {
-            return session;
-        }
-
-        const expiresAt = new Date(session.expiresAt).getTime();
-        const lastActivity = new Date(session.lastActivity).getTime();
-
-        // Vaqt tugagan
-        if (now > expiresAt) {
-            cleanedCount++;
-            return {
-                ...session,
-                isActive: false,
-                logoutTime: new Date().toISOString(),
-                logoutReason: 'auto_logout',
-                duration: Math.floor((now - new Date(session.loginTime).getTime()) / 1000)
-            };
-        }
-
-        // Faollik muddati tugagan
-        if ((now - lastActivity) > ACTIVITY_TIMEOUT) {
-            cleanedCount++;
-            return {
-                ...session,
-                isActive: false,
-                logoutTime: new Date().toISOString(),
-                logoutReason: 'auto_logout',
-                duration: Math.floor((now - new Date(session.loginTime).getTime()) / 1000)
-            };
-        }
-
-        return session;
-    });
-
-    if (cleanedCount > 0) {
-        SimpleUser.saveSessions(updatedSessions);
-        console.log(`🧹 ${cleanedCount} ta eski session tozalandi`);
+const cleanupOldSessions = async () => {
+    try {
+        await Session.cleanup(ACTIVITY_TIMEOUT);
+    } catch (error) {
+        console.error('❌ Cleanup error:', error);
     }
 };
 
-// Har 5 daqiqada avtomatik tozalash
+// Auto cleanup every 5 minutes
 setInterval(cleanupOldSessions, 5 * 60 * 1000);
-console.log('♻️ Session tozalash rejimi faollashtirildi (har 5 daqiqa)');
+console.log('♻️ Session cleanup scheduler activated (every 5 minutes)');
 
 /**
  * Authentication middleware
- * Har bir himoyalangan route uchun
  */
 const protect = async (req, res, next) => {
     try {
-        // Session ID ni headerdan olish
         const sessionId = req.headers['x-session-id'];
 
         if (!sessionId) {
@@ -179,9 +92,8 @@ const protect = async (req, res, next) => {
             });
         }
 
-        // Sessionni topish
-        const sessions = SimpleUser.getSessions();
-        const session = sessions.find(s => s.sessionId === sessionId && s.isActive);
+        // Find session
+        const session = await Session.findBySessionId(sessionId);
 
         if (!session) {
             return res.status(401).json({
@@ -190,76 +102,62 @@ const protect = async (req, res, next) => {
             });
         }
 
-        // Session vaqti va faolligini tekshirish
+        // Check expiration
         const now = Date.now();
-        const expiresAt = new Date(session.expiresAt).getTime();
-        const lastActivity = new Date(session.lastActivity).getTime();
+        const expiresAt = new Date(session.expires_at).getTime();
+        const lastActivity = new Date(session.last_activity).getTime();
 
-        // Muddati tugagan
         if (now > expiresAt) {
-            endSession(sessionId, 'auto_logout');
+            await endSession(sessionId, 'auto_logout');
             return res.status(401).json({
                 success: false,
                 error: 'Session muddati tugagan'
             });
         }
 
-        // Faollik muddati tugagan
         if ((now - lastActivity) > ACTIVITY_TIMEOUT) {
-            endSession(sessionId, 'auto_logout');
+            await endSession(sessionId, 'auto_logout');
             return res.status(401).json({
                 success: false,
                 error: 'Faollik muddati tugagan (30 daqiqa)'
             });
         }
 
-        // Userni topish
-        const user = SimpleUser.findById(session.userId);
+        // Find user
+        const user = await User.findById(session.user_id);
 
-        if (!user) {
-            endSession(sessionId, 'auto_logout');
+        if (!user || !user.is_active) {
+            await endSession(sessionId, 'auto_logout');
             return res.status(401).json({
                 success: false,
-                error: 'User topilmadi'
+                error: 'User topilmadi yoki faol emas'
             });
         }
 
-        if (!user.isActive) {
-            endSession(sessionId, 'auto_logout');
-            return res.status(401).json({
-                success: false,
-                error: 'User faol emas'
-            });
-        }
+        // Update activity
+        await Session.updateActivity(sessionId);
 
-        // Last activity yangilash
-        const sessionIndex = sessions.findIndex(s => s.sessionId === sessionId);
-        if (sessionIndex !== -1) {
-            sessions[sessionIndex].lastActivity = new Date().toISOString();
-            SimpleUser.saveSessions(sessions);
-        }
-
-        // Request objectga user va session qo'shish
+        // Attach to request
         req.user = {
             id: user.id,
             username: user.username,
-            fullName: user.fullName,
+            fullName: user.full_name,
             role: user.role,
-            isActive: user.isActive,
-            createdAt: user.createdAt
+            isActive: user.is_active,
+            createdAt: user.created_at
         };
 
         req.session = {
-            sessionId: session.sessionId,
-            loginTime: session.loginTime,
-            lastActivity: session.lastActivity,
-            ipAddress: session.ipAddress
+            sessionId: session.session_id,
+            loginTime: session.login_time,
+            lastActivity: session.last_activity,
+            ipAddress: session.ip_address
         };
 
         next();
 
     } catch (error) {
-        console.error('❌ Auth middleware xato:', error);
+        console.error('❌ Auth middleware error:', error);
         return res.status(500).json({
             success: false,
             error: 'Server xatosi'
@@ -268,8 +166,7 @@ const protect = async (req, res, next) => {
 };
 
 /**
- * Authorization middleware (Role tekshirish)
- * @param  {...string} roles - Ruxsat berilgan rollar
+ * Authorization middleware (Role check)
  */
 const authorize = (...roles) => {
     return (req, res, next) => {
@@ -284,7 +181,7 @@ const authorize = (...roles) => {
             });
         }
 
-        // Realtor admin panelga kirishi mumkin emas
+        // Realtor cannot access admin panel
         if (req.user.role === 'rieltor' && roles.includes('admin')) {
             return res.status(403).json({
                 success: false,
@@ -292,7 +189,7 @@ const authorize = (...roles) => {
             });
         }
 
-        // Manager = Admin huquqlari
+        // Manager = Admin rights
         const userRole = req.user.role === 'manager' ? 'admin' : req.user.role;
 
         if (!roles.includes(userRole)) {
