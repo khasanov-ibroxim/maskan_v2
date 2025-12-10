@@ -534,70 +534,206 @@ async function fillAdForm(page, objectData) {
         console.log('\n📝 ELON FORMASINI TO\'LDIRISH');
         console.log('='.repeat(60));
 
+        // ✅ CRITICAL: Debug papkasini yaratish
+        const debugDir = path.join(__dirname, '../../logs');
+        if (!fs.existsSync(debugDir)) {
+            fs.mkdirSync(debugDir, { recursive: true });
+        }
+
+        // ✅ Sahifa to'liq yuklanishini kutish
+        console.log('⏳ Sahifa render bo\'lishini kutish...');
+        await sleep(5000);
+
+        // ✅ DEBUG: Sahifa ma'lumotlari
+        const pageTitle = await page.title();
+        const currentUrl = page.url();
+        console.log('📄 Page title:', pageTitle);
+        console.log('📍 Current URL:', currentUrl);
+
+        // ✅ Screenshot (forma to'ldirishdan OLDIN)
+        const screenshotBefore = path.join(debugDir, `before-fill-${Date.now()}.png`);
+        await page.screenshot({ path: screenshotBefore, fullPage: true });
+        console.log('📷 Screenshot saved:', screenshotBefore);
+
+        // ✅ HTML dump
+        const htmlPath = path.join(debugDir, `page-${Date.now()}.html`);
+        const html = await page.content();
+        fs.writeFileSync(htmlPath, html);
+        console.log('📝 HTML saved:', htmlPath);
+
+        // ✅ Form elementini kutish
+        console.log('⏳ Form elementini kutish...');
+        await page.waitForSelector('form', { timeout: 30000 }).catch(() => {
+            console.log('⚠️ Form tag topilmadi, davom ettirilmoqda...');
+        });
+        await sleep(3000);
+
         const xonaSoni = objectData.xet.split('/')[0];
         const etaj = objectData.xet.split('/')[1];
         const etajnost = objectData.xet.split('/')[2];
 
-        // ✅ 1. TITLE
+        // ========================================
+        // 1️⃣ TITLE - Multiple selectors
+        // ========================================
         console.log('\n1️⃣ Sarlavha (Title)...');
         const title = `Sotiladi ${objectData.kvartil} ${xonaSoni}-xona`;
         console.log(`   "${title}"`);
 
-        const titleInput = await page.waitForSelector('[data-testid="posting-title"]', {
-            timeout: 10000
-        });
+        const titleSelectors = [
+            '[data-testid="posting-title"]',
+            'input[name="title"]',
+            'input[placeholder*="Название"]',
+            'input[placeholder*="название"]',
+            'input[data-cy*="title"]',
+            'textarea[name="title"]',
+            'input[type="text"]'
+        ];
 
+        let titleInput = null;
+        for (const selector of titleSelectors) {
+            try {
+                console.log(`   🔍 Trying: ${selector}`);
+                titleInput = await page.waitForSelector(selector, {
+                    timeout: 5000,
+                    visible: true
+                });
+                if (titleInput) {
+                    console.log(`   ✅ Topildi: ${selector}`);
+                    break;
+                }
+            } catch (e) {
+                console.log(`   ❌ Topilmadi: ${selector}`);
+            }
+        }
+
+        // ✅ Agar hali ham topilmasa - barcha inputlarni ko'rsatish
+        if (!titleInput) {
+            console.log('\n   ⚠️ Title input hech qaysi selector bilan topilmadi!');
+            console.log('   📋 Sahifadagi barcha inputlar:');
+
+            const allInputs = await page.$('input');
+            console.log(`   ℹ️ Jami ${allInputs.length} ta input element mavjud\n`);
+
+            for (let i = 0; i < Math.min(allInputs.length, 15); i++) {
+                const info = await page.evaluate(el => ({
+                    type: el.type,
+                    name: el.name || 'N/A',
+                    id: el.id || 'N/A',
+                    placeholder: el.placeholder || 'N/A',
+                    testid: el.getAttribute('data-testid') || 'N/A',
+                    cy: el.getAttribute('data-cy') || 'N/A',
+                    className: el.className || 'N/A'
+                }), allInputs[i]);
+
+                console.log(`   Input ${i + 1}:`);
+                console.log(`     type: ${info.type}`);
+                console.log(`     name: ${info.name}`);
+                console.log(`     id: ${info.id}`);
+                console.log(`     placeholder: ${info.placeholder}`);
+                console.log(`     data-testid: ${info.testid}`);
+                console.log(`     data-cy: ${info.cy}`);
+                console.log(`     class: ${info.className.substring(0, 50)}`);
+                console.log('');
+            }
+
+            // ✅ CRITICAL ERROR screenshot
+            const errorScreenshot = path.join(debugDir, `title-not-found-${Date.now()}.png`);
+            await page.screenshot({ path: errorScreenshot, fullPage: true });
+            console.log('   📷 Error screenshot:', errorScreenshot);
+
+            throw new Error('Title input topilmadi - barcha variantlar sinaldi. Screenshotni tekshiring!');
+        }
+
+        // ✅ Title yozish
         await scrollToElement(page, titleInput);
+        await sleep(1000);
         await titleInput.click({ clickCount: 3 });
         await sleep(500);
         await titleInput.type(title, { delay: 80 });
-        console.log('   ✅ Yozildi');
+        console.log('   ✅ Yozildi:', title);
         await sleep(1000);
 
-        // ✅ 2. RASMLAR
+        // ========================================
+        // 2️⃣ RASMLAR
+        // ========================================
         if (objectData.rasmlar && objectData.rasmlar !== "Yo'q") {
             console.log('\n2️⃣ Rasmlar...');
-            await uploadImagesNew(page, objectData);
+            try {
+                const photoInput = await page.waitForSelector('[data-testid="attach-photos-input"]', {
+                    timeout: 10000
+                });
+
+                if (photoInput) {
+                    const imageFiles = await getImageFiles(objectData.rasmlar);
+
+                    if (imageFiles.length > 0) {
+                        const filesToUpload = imageFiles.slice(0, 8);
+                        console.log(`   📤 ${filesToUpload.length} ta rasm yuklanmoqda...`);
+                        await photoInput.uploadFile(...filesToUpload);
+                        await sleep(5000);
+                        console.log('   ✅ Rasmlar yuklandi');
+                    } else {
+                        console.log('   ⚠️ Rasm fayllari topilmadi');
+                    }
+                }
+            } catch (e) {
+                console.log('   ⚠️ Rasm yuklashda xato:', e.message);
+            }
         } else {
             console.log('\n2️⃣ Rasmlar: Yo\'q');
         }
         await sleep(500);
 
-        // ✅ 3. TAVSIF
+        // ========================================
+        // 3️⃣ TAVSIF
+        // ========================================
         console.log('\n3️⃣ Tavsif (Description)...');
         const description = createDescription(objectData);
         console.log('   Preview:', description.substring(0, 100) + '...');
 
-        const descriptionArea = await page.waitForSelector('[data-testid="posting-description-text-area"]', {
-            timeout: 10000
-        });
+        try {
+            const descriptionArea = await page.waitForSelector('[data-testid="posting-description-text-area"]', {
+                timeout: 15000,
+                visible: true
+            });
 
-        await scrollToElement(page, descriptionArea);
-        await descriptionArea.click();
-        await sleep(500);
-        await descriptionArea.type(description, { delay: 30 });
-        console.log('   ✅ Yozildi');
+            await scrollToElement(page, descriptionArea);
+            await descriptionArea.click();
+            await sleep(500);
+            await descriptionArea.type(description, { delay: 30 });
+            console.log('   ✅ Yozildi');
+        } catch (e) {
+            console.log('   ⚠️ Tavsif xato:', e.message);
+        }
         await sleep(1000);
 
-        // ✅ 4. NARX
+        // ========================================
+        // 4️⃣ NARX
+        // ========================================
         console.log('\n4️⃣ Narx...');
         const price = objectData.narx.replace(/\s/g, '').replace(/\$/g, '');
 
-        const priceInput = await page.waitForSelector('[data-testid="price-input"]', {
-            timeout: 10000
-        });
+        try {
+            const priceInput = await page.waitForSelector('[data-testid="price-input"]', {
+                timeout: 15000,
+                visible: true
+            });
 
-        await scrollToElement(page, priceInput);
-        await priceInput.click({ clickCount: 3 });
-        await sleep(300);
-        await priceInput.type(price, { delay: 50 });
-        console.log(`   ✅ ${price}`);
+            await scrollToElement(page, priceInput);
+            await priceInput.click({ clickCount: 3 });
+            await sleep(300);
+            await priceInput.type(price, { delay: 50 });
+            console.log(`   ✅ ${price}`);
+        } catch (e) {
+            console.log('   ⚠️ Narx xato:', e.message);
+        }
         await sleep(1000);
 
-        // ✅ 5. DOGOVORНАЯ CHECKBOX - TUZATILGAN
+        // ========================================
+        // 5️⃣ DOGOVORНАЯ CHECKBOX
+        // ========================================
         console.log('\n5️⃣ Договорная...');
         try {
-            // Barcha checkboxlarni topish
             const allCheckboxes = await page.$('input[type="checkbox"]');
             console.log(`   ℹ️ ${allCheckboxes.length} ta checkbox topildi`);
 
@@ -608,14 +744,12 @@ async function fillAdForm(page, objectData) {
 
                 console.log(`   Checkbox ${i + 1}: id="${id}", checked=${isChecked}`);
 
-                // Nexus-input topilsa
                 if (id && id.includes('nexus-input')) {
                     console.log('   🎯 Договорная checkbox topildi!');
 
                     await scrollToElement(page, checkbox);
 
                     if (!isChecked) {
-                        // Parent div orqali bosish
                         await page.evaluate(el => {
                             const parent = el.parentElement;
                             if (parent) parent.click();
@@ -635,7 +769,9 @@ async function fillAdForm(page, objectData) {
         }
         await sleep(500);
 
-        // ✅ 6. VALYUTA - у.е.
+        // ========================================
+        // 6️⃣ VALYUTA - у.е.
+        // ========================================
         console.log('\n6️⃣ Valyuta (у.е.)...');
         try {
             const currencyButton = await page.$('.n-referenceinput-button');
@@ -656,7 +792,9 @@ async function fillAdForm(page, objectData) {
         }
         await sleep(500);
 
-        // ✅ 7. SHAXSIY SHAXS
+        // ========================================
+        // 7️⃣ SHAXSIY SHAXS
+        // ========================================
         console.log('\n7️⃣ Shaxsiy shaxs...');
         try {
             const privateButton = await page.$('button[data-testid="private_business_private_unactive"]');
@@ -666,11 +804,13 @@ async function fillAdForm(page, objectData) {
                 console.log('   ✅ "Частное лицо" tanlandi');
             }
         } catch (e) {
-            console.log('   ⚠️ Shaxsiy shaxs xato');
+            console.log('   ⚠️ Shaxsiy shaxs xato:', e.message);
         }
         await sleep(500);
 
-        // ✅ 8. TIP JILYA (Вторичный рынок)
+        // ========================================
+        // 8️⃣ TIP JILYA (Вторичный рынок)
+        // ========================================
         console.log('\n8️⃣ Тип жилья (Вторичный рынок)...');
         try {
             const typeDropdownContainer = await page.$('div[data-testid="dropdown"][data-cy="parameters.type_of_market"]');
@@ -708,7 +848,9 @@ async function fillAdForm(page, objectData) {
         }
         await sleep(500);
 
-        // ✅ 9. XONALAR SONI
+        // ========================================
+        // 9️⃣ XONALAR SONI
+        // ========================================
         console.log('\n9️⃣ Xonalar soni...');
         try {
             const roomsInput = await page.$('input[data-testid="parameters.number_of_rooms"]');
@@ -724,7 +866,9 @@ async function fillAdForm(page, objectData) {
         }
         await sleep(500);
 
-        // ✅ 10. UMUMIY MAYDON
+        // ========================================
+        // 🔟 UMUMIY MAYDON
+        // ========================================
         console.log('\n🔟 Umumiy maydon...');
         try {
             const areaInput = await page.$('input[data-testid="parameters.total_area"]');
@@ -740,7 +884,9 @@ async function fillAdForm(page, objectData) {
         }
         await sleep(500);
 
-        // ✅ 11. ETAJ
+        // ========================================
+        // 1️⃣1️⃣ ETAJ
+        // ========================================
         console.log('\n1️⃣1️⃣ Etaj...');
         try {
             const floorInput = await page.$('input[data-testid="parameters.floor"]');
@@ -756,7 +902,9 @@ async function fillAdForm(page, objectData) {
         }
         await sleep(500);
 
-        // ✅ 12. ETAJNOST
+        // ========================================
+        // 1️⃣2️⃣ ETAJNOST
+        // ========================================
         console.log('\n1️⃣2️⃣ Etajnost...');
         try {
             const floorsInput = await page.$('input[data-testid="parameters.total_floors"]');
@@ -772,11 +920,15 @@ async function fillAdForm(page, objectData) {
         }
         await sleep(1000);
 
-        // ✅ 13-14. МЕБЛИРОВАНА VA КОМИССИОННЫЕ - FAQAT 1 MARTA!
+        // ========================================
+        // 1️⃣3️⃣-1️⃣4️⃣ МЕБЛИРОВАНА VA КОМИССИОННЫЕ
+        // ========================================
         await clickFurnishedAndCommission(page);
         await sleep(500);
 
-        // ✅ 15. JOYLASHUV - YUNUSOBOD
+        // ========================================
+        // 1️⃣5️⃣ JOYLASHUV - YUNUSOBOD
+        // ========================================
         console.log('\n1️⃣5️⃣ Joylashuv (Yunusobod)...');
         try {
             const locationInput = await page.$('input[data-testid="autosuggest-location-search-input"]');
@@ -802,7 +954,9 @@ async function fillAdForm(page, objectData) {
         }
         await sleep(1000);
 
-        // ✅ 16. TELEFON RAQAM
+        // ========================================
+        // 1️⃣6️⃣ TELEFON RAQAM
+        // ========================================
         console.log('\n1️⃣6️⃣ Telefon raqam...');
         try {
             const phoneInput = await page.$('input[data-testid="phone"]');
@@ -822,16 +976,35 @@ async function fillAdForm(page, objectData) {
         }
         await sleep(1000);
 
+        // ========================================
+        // ✅ FINAL SCREENSHOT
+        // ========================================
+        const screenshotAfter = path.join(debugDir, `after-fill-${Date.now()}.png`);
+        await page.screenshot({ path: screenshotAfter, fullPage: true });
+        console.log('\n📷 Final screenshot:', screenshotAfter);
+
         console.log('\n' + '='.repeat(60));
         console.log('✅ BARCHA MAYDONLAR TO\'LDIRILDI');
         console.log('='.repeat(60) + '\n');
 
     } catch (error) {
         console.error('\n❌ FORMA XATO:', error.message);
+        console.error('Stack trace:', error.stack);
 
-        const screenshotPath = path.join(__dirname, '../../logs', `form-error-${Date.now()}.png`);
-        await page.screenshot({ path: screenshotPath, fullPage: true });
-        console.error('📷 Screenshot:', screenshotPath);
+        // ✅ Error screenshot
+        try {
+            const errorScreenshot = path.join(__dirname, '../../logs', `form-error-${Date.now()}.png`);
+            await page.screenshot({ path: errorScreenshot, fullPage: true });
+            console.error('📷 Error screenshot:', errorScreenshot);
+
+            // ✅ Error HTML dump
+            const errorHtml = path.join(__dirname, '../../logs', `error-page-${Date.now()}.html`);
+            const html = await page.content();
+            fs.writeFileSync(errorHtml, html);
+            console.error('📝 Error HTML:', errorHtml);
+        } catch (screenshotError) {
+            console.error('⚠️ Screenshot olishda xato:', screenshotError.message);
+        }
 
         throw error;
     }
