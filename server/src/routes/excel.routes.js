@@ -1,143 +1,171 @@
-// server/src/routes/excel.routes.js (yangilangan)
+// server/src/routes/excel.routes.js - PostgreSQL version
 const express = require('express');
 const router = express.Router();
 const { protect, authorize } = require('../middleware/simpleAuth');
 const {
-    readFromLocalExcel,
-    clearLocalExcel,
-    getExcelStats
-} = require('../services/localExcelService');
-
-const {
     getObjects,
     postAd,
-    getQueueStatus
+    getQueueStatus,
+    getStats,
+    search,
+    deleteObject
 } = require('../controllers/excelController');
 
-const {
-    manualCleanup,
-    getTempFolderSize
-} = require('../services/cleanupScheduler');
+// ============================================
+// PROTECTED ROUTES (AUTH REQUIRED)
+// ============================================
 
-// Excel statistika
-router.get('/stats', protect, async (req, res) => {
+/**
+ * Statistika
+ * GET /api/excel/stats
+ */
+router.get('/stats', protect, getStats);
+
+/**
+ * Barcha obyektlar
+ * GET /api/excel/objects
+ * Query params: ?kvartil=...&rieltor=...&status=...
+ */
+router.get('/objects', protect, authorize('admin', 'manager'), getObjects);
+
+/**
+ * OLX ga elon berish
+ * POST /api/excel/post-ad
+ * Body: { objectId: "uuid" }
+ */
+router.post('/post-ad', protect, authorize('admin', 'manager'), postAd);
+
+/**
+ * Navbat statusi
+ * GET /api/excel/queue-status
+ */
+router.get('/queue-status', protect, authorize('admin', 'manager'), getQueueStatus);
+
+/**
+ * Qidiruv
+ * GET /api/excel/search?q=...
+ */
+router.get('/search', protect, search);
+
+/**
+ * Obyektni o'chirish
+ * DELETE /api/excel/objects/:id
+ */
+router.delete('/objects/:id', protect, authorize('admin'), deleteObject);
+
+// ============================================
+// ADMIN ONLY ROUTES
+// ============================================
+
+/**
+ * Database cleanup
+ * POST /api/excel/cleanup
+ */
+router.post('/cleanup', protect, authorize('admin'), async (req, res) => {
     try {
-        const stats = await getExcelStats();
+        const Session = require('../models/Session.pg');
+        const ActivityLog = require('../models/ActivityLog.pg');
+
+        const results = await Promise.all([
+            Session.cleanup(),
+            Session.deleteOld(),
+            ActivityLog.deleteOld()
+        ]);
+
         res.json({
             success: true,
-            stats
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            error: error.message
-        });
-    }
-});
-
-// Barcha ma'lumotlar (admin only)
-router.get('/all', protect, authorize('admin'), async (req, res) => {
-    try {
-        const data = await readFromLocalExcel();
-        res.json({
-            success: true,
-            count: data.length,
-            data
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            error: error.message
-        });
-    }
-});
-
-// ✅ YANGI: Obyektlar ro'yxati (elon uchun)
-router.get('/objects', protect, authorize('admin'), getObjects);
-
-// ✅ YANGI: Elon berish
-router.post('/post-ad', protect, authorize('admin'), postAd);
-
-// ✅ YANGI: Navbat statusi
-router.get('/queue-status', protect, authorize('admin'), getQueueStatus);
-
-// Excel faylni tozalash
-router.post('/clear', protect, authorize('admin'), async (req, res) => {
-    try {
-        const result = await clearLocalExcel();
-        res.json({
-            success: result,
-            message: result ? 'Excel fayl tozalandi' : 'Xato yuz berdi'
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            error: error.message
-        });
-    }
-});
-
-// Temp papkani tozalash
-router.post('/cleanup-temp', protect, authorize('admin'), async (req, res) => {
-    try {
-        const result = await manualCleanup({ cleanTemp: true });
-        res.json({
-            success: true,
-            result: result.temp
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            error: error.message
-        });
-    }
-});
-
-// Temp papka hajmi
-router.get('/temp-size', protect, async (req, res) => {
-    try {
-        const size = getTempFolderSize();
-        res.json({
-            success: true,
-            ...size
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            error: error.message
-        });
-    }
-});
-
-// Backup yuklab olish
-const fs = require('fs');
-const path = require('path');
-
-router.get('/download-backup', protect, authorize('admin', 'manager'), async (req, res) => {
-    try {
-        const backupFile = path.join(__dirname, '../../storage/excel/backup_database.xlsx');
-
-        if (!fs.existsSync(backupFile)) {
-            return res.status(404).json({
-                success: false,
-                error: 'Backup fayl topilmadi'
-            });
-        }
-
-        res.download(backupFile, 'backup_database.xlsx', (err) => {
-            if (err) {
-                console.error('❌ Download xato:', err);
-                res.status(500).json({
-                    success: false,
-                    error: 'Faylni yuklab olishda xato'
-                });
-            } else {
-                console.log('✅ Backup fayl yuklandi');
+            message: 'Cleanup muvaffaqiyatli',
+            cleaned: {
+                sessions: results[0],
+                oldSessions: results[1],
+                oldLogs: results[2]
             }
         });
 
     } catch (error) {
-        console.error('❌ Download endpoint xato:', error);
+        console.error('❌ Cleanup xato:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+/**
+ * Database statistics
+ * GET /api/excel/db-stats
+ */
+router.get('/db-stats', protect, authorize('admin'), async (req, res) => {
+    try {
+        const { query } = require('../config/database');
+        const result = await query('SELECT * FROM stats_overview');
+
+        res.json({
+            success: true,
+            stats: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('❌ DB stats xato:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+/**
+ * Export to Excel (optional)
+ * GET /api/excel/export
+ */
+router.get('/export', protect, authorize('admin'), async (req, res) => {
+    try {
+        const PropertyObject = require('../models/Object.pg');
+        const ExcelJS = require('exceljs');
+
+        const objects = await PropertyObject.getAll();
+
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Obyektlar');
+
+        // Headers
+        worksheet.columns = [
+            { header: 'ID', key: 'id', width: 15 },
+            { header: 'Sana', key: 'sana', width: 20 },
+            { header: 'Kvartil', key: 'kvartil', width: 20 },
+            { header: 'X/E/T', key: 'xet', width: 15 },
+            { header: 'Telefon', key: 'tell', width: 15 },
+            { header: 'M²', key: 'm2', width: 10 },
+            { header: 'Narx', key: 'narx', width: 15 },
+            { header: 'Rieltor', key: 'rieltor', width: 15 },
+            { header: 'Status', key: 'elon_status', width: 12 },
+            { header: 'Elon Sanasi', key: 'elon_date', width: 20 }
+        ];
+
+        // Add data
+        objects.forEach(obj => {
+            worksheet.addRow(obj);
+        });
+
+        // Style header
+        worksheet.getRow(1).font = { bold: true };
+        worksheet.getRow(1).fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FF4285F4' }
+        };
+
+        // Send file
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=export_${Date.now()}.xlsx`);
+
+        await workbook.xlsx.write(res);
+        res.end();
+
+        console.log(`✅ Excel export: ${objects.length} ta obyekt`);
+
+    } catch (error) {
+        console.error('❌ Export xato:', error);
         res.status(500).json({
             success: false,
             error: error.message

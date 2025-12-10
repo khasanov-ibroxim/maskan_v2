@@ -1,9 +1,5 @@
-// server/src/controllers/excelController.js
-const {
-    getAllObjects,
-    getObjectById,
-    updateObjectStatus
-} = require('../services/serverDBService');
+// server/src/controllers/excelController.js - PostgreSQL version
+const PropertyObject = require('../models/Object.pg');
 const { postToOLX } = require('../services/olxAutomationService');
 
 /**
@@ -12,7 +8,18 @@ const { postToOLX } = require('../services/olxAutomationService');
  */
 exports.getObjects = async (req, res) => {
     try {
-        const objects = getAllObjects();
+        console.log('📊 Obyektlar so\'ralmoqda...');
+
+        const { kvartil, rieltor, status } = req.query;
+
+        const filters = {};
+        if (kvartil) filters.kvartil = kvartil;
+        if (rieltor) filters.rieltor = rieltor;
+        if (status) filters.elonStatus = status;
+
+        const objects = await PropertyObject.getAll(filters);
+
+        console.log(`✅ ${objects.length} ta obyekt topildi`);
 
         res.json({
             success: true,
@@ -45,7 +52,7 @@ exports.postAd = async (req, res) => {
         }
 
         // Obyektni topish
-        const object = getObjectById(objectId);
+        const object = await PropertyObject.getById(objectId);
 
         if (!object) {
             return res.status(404).json({
@@ -55,11 +62,14 @@ exports.postAd = async (req, res) => {
         }
 
         // Status yangilash - processing
-        updateObjectStatus(objectId, 'processing');
+        await PropertyObject.updateStatus(objectId, 'processing');
 
         // Navbatga qo'shish
         global.adQueue = global.adQueue || [];
         global.adQueue.push(objectId);
+
+        console.log(`📤 Elon navbatga qo'shildi: ${objectId}`);
+        console.log(`   Navbat uzunligi: ${global.adQueue.length}`);
 
         // Response yuborish (tezkor)
         res.json({
@@ -96,19 +106,24 @@ async function processAdQueue() {
 
     try {
         console.log(`\n📤 Elon berilmoqda: ${objectId}`);
+        console.log(`   Navbatda qolgan: ${global.adQueue.length - 1}`);
 
         // Obyektni olish
-        const object = getObjectById(objectId);
+        const object = await PropertyObject.getById(objectId);
 
         if (!object) {
             throw new Error('Obyekt topilmadi');
         }
 
+        console.log(`   Kvartil: ${object.kvartil}`);
+        console.log(`   XET: ${object.xet}`);
+        console.log(`   Narx: ${object.narx}`);
+
         // ✅ OLX.uz ga HAQIQIY elon berish
         const result = await postToOLX(object);
 
         // Status yangilash - posted
-        updateObjectStatus(
+        await PropertyObject.updateStatus(
             objectId,
             'posted',
             new Date().toISOString()
@@ -126,19 +141,22 @@ async function processAdQueue() {
             setTimeout(() => {
                 processAdQueue();
             }, 10000);
+        } else {
+            console.log('✅ Navbat bo\'sh - barcha elonlar berildi');
         }
 
     } catch (error) {
         console.error(`❌ Elon berishda xato: ${objectId}`, error);
 
-        // Status yangilash - error
-        updateObjectStatus(objectId, 'waiting');
+        // Status yangilash - waiting (qayta urinish uchun)
+        await PropertyObject.updateStatus(objectId, 'waiting');
 
         // Navbatdan o'chirish
         global.adQueue.shift();
 
         // Keyingisiga o'tish
         if (global.adQueue.length > 0) {
+            console.log(`⏭️ Keyingi elonga o'tilmoqda...`);
             setTimeout(() => {
                 processAdQueue();
             }, 10000);
@@ -152,13 +170,121 @@ async function processAdQueue() {
  */
 exports.getQueueStatus = async (req, res) => {
     try {
+        const queue = global.adQueue || [];
+
+        // Queue'dagi obyektlar haqida ma'lumot
+        const queueDetails = [];
+        for (const objectId of queue) {
+            const obj = await PropertyObject.getById(objectId);
+            if (obj) {
+                queueDetails.push({
+                    id: obj.id,
+                    kvartil: obj.kvartil,
+                    xet: obj.xet,
+                    narx: obj.narx
+                });
+            }
+        }
+
         res.json({
             success: true,
-            queue: global.adQueue || [],
-            queueLength: (global.adQueue || []).length,
-            isProcessing: (global.adQueue || []).length > 0
+            queue: queueDetails,
+            queueLength: queue.length,
+            isProcessing: queue.length > 0,
+            currentlyProcessing: queue.length > 0 ? queueDetails[0] : null
         });
     } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+};
+
+/**
+ * Statistika olish
+ * GET /api/excel/stats
+ */
+exports.getStats = async (req, res) => {
+    try {
+        const stats = await PropertyObject.getStats();
+        const byKvartil = await PropertyObject.getByKvartil();
+
+        res.json({
+            success: true,
+            stats: {
+                ...stats,
+                byKvartil
+            }
+        });
+    } catch (error) {
+        console.error('❌ Statistika xato:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+};
+
+/**
+ * Qidiruv
+ * GET /api/excel/search?q=...
+ */
+exports.search = async (req, res) => {
+    try {
+        const { q } = req.query;
+
+        if (!q || q.trim().length < 2) {
+            return res.status(400).json({
+                success: false,
+                error: 'Qidiruv so\'zi kamida 2 ta belgi bo\'lishi kerak'
+            });
+        }
+
+        const results = await PropertyObject.search(q.trim());
+
+        res.json({
+            success: true,
+            count: results.length,
+            results
+        });
+
+    } catch (error) {
+        console.error('❌ Qidiruv xato:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+};
+
+/**
+ * Obyektni o'chirish
+ * DELETE /api/excel/objects/:id
+ */
+exports.deleteObject = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const object = await PropertyObject.getById(id);
+        if (!object) {
+            return res.status(404).json({
+                success: false,
+                error: 'Obyekt topilmadi'
+            });
+        }
+
+        await PropertyObject.delete(id);
+
+        console.log(`🗑️ Obyekt o'chirildi: ${id}`);
+
+        res.json({
+            success: true,
+            message: 'Obyekt muvaffaqiyatli o\'chirildi'
+        });
+
+    } catch (error) {
+        console.error('❌ O\'chirishda xato:', error);
         res.status(500).json({
             success: false,
             error: error.message
@@ -169,5 +295,8 @@ exports.getQueueStatus = async (req, res) => {
 module.exports = {
     getObjects: exports.getObjects,
     postAd: exports.postAd,
-    getQueueStatus: exports.getQueueStatus
+    getQueueStatus: exports.getQueueStatus,
+    getStats: exports.getStats,
+    search: exports.search,
+    deleteObject: exports.deleteObject
 };
