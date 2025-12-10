@@ -1,7 +1,9 @@
-// src/routes/file.routes.js
+// src/routes/file.routes.js - FIXED
 const express = require('express');
-const { downloadZip, browsePath } = require('../controllers/fileController');
+const path = require('path'); // ✅ ADDED
+const fs = require('fs'); // ✅ ADDED
 const archiver = require('archiver');
+const { downloadZip, browsePath } = require('../controllers/fileController');
 const { UPLOADS_DIR } = require('../config/constants');
 
 const router = express.Router();
@@ -11,32 +13,25 @@ const router = express.Router();
 // ============================================
 
 // ZIP yuklab olish
-// Full path: /download-zip (chunki app.js da prefix yo'q)
 router.post('/download-zip', (req, res) => {
     console.log('📦 /download-zip endpoint\'ga so\'rov keldi');
     downloadZip(req, res);
 });
-/**
- * Uploads papkasini ZIP'ga yuklab olish
- * GET /download-uploads-zip
- */
+
+// Uploads papkasini ZIP'ga yuklab olish
 router.get('/download-uploads-zip', async (req, res) => {
     try {
         console.log('📦 Uploads ZIP yaratilmoqda...');
 
-        // ZIP fayl nomi
         const zipFileName = `uploads_backup_${Date.now()}.zip`;
 
-        // Headers
         res.setHeader('Content-Type', 'application/zip');
         res.setHeader('Content-Disposition', `attachment; filename="${zipFileName}"`);
 
-        // Archiver yaratish
         const archive = archiver('zip', {
-            zlib: { level: 9 } // Maksimal kompressiya
+            zlib: { level: 9 }
         });
 
-        // Error handling
         archive.on('error', (err) => {
             console.error('❌ ZIP yaratishda xato:', err);
             res.status(500).json({
@@ -45,7 +40,6 @@ router.get('/download-uploads-zip', async (req, res) => {
             });
         });
 
-        // Warning handler
         archive.on('warning', (err) => {
             if (err.code === 'ENOENT') {
                 console.warn('⚠️ ZIP warning:', err);
@@ -54,7 +48,6 @@ router.get('/download-uploads-zip', async (req, res) => {
             }
         });
 
-        // Progress tracking
         let fileCount = 0;
         archive.on('entry', (entry) => {
             fileCount++;
@@ -63,14 +56,8 @@ router.get('/download-uploads-zip', async (req, res) => {
             }
         });
 
-        // Pipe to response
         archive.pipe(res);
-
-        // Uploads papkasini qo'shish
-        console.log('📁 Uploads papka qoshilmoqda...');
         archive.directory(UPLOADS_DIR, 'uploads');
-
-        // Finalize
         await archive.finalize();
 
         const totalBytes = archive.pointer();
@@ -89,12 +76,7 @@ router.get('/download-uploads-zip', async (req, res) => {
     }
 });
 
-// Yoki faqat bitta papkani yuklab olish
-/**
- * Muayyan papkani ZIP'ga yuklab olish
- * POST /download-folder-zip
- * Body: { path: "Yunusobod - 1/2 xona/..." }
- */
+// Muayyan papkani ZIP'ga yuklab olish
 router.post('/download-folder-zip', async (req, res) => {
     try {
         const { path: folderPath } = req.body;
@@ -110,7 +92,6 @@ router.post('/download-folder-zip', async (req, res) => {
 
         const fullPath = path.join(UPLOADS_DIR, folderPath);
 
-        // Papka mavjudligini tekshirish
         if (!fs.existsSync(fullPath)) {
             return res.status(404).json({
                 success: false,
@@ -118,7 +99,6 @@ router.post('/download-folder-zip', async (req, res) => {
             });
         }
 
-        // Papka ekanligini tekshirish
         const stats = fs.statSync(fullPath);
         if (!stats.isDirectory()) {
             return res.status(400).json({
@@ -127,15 +107,12 @@ router.post('/download-folder-zip', async (req, res) => {
             });
         }
 
-        // ZIP fayl nomi
         const folderName = path.basename(folderPath);
         const zipFileName = `${folderName}_${Date.now()}.zip`;
 
-        // Headers
         res.setHeader('Content-Type', 'application/zip');
         res.setHeader('Content-Disposition', `attachment; filename="${zipFileName}"`);
 
-        // Archiver
         const archive = archiver('zip', { zlib: { level: 9 } });
 
         archive.on('error', (err) => {
@@ -144,10 +121,7 @@ router.post('/download-folder-zip', async (req, res) => {
         });
 
         archive.pipe(res);
-
-        // Papkani qo'shish
         archive.directory(fullPath, false);
-
         await archive.finalize();
 
         console.log('✅ Papka ZIP yaratildi:', zipFileName);
@@ -160,14 +134,11 @@ router.post('/download-folder-zip', async (req, res) => {
         });
     }
 });
-// File browser - REGEX PATTERN (Express v5+ uchun)
-// Full path: /browse yoki /browse/anything/nested
-// ✅ FIXED - Regex pattern ishlatamiz
+
+// File browser - REGEX PATTERN
 router.get(/^\/browse\/?(.*)/, (req, res) => {
-    // req.params[0] regex capture group dan keladi
     const requestedPath = req.params[0] || '';
     console.log('📁 /browse endpoint\'ga so\'rov keldi:', requestedPath || 'root');
-
     browsePath(req, res);
 });
 

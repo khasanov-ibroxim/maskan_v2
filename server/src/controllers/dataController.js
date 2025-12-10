@@ -38,9 +38,15 @@ async function sendData(req, res, appScriptQueue) {
         }
 
         // ✅ 2. RIELTOR MA'LUMOTLARINI TOPISH (PostgreSQL)
+        // server/src/controllers/dataController.js - RIELTOR TOPISH QISMI
+// Faqat o'zgartirilgan qismlar:
+
+// ✅ 2. RIELTOR MA'LUMOTLARINI TOPISH (PostgreSQL)
         let rielterInfo = null;
         try {
-            const realtors = await User.getRealtors();
+            // ✅ FIXED: To'g'ri method
+            const realtors = await User.getRealtors(); // Bu method mavjud
+
             rielterInfo = realtors.find(u => u.username === data.rieltor);
 
             if (!rielterInfo) {
@@ -50,6 +56,23 @@ async function sendData(req, res, appScriptQueue) {
             }
         } catch (error) {
             console.error("❌ Rieltor qidirishda xato:", error.message);
+        }
+        if (rielterInfo?.app_script_url) { // ✅ snake_case
+            try {
+                const rielterData = {
+                    ...data,
+                    folderLink: folderLink || "Yo'q"
+                };
+                await sendToAppScriptWithRetry(
+                    rielterInfo.app_script_url, // ✅ snake_case
+                    rielterData,
+                    rielterInfo.id
+                );
+                results.rielter = { success: true };
+                console.log("✅ RIELTER EXCEL'GA YUBORILDI");
+            } catch (error) {
+                console.error("❌ RIELTER EXCEL XATO:", error.message);
+            }
         }
 
         // ✅ 3. TELEGRAM XABAR TAYYORLASH

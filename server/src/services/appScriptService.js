@@ -1,8 +1,8 @@
-
+// server/src/services/appScriptService.js
 const axios = require('axios');
 const { APP_SCRIPT_TIMEOUT, APP_SCRIPT_MAX_RETRIES } = require('../config/constants');
 const { sendToTelegram } = require('./telegramService');
-const SimpleUser = require('../models/SimpleUser');
+const User = require('../models/User.pg'); // ✅ FIXED
 
 async function sendToAppScriptWithRetry(url, data, realtorId, maxRetries = APP_SCRIPT_MAX_RETRIES) {
     let lastError;
@@ -28,7 +28,6 @@ async function sendToAppScriptWithRetry(url, data, realtorId, maxRetries = APP_S
             lastError = error;
             console.error(`❌ App Script xato (urinish ${attempt}/${maxRetries}):`, error.message);
 
-            // Oxirgi urinishdan so'ng Telegram xabarnoma yuborish
             if (attempt === maxRetries && realtorId) {
                 await notifyRealtorAboutError(realtorId, error, data);
             }
@@ -44,15 +43,11 @@ async function sendToAppScriptWithRetry(url, data, realtorId, maxRetries = APP_S
     throw lastError;
 }
 
-/**
- * Realtorga xato haqida Telegram orqali xabar berish
- */
 async function notifyRealtorAboutError(realtorId, error, data) {
     try {
-        // Realtorni topish
-        const realtor = SimpleUser.findById(realtorId);
+        const realtor = await User.findById(realtorId); // ✅ FIXED
 
-        if (!realtor || !realtor.telegramThemeId) {
+        if (!realtor || !realtor.telegram_theme_id) { // ✅ snake_case
             console.log('⚠️ Realtor yoki Telegram Theme ID topilmadi');
             return;
         }
@@ -75,14 +70,13 @@ ${error.message}
 💡 Iltimos, ma'lumotlarni qo'lda tekshiring.
         `.trim();
 
-        // Telegram chat ID - bu environment variable yoki config'dan keladi
         const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '-1003298985470';
 
         await sendToTelegram(
             TELEGRAM_CHAT_ID,
             errorMessage,
-            [], // Rasmlar yo'q
-            realtor.telegramThemeId
+            [],
+            realtor.telegram_theme_id // ✅ snake_case
         );
 
         console.log(`✅ Realtor ${realtor.username} ga xato haqida xabar yuborildi`);

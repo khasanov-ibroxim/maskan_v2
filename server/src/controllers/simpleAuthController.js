@@ -1,5 +1,5 @@
 // controllers/simpleAuthController.js
-const SimpleUser = require('../models/SimpleUser');
+const SimpleUser = require('../models/User.pg');
 const { createSession, endSession, logActivity } = require('../middleware/simpleAuth');
 
 /**

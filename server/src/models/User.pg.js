@@ -1,10 +1,10 @@
-// server/src/models/User.pg.js
+// server/src/models/User.pg.js - FIXED
 const bcrypt = require('bcryptjs');
 const { query } = require('../config/database');
 
 class User {
     /**
-     * Get all users
+     * Get all users (without password)
      */
     static async getAll() {
         const result = await query(
@@ -14,18 +14,18 @@ class User {
     }
 
     /**
-     * Find user by username
+     * Find user by username (WITH PASSWORD for login)
      */
     static async findByUsername(username) {
         const result = await query(
-            'SELECT * FROM users WHERE username = $1',
+            'SELECT * FROM users WHERE username = $1', // ✅ SELECT * to include password
             [username]
         );
         return result.rows[0] || null;
     }
 
     /**
-     * Find user by ID
+     * Find user by ID (without password)
      */
     static async findById(id) {
         const result = await query(
@@ -47,7 +47,7 @@ class User {
         const result = await query(
             `INSERT INTO users (username, password, full_name, role, app_script_url, telegram_theme_id, is_active)
              VALUES ($1, $2, $3, $4, $5, $6, true)
-             RETURNING id, username, full_name, role, is_active, app_script_url, telegram_theme_id, created_at`,
+                 RETURNING id, username, full_name, role, is_active, app_script_url, telegram_theme_id, created_at`,
             [username, hashedPassword, fullName, role, appScriptUrl || null, telegramThemeId || null]
         );
 
@@ -62,7 +62,6 @@ class User {
         const values = [];
         let paramCount = 1;
 
-        // Build dynamic update query
         if (updates.username) {
             fields.push(`username = $${paramCount++}`);
             values.push(updates.username);
@@ -100,10 +99,10 @@ class User {
         values.push(id);
 
         const result = await query(
-            `UPDATE users 
+            `UPDATE users
              SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP
              WHERE id = $${paramCount}
-             RETURNING id, username, full_name, role, is_active, app_script_url, telegram_theme_id, created_at`,
+                 RETURNING id, username, full_name, role, is_active, app_script_url, telegram_theme_id, created_at`,
             values
         );
 
@@ -122,6 +121,11 @@ class User {
      * Compare password
      */
     static async comparePassword(plainPassword, hashedPassword) {
+        // ✅ FIXED: Check if hashedPassword exists
+        if (!hashedPassword) {
+            console.error('❌ Password hash yo\'q!');
+            return false;
+        }
         return await bcrypt.compare(plainPassword, hashedPassword);
     }
 
@@ -131,7 +135,7 @@ class User {
     static async getRealtors() {
         const result = await query(
             `SELECT id, username, full_name, role, is_active, app_script_url, telegram_theme_id
-             FROM users 
+             FROM users
              WHERE role = 'rieltor' AND is_active = true
              ORDER BY full_name`
         );
@@ -143,12 +147,12 @@ class User {
      */
     static async getStats() {
         const result = await query(
-            `SELECT 
-                COUNT(*) FILTER (WHERE is_active = true) as active_users,
-                COUNT(*) FILTER (WHERE is_active = false) as inactive_users,
-                COUNT(*) FILTER (WHERE role = 'admin') as admins,
-                COUNT(*) FILTER (WHERE role = 'rieltor') as rieltors,
-                COUNT(*) FILTER (WHERE role = 'user') as regular_users
+            `SELECT
+                 COUNT(*) FILTER (WHERE is_active = true) as active_users,
+                 COUNT(*) FILTER (WHERE is_active = false) as inactive_users,
+                 COUNT(*) FILTER (WHERE role = 'admin') as admins,
+                 COUNT(*) FILTER (WHERE role = 'rieltor') as rieltors,
+                 COUNT(*) FILTER (WHERE role = 'user') as regular_users
              FROM users`
         );
         return result.rows[0];
