@@ -9,7 +9,7 @@ const OLX_PASSWORD = process.env.OLX_PASSWORD;
 
 // User data directory - session saqlash uchun
 const USER_DATA_DIR = path.join(__dirname, '../../.chrome-data');
-
+const PropertyObject = require('../models/Object.pg');
 // Helper function
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -345,35 +345,38 @@ async function clickFurnishedAndCommission(page) {
 
 
 /**
- * Tavsif yaratish
+ * ✅ Tavsif yaratish (Rus tili KIRILL alifbosida)
  */
 function createDescription(data) {
     const { kvartil, xet, m2, xolati, uy_turi, narx, opisaniya, planirovka, balkon, rieltor } = data;
+
     const xonaSoni = xet.split("/")[0];
     const etaj = xet.split("/")[1];
     const etajnost = xet.split("/")[2];
     const etajInfo = `${etaj}/${etajnost}`;
 
-    // Asosiy joy nomi (masalan: Yunusobod-1)
     const location = kvartil || 'Yunusobod';
+    const formattedPrice = narx.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 
-    // Rielter ismi (default: Aziz)
-    const agentName = rieltor || 'Maskan_lux';
+    // ==========================================
+    // O'ZBEK MATNI
+    // ==========================================
+    let description = `SOTILADI - ${location.toUpperCase()}\n`;
+    description += `${xonaSoni}-xonali kvartira\n\n`;
 
-    // Tavsif qismlari
-    let description = `Sotiladi — ${location}, ${xonaSoni} хона\n\n`;
-
-    // Majburiy maydonlar
+    description += `ASOSIY MA'LUMOTLAR:\n`;
+    description += `---\n`;
+    description += `• Joylashuv: ${location}\n`;
+    description += `• Xonalar soni: ${xonaSoni}\n`;
+    description += `• Umumiy maydoni: ${m2} m2\n`;
     description += `• Qavat: ${etajInfo}\n`;
-    description += `• Maydoni: ${m2} м²\n`;
-
-    // Ixtiyoriy maydonlar
-    if (xolati) {
-        description += `• Remont: ${xolati}\n`;
-    }
 
     if (uy_turi) {
         description += `• Uy turi: ${uy_turi}\n`;
+    }
+
+    if (xolati) {
+        description += `• Ta'mirlash: ${xolati}\n`;
     }
 
     if (planirovka) {
@@ -384,27 +387,144 @@ function createDescription(data) {
         description += `• Balkon: ${balkon}\n`;
     }
 
-    // Narx
-    description += `• Narxi: ${narx}\n`;
+    description += `\n`;
+    description += `NARX: ${formattedPrice} $\n`;
+    description += `(Kelishiladi)\n\n`;
 
-    // Telefon
-    description += `\n• Aloqa uchun: +998 97 085 06 04\n\n`;
+    description += `AFZALLIKLAR:\n`;
+    description += `---\n`;
+    description += `+ Hujjatlar tayyor\n`;
+    description += `+ Tez ko'rik\n`;
+    description += `+ Professional yordam\n`;
+    description += `+ Yuridik tozaligi kafolatlangan\n\n`;
 
-    // Hashtaglar
+    // ==========================================
+    // RUS MATNI (KIRILL)
+    // ==========================================
+    description += `ПРОДАЕТСЯ - ${location.toUpperCase()}\n`;
+    description += `${xonaSoni}-комнатная квартира\n\n`;
+
+    description += `ОСНОВНАЯ ИНФОРМАЦИЯ:\n`;
+    description += `---\n`;
+    description += `• Расположение: ${location}\n`;
+    description += `• Количество комнат: ${xonaSoni}\n`;
+    description += `• Общая площадь: ${m2} м2\n`;
+    description += `• Этаж: ${etajInfo}\n`;
+
+    if (uy_turi) {
+        description += `• Тип дома: ${uy_turi}\n`;
+    }
+
+    if (xolati) {
+        description += `• Состояние: ${xolati}\n`;
+    }
+
+    if (planirovka) {
+        description += `• Планировка: ${planirovka}\n`;
+    }
+
+    if (balkon) {
+        description += `• Балкон: ${balkon}\n`;
+    }
+
+    description += `\n`;
+    description += `ЦЕНА:${formattedPrice} $\n`;
+    description += `(Договорная)\n\n`;
+
+    description += `ПРЕИМУЩЕСТВА:\n`;
+    description += `---\n`;
+    description += `+ Документы готовы\n`;
+    description += `+ Быстрый показ\n`;
+    description += `+ Профессиональная помощь\n`;
+    description += `+ Юридическая чистота гарантирована\n`;
+    description += `+ Помощь с оформлением сделки\n`;
+    description += `+ Консультация по ипотеке\n\n`;
+
+    description += `КОНТАКТЫ:\n`;
+    description += `---\n`;
+    description += `Звоните прямо сейчас!\n`;
+    description += `WhatsApp / Telegram доступны\n`;
+    description += `Ответим на все вопросы\n\n`;
+
+    if (opisaniya && opisaniya.trim().length > 0) {
+        description += `ДОПОЛНИТЕЛЬНО:\n`;
+        description += `---\n`;
+        description += `${opisaniya}\n\n`;
+    }
+
+    // ==========================================
+    // HASHTAGLAR
+    // ==========================================
+    description += `---\n`;
+    description += `ТЕГИ ДЛЯ ПОИСКА:\n`;
+    description += `---\n\n`;
+
+    const locationClean = location.replace(/\s+/g, '').replace(/-/g, '');
+    const agentName = rieltor ? rieltor.replace(/\s+/g, '_') : 'Maskan_lux';
+
     const hashtags = [
+        '#квартира',
+        '#продажа',
+        '#недвижимость',
         '#realestate',
-        `#${location.replace(/\s+/g, '')}`,
-        `#${xonaSoni}xona`,
+        '#Ташкент',
         '#Tashkent',
+        '#Узбекистан',
+        '#Uzbekistan',
+        '#Юнусабад',
         '#Yunusobod',
+        `#${locationClean}`,
+        `#${xonaSoni}комнатная`,
+        `#${xonaSoni}rooms`,
+        '#продаетсяквартира',
+        '#квартирыТашкент',
+        '#жильеТашкент',
+        uy_turi ? `#${uy_turi.replace(/\s+/g, '')}` : null,
+        '#вторичка',
+        '#безпосредников',
+        '#срочно',
+        m2 >= 70 && m2 < 100 ? '#большаяквартира' : null,
+        m2 >= 100 ? '#элитнаяквартира' : null,
+        parseInt(narx.replace(/\D/g, '')) < 40000 ? '#доступнаяцена' : null,
+        parseInt(narx.replace(/\D/g, '')) >= 80000 ? '#премиум' : null,
+        xolati && xolati.includes('Evro') ? '#евроремонт' : null,
+        `#${agentName}`,
+        '#риелтор',
+        '#realtor',
+        '#купитьквартиру',
+        '#недвижимостьТашкент',
+        '#tashkentrealestate',
         '#RTD',
-        `#${agentName}`
-    ];
+        '#Maskan_lux'
+    ].filter(Boolean);
 
-    description += hashtags.join(' ');
+    // 5 tadan qilib joylashtirish
+    const hashtagLines = [];
+    for (let i = 0; i < hashtags.length; i += 5) {
+        hashtagLines.push(hashtags.slice(i, i + 5).join(' '));
+    }
+
+    description += hashtagLines.join('\n');
+    description += `\n\n---`;
+
+    // ✅ TOZALASH: Ketma-ket 3+ belgini tozalash
+    description = cleanRepeatedSymbols(description);
 
     return description;
 }
+
+
+/**
+ * ✅ HELPER: Ketma-ket takrorlanuvchi belgilarni tozalash
+ */
+function cleanRepeatedSymbols(text) {
+    // Faqat ruxsat etilgan belgilar: • - + / @ # $ ! %
+    const allowedSymbols = /[•\-+/@#$!%]/g;
+
+    // Ketma-ket 3+ marta takrorlangan belgilarni 2 taga kamaytirish
+    return text.replace(/([•\-+/@#$!%])\1{2,}/g, '$1$1');
+}
+
 
 /**
  * ✅ TO'LIQ ELON FORMASINI TO'LDIRISH
@@ -784,6 +904,10 @@ async function submitAd(page) {
         }
 
         if (!submitButton) {
+            const screenshotPath = path.join(__dirname, '../../logs', `no-submit-button-${Date.now()}.png`);
+            await page.screenshot({path: screenshotPath, fullPage: true});
+            console.log('📷 Screenshot:', screenshotPath);
+
             throw new Error('Submit tugma topilmadi');
         }
 
@@ -808,6 +932,10 @@ async function submitAd(page) {
 
                 // Login sahifasiga o'tgan bo'lsa
                 if (currentUrl.includes('login') || currentUrl.includes('callback')) {
+                    const screenshotPath = path.join(__dirname, '../../logs', `login-required-${Date.now()}.png`);
+                    await page.screenshot({path: screenshotPath, fullPage: true});
+                    console.log('📷 Screenshot:', screenshotPath);
+
                     throw new Error('Login talab qilinmoqda');
                 }
 
@@ -824,66 +952,91 @@ async function submitAd(page) {
         const afterUrl = page.url();
         console.log('📍 Oxirgi URL:', afterUrl);
 
-        // Xatolarni tekshirish (to'g'ri usul bilan)
-        try {
-            const errorElements = await page.$('[class*="error"], [class*="alert"], [aria-invalid="true"]');
+        // ✅ XATOLARNI TEKSHIRISH
+        const formErrors = await checkFormErrors(page);
 
-            if (errorElements.length > 0) {
-                console.log(`⚠️ ${errorElements.length} ta xato elementi topildi`);
+        if (formErrors.length > 0) {
+            console.log('❌ Formada xatolar topildi:', formErrors);
 
-                const errors = [];
-                for (const el of errorElements) {
-                    const text = await page.evaluate(element => element.textContent, el);
-                    if (text && text.trim().length > 0 && text.trim().length < 200) {
-                        errors.push(text.trim());
-                    }
-                }
+            const screenshotPath = path.join(__dirname, '../../logs', `form-errors-${Date.now()}.png`);
+            await page.screenshot({path: screenshotPath, fullPage: true});
+            console.log('📷 Screenshot:', screenshotPath);
 
-                if (errors.length > 0) {
-                    console.log('❌ Xatolar:', errors);
-
-                    // Screenshot
-                    const screenshotPath = path.join(__dirname, '../../logs', `form-errors-${Date.now()}.png`);
-                    await page.screenshot({path: screenshotPath, fullPage: true});
-                    console.log('📷 Screenshot:', screenshotPath);
-
-                    throw new Error('Formada xatolar: ' + errors.join(', '));
-                }
-            }
-        } catch (errorCheckError) {
-            console.log('ℹ️ Xato tekshirish o\'tkazildi (xato topilmadi)');
+            throw new Error('Forma xatolari: ' + formErrors.join(', '));
         }
 
-        // Muvaffaqiyat tekshirish
-        if (afterUrl !== beforeUrl) {
-            if (!afterUrl.includes('/adding/') && !afterUrl.includes('/posting/')) {
-                console.log('✅ Elon berildi!');
-                console.log('='.repeat(60) + '\n');
-                return afterUrl;
-            }
+        // ✅ AGAR URL O'ZGARMAGAN BO'LSA - XATO!
+        if (afterUrl === beforeUrl || afterUrl.includes('/adding/') || afterUrl.includes('/posting/')) {
+            console.log('⚠️ URL o\'zgarmadi - formada xato bo\'lishi mumkin');
+
+            const screenshotPath = path.join(__dirname, '../../logs', `submit-no-change-${Date.now()}.png`);
+            await page.screenshot({path: screenshotPath, fullPage: true});
+            console.log('📷 Screenshot:', screenshotPath);
+
+            // ✅ XATO THROW QILISH
+            throw new Error('Elon berilmadi: URL o\'zgarmadi. Formada yashirin xato bo\'lishi mumkin.');
         }
 
-        // Agar URL o'zgarmagan bo'lsa - ehtimol xato bor
-        console.log('⚠️ URL o\'zgarmadi - formada xato bo\'lishi mumkin');
-
-        // Screenshot
-        const screenshotPath = path.join(__dirname, '../../logs', `submit-no-change-${Date.now()}.png`);
-        await page.screenshot({path: screenshotPath, fullPage: true});
-        console.log('📷 Screenshot:', screenshotPath);
-        console.log('💡 Browserda natijani tekshiring');
+        // Agar bu qismga yetib kelgan bo'lsa - URL o'zgargan lekin adding sahifasida emas
+        console.log('✅ Elon berildi!');
         console.log('='.repeat(60) + '\n');
-
-        return beforeUrl;
+        return afterUrl;
 
     } catch (error) {
         console.error('❌ Submit xato:', error.message);
 
-        // Screenshot
-        const screenshotPath = path.join(__dirname, '../../logs', `submit-error-${Date.now()}.png`);
-        await page.screenshot({path: screenshotPath, fullPage: true});
-        console.log('📷 Screenshot:', screenshotPath);
+        // Screenshot (agar hali olinmagan bo'lsa)
+        try {
+            const screenshotPath = path.join(__dirname, '../../logs', `submit-error-${Date.now()}.png`);
+            await page.screenshot({path: screenshotPath, fullPage: true});
+            console.log('📷 Screenshot:', screenshotPath);
+        } catch (ssError) {
+            // Screenshot olishda xato bo'lsa e'tibor bermaslik
+        }
 
         throw error;
+    }
+}
+
+
+async function checkFormErrors(page) {
+    try {
+        const errors = [];
+
+        // 1. Aria-invalid elementlar
+        const invalidElements = await page.$('[aria-invalid="true"]');
+        for (const el of invalidElements) {
+            const text = await page.evaluate(element => {
+                const label = element.closest('div')?.querySelector('label');
+                return label ? label.textContent : element.name || 'Noma\'lum maydon';
+            }, el);
+            errors.push(`${text} - noto'g'ri qiymat`);
+        }
+
+        // 2. Error class'lari
+        const errorMessages = await page.$('.error-message, .field-error, [class*="error-text"]');
+        for (const el of errorMessages) {
+            const text = await page.evaluate(element => element.textContent, el);
+            if (text && text.trim().length > 0 && text.trim().length < 200) {
+                errors.push(text.trim());
+            }
+        }
+
+        // 3. Required maydonlar
+        const requiredEmpty = await page.$('input[required]:invalid, textarea[required]:invalid');
+        for (const el of requiredEmpty) {
+            const name = await page.evaluate(element => {
+                const label = element.closest('div')?.querySelector('label');
+                return label ? label.textContent : element.name || 'Noma\'lum';
+            }, el);
+            errors.push(`${name} - majburiy maydon to'ldirilmagan`);
+        }
+
+        return [...new Set(errors)]; // Dublikatlarni olib tashlash
+
+    } catch (error) {
+        console.log('⚠️ Xato tekshirishda muammo:', error.message);
+        return [];
     }
 }
 
@@ -891,17 +1044,26 @@ async function submitAd(page) {
 
 async function postToOLX(objectData) {
     console.log('\n🤖 OLX automation boshlandi...');
+    console.log('  ID:', objectData.id);
     console.log('  Kvartil:', objectData.kvartil);
     console.log('  XET:', objectData.xet);
 
     let browser = null;
 
     try {
+        // ✅ 1. PROCESSING GA O'TKAZISH
+        if (objectData.id) {
+            console.log('📊 Status: waiting → processing');
+            await PropertyObject.setProcessing(objectData.id);
+        }
+
+        // User data directory
         if (!fs.existsSync(USER_DATA_DIR)) {
             fs.mkdirSync(USER_DATA_DIR, { recursive: true });
             console.log('📁 User data directory yaratildi');
         }
 
+        // Browser ochish
         browser = await puppeteer.launch({
             headless: false,
             userDataDir: USER_DATA_DIR,
@@ -921,6 +1083,7 @@ async function postToOLX(objectData) {
 
         const page = await browser.newPage();
 
+        // Anti-detection
         await page.evaluateOnNewDocument(() => {
             Object.defineProperty(navigator, 'webdriver', {
                 get: () => false
@@ -941,6 +1104,7 @@ async function postToOLX(objectData) {
             await dialog.dismiss();
         });
 
+        // OLX.uz ga kirish
         console.log('📱 OLX.uz ga kirilmoqda...');
         await page.goto('https://www.olx.uz', {
             waitUntil: 'domcontentloaded',
@@ -949,6 +1113,7 @@ async function postToOLX(objectData) {
 
         await sleep(3000);
 
+        // Login tekshirish
         const isLoggedIn = await checkAndWaitForLogin(page);
         if (!isLoggedIn) {
             throw new Error('Login amalga oshmadi');
@@ -956,6 +1121,7 @@ async function postToOLX(objectData) {
 
         console.log('✅ Login muvaffaqiyatli\n');
 
+        // Elon berish sahifasiga o'tish
         console.log('📝 Elon berish sahifasiga o\'tilmoqda...');
         await page.goto('https://www.olx.uz/adding/', {
             waitUntil: 'domcontentloaded',
@@ -964,21 +1130,21 @@ async function postToOLX(objectData) {
 
         await sleep(5000);
 
-        // ✅ Alert yopish (eski elon)
+        // Alert yopish
         await closeUnfinishedAdAlert(page);
 
-        // ✅ Login tekshirish
+        // Login qayta tekshirish
         const stillLoggedIn = await checkLoginStatus(page);
         if (!stillLoggedIn) {
             console.log('⚠️ Login kerak, kutilmoqda...');
             await waitForManualLogin(page, 120);
         }
 
-        // ✅ Forma to'ldirish
+        // Forma to'ldirish
         console.log('✍️ Ma\'lumotlar to\'ldirilmoqda...');
         await fillAdForm(page, objectData);
 
-        // ✅ Submit
+        // Submit
         console.log('🚀 Elon berilmoqda...');
         const adUrl = await submitAd(page);
 
@@ -987,6 +1153,12 @@ async function postToOLX(objectData) {
         await sleep(3000);
         await browser.close();
 
+        // ✅ 2. POSTED GA O'TKAZISH
+        if (objectData.id) {
+            console.log('📊 Status: processing → posted');
+            await PropertyObject.setPosted(objectData.id, adUrl);
+        }
+
         return {
             success: true,
             adUrl: adUrl,
@@ -994,8 +1166,9 @@ async function postToOLX(objectData) {
         };
 
     } catch (error) {
-        console.error('❌ OLX automation xato:', error);
+        console.error('❌ OLX automation xato:', error.message);
 
+        // Screenshot olish
         if (browser) {
             try {
                 const pages = await browser.pages();
@@ -1011,6 +1184,12 @@ async function postToOLX(objectData) {
             await browser.close();
         }
 
+        // ✅ 3. ERROR GA O'TKAZISH
+        if (objectData.id) {
+            console.log('📊 Status: processing → error');
+            await PropertyObject.setError(objectData.id, error.message);
+        }
+
         throw error;
     }
 }
@@ -1018,3 +1197,4 @@ async function postToOLX(objectData) {
 module.exports = {
     postToOLX
 };
+

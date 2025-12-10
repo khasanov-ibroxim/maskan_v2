@@ -17,11 +17,25 @@ async function saveFiles(data, req) {
         const xonaPath = path.join(kvartilPath, `${xonaSoni} xona`);
         ensureDirectoryExists(xonaPath);
 
+        // ✅ CRITICAL FIX: Unique folder nomi yaratish
         const cleanXet = data.xet.replace(/\//g, "_").replace(/'/g, "");
         const cleanTell = data.tell.replace(/\D/g, "");
-        const objectFolderName = `${data.kvartil}_${cleanXet}_${data.fio}_${cleanTell}`;
+
+        // ✅ Timestamp qo'shish (milliseconds bilan)
+        const timestamp = Date.now();
+        const dateStr = new Date().toISOString().slice(0, 10); // 2024-12-10
+
+        // ✅ VARIANT 1: Timestamp bilan
+        const objectFolderName = `${data.kvartil}_${cleanXet}_${data.fio}_${cleanTell}_${timestamp}`;
+
+        // ✅ VARIANT 2: Sana va vaqt bilan (o'qish uchun qulay)
+        // const timeStr = new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/:/g, '-');
+        // const objectFolderName = `${data.kvartil}_${cleanXet}_${data.fio}_${cleanTell}_${dateStr}_${timeStr}`;
+
         const objectPath = path.join(xonaPath, objectFolderName);
         ensureDirectoryExists(objectPath);
+
+        console.log(`📁 Folder nomi: ${objectFolderName}`);
 
         for (let i = 0; i < data.rasmlar.length; i++) {
             const imgData = data.rasmlar[i];

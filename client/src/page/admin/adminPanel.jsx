@@ -1,4 +1,5 @@
-import React, {useEffect, useState} from 'react';
+// client/src/pages/admin/AdminPanel.jsx
+import React, {useEffect, useState, useCallback, useRef} from 'react';
 import {
     Card, Table, Button, Modal, Form, Input, Select, message, Tabs, Tag, Space,
     Popconfirm, Statistic, Row, Col, Alert
@@ -21,14 +22,15 @@ const AdminPanel = () => {
     const [editModalVisible, setEditModalVisible] = useState(false);
     const [selectedRole, setSelectedRole] = useState('user');
     const [editingUser, setEditingUser] = useState(null);
+    const [lastUpdate, setLastUpdate] = useState(null);
     const [form] = Form.useForm();
     const [editForm] = Form.useForm();
 
-    useEffect(() => {
-        loadUsers();
-    }, []);
+    // ✅ Interval ref (cleanup uchun)
+    const intervalRef = useRef(null);
 
-    const loadUsers = async () => {
+    // ✅ useCallback bilan loadUsers - faqat 1 marta yaratiladi
+    const loadUsers = useCallback(async (showMessage = false) => {
         setLoading(true);
         try {
             const [usersRes, sessionsRes] = await Promise.all([
@@ -39,13 +41,46 @@ const AdminPanel = () => {
             if (usersRes.data.success) setUsers(usersRes.data.users);
             if (sessionsRes.data.success) setActiveSessions(sessionsRes.data.sessions);
 
-            message.success('Ma\'lumotlar yangilandi');
+            setLastUpdate(new Date());
+
+            // ✅ Faqat manual refresh'da message ko'rsatish
+            if (showMessage) {
+                message.success('Ma\'lumotlar yangilandi');
+            }
         } catch (error) {
             console.error('Ma\'lumot yuklashda xato:', error);
-            message.error('Ma\'lumotlarni yuklashda xato');
+            if (showMessage) {
+                message.error('Ma\'lumotlarni yuklashda xato');
+            }
         } finally {
             setLoading(false);
         }
+    }, []); // ✅ Dependencies bo'sh - funksiya o'zgarmaydi
+
+    // ✅ Component mount bo'lganda - faqat 1 marta
+    useEffect(() => {
+        console.log('🚀 AdminPanel mounted - loading initial data');
+        loadUsers(false);
+
+        // ✅ 10 minutda 1 marta yangilash (600000ms = 10 min)
+        intervalRef.current = setInterval(() => {
+            console.log('🔄 Auto-refresh (10 min interval)');
+            loadUsers(false);
+        }, 600000); // 10 minut
+
+        // ✅ Cleanup - component unmount bo'lganda
+        return () => {
+            console.log('🧹 Cleaning up interval');
+            if (intervalRef.current) {
+                clearInterval(intervalRef.current);
+            }
+        };
+    }, [loadUsers]); // ✅ loadUsers dependency (useCallback orqali stable)
+
+    // ✅ Manual refresh handler
+    const handleManualRefresh = () => {
+        console.log('🔄 Manual refresh triggered');
+        loadUsers(true);
     };
 
     const handleCreateUser = async (values) => {
@@ -56,7 +91,15 @@ const AdminPanel = () => {
                 setModalVisible(false);
                 form.resetFields();
                 setSelectedRole('user');
-                await loadUsers();
+
+                // ✅ Optimistic update - serverga qayta zapros yo'q
+                setUsers(prev => [...prev, response.data.user]);
+
+                // ✅ Agar zarur bo'lsa - faqat sessions'ni yangilash
+                const sessionsRes = await api.get('/api/users/sessions/active');
+                if (sessionsRes.data.success) {
+                    setActiveSessions(sessionsRes.data.sessions);
+                }
             }
         } catch (error) {
             console.error('User yaratishda xato:', error);
@@ -69,11 +112,17 @@ const AdminPanel = () => {
             const response = await api.delete(`/api/users/users/${userId}`);
             if (response.data.success) {
                 message.success('User o\'chirildi');
-                await loadUsers();
+
+                // ✅ Optimistic update
+                setUsers(prev => prev.filter(u => u.id !== userId));
+                setActiveSessions(prev => prev.filter(s => s.userId !== userId));
             }
         } catch (error) {
             console.error('User o\'chirishda xato:', error);
             message.error(error.response?.data?.error || 'Xato');
+
+            // ✅ Xato bo'lsa - qayta yuklash
+            loadUsers(false);
         }
     };
 
@@ -102,18 +151,25 @@ const AdminPanel = () => {
                 editForm.resetFields();
                 setEditingUser(null);
                 setSelectedRole('user');
-                await loadUsers();
+
+                // ✅ Optimistic update
+                setUsers(prev => prev.map(u =>
+                    u.id === editingUser.id ? { ...u, ...values } : u
+                ));
             }
         } catch (error) {
             console.error('User yangilashda xato:', error);
             message.error(error.response?.data?.error || 'Xato');
+
+            // ✅ Xato bo'lsa - qayta yuklash
+            loadUsers(false);
         }
     };
 
     const handleDownloadBackup = async () => {
         try {
             message.loading('Excel backup yuklanmoqda...', 0);
-            const response = await api.get('/api/excel/download-backup', {
+            const response = await api.get('/api/excel/export', {
                 responseType: 'blob'
             });
             const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -222,7 +278,16 @@ const AdminPanel = () => {
 
     return (
         <div style={{padding: 24, background: '#f0f2f5', minHeight: 'calc(100vh - 64px)'}}>
-            <h1 style={{fontSize: 28, marginBottom: 24}}>👨‍💼 Admin Panel</h1>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                <h1 style={{fontSize: 28, margin: 0}}>👨‍💼 Admin Panel</h1>
+
+                {/* ✅ Last update timestamp */}
+                {lastUpdate && (
+                    <Tag color="blue">
+                        Oxirgi yangilanish: {lastUpdate.toLocaleTimeString('uz-UZ')}
+                    </Tag>
+                )}
+            </div>
 
             <Row gutter={16} style={{marginBottom: 24}}>
                 <Col xs={24} sm={8}>
@@ -264,35 +329,53 @@ const AdminPanel = () => {
 
                 <TabPane tab={<span><UserOutlined /> Foydalanuvchilar</span>} key="users">
                     <Card>
-                        <Space style={{marginBottom: 16}}>
-                            <Button
-                                type="primary"
-                                icon={<PlusOutlined/>}
-                                onClick={() => setModalVisible(true)}
-                            >
-                                Yangi User
-                            </Button>
-                            <Button
-                                icon={<ReloadOutlined/>}
-                                onClick={loadUsers}
-                            >
-                                Yangilash
-                            </Button>
-                            <Button
-                                type="default"
-                                icon={<DownloadOutlined/>}
-                                onClick={handleDownloadBackup}
-                            >
-                                Excel Backup
-                            </Button>
-                        </Space>
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginBottom: 16
+                        }}>
+                            <Space>
+                                <Button
+                                    type="primary"
+                                    icon={<PlusOutlined/>}
+                                    onClick={() => setModalVisible(true)}
+                                >
+                                    Yangi User
+                                </Button>
+                                <Button
+                                    icon={<ReloadOutlined/>}
+                                    onClick={handleManualRefresh}
+                                    loading={loading}
+                                >
+                                    Yangilash
+                                </Button>
+                                <Button
+                                    type="default"
+                                    icon={<DownloadOutlined/>}
+                                    onClick={handleDownloadBackup}
+                                >
+                                    Excel Backup
+                                </Button>
+                            </Space>
+
+                            {/* ✅ Auto-refresh info */}
+                            <Tag icon={<ReloadOutlined />} color="processing">
+                                Avtomatik yangilanish: har 10 daqiqada
+                            </Tag>
+                        </div>
 
                         <Table
                             columns={userColumns}
                             dataSource={users}
                             rowKey="id"
                             loading={loading}
-                            pagination={{pageSize: 10}}
+                            pagination={{
+                                pageSize: 10,
+                                showSizeChanger: true,
+                                showQuickJumper: true,
+                                showTotal: (total) => `Jami: ${total}`
+                            }}
                             scroll={{x: 900}}
                         />
                     </Card>

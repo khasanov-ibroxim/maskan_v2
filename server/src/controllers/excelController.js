@@ -1,6 +1,23 @@
-// server/src/controllers/excelController.js - PostgreSQL version
+// server/src/controllers/excelController.js
 const PropertyObject = require('../models/Object.pg');
 const { postToOLX } = require('../services/olxAutomationService');
+
+/**
+ * ✅ HELPER: DB object -> Frontend format
+ */
+function transformObject(obj) {
+    if (!obj) return null;
+    return {
+        ...obj,
+        elonStatus: obj.elon_status,      // ✅ DB: elon_status -> Frontend: elonStatus
+        elonDate: obj.elon_date,          // ✅ DB: elon_date -> Frontend: elonDate
+        createdAt: obj.created_at,
+        updatedAt: obj.updated_at,
+        sheetType: obj.sheet_type,
+        uyTuri: obj.uy_turi,
+        uniqueId: obj.unique_id
+    };
+}
 
 /**
  * Barcha obyektlarni olish
@@ -19,12 +36,15 @@ exports.getObjects = async (req, res) => {
 
         const objects = await PropertyObject.getAll(filters);
 
-        console.log(`✅ ${objects.length} ta obyekt topildi`);
+        // ✅ Transform: snake_case -> camelCase
+        const transformedObjects = objects.map(transformObject);
+
+        console.log(`✅ ${transformedObjects.length} ta obyekt topildi`);
 
         res.json({
             success: true,
-            count: objects.length,
-            objects
+            count: transformedObjects.length,
+            objects: transformedObjects
         });
 
     } catch (error) {
@@ -44,10 +64,25 @@ exports.postAd = async (req, res) => {
     try {
         const { objectId } = req.body;
 
+        console.log('\n📤 Post Ad Request:');
+        console.log('   objectId:', objectId);
+        console.log('   Type:', typeof objectId);
+        console.log('   Length:', objectId?.length);
+
         if (!objectId) {
             return res.status(400).json({
                 success: false,
                 error: 'ObjectId majburiy'
+            });
+        }
+
+        // ✅ UUID validation
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(objectId)) {
+            console.error('❌ Noto\'g\'ri UUID format:', objectId);
+            return res.status(400).json({
+                success: false,
+                error: `Noto'g'ri UUID format: ${objectId}`
             });
         }
 
@@ -61,8 +96,16 @@ exports.postAd = async (req, res) => {
             });
         }
 
-        // Status yangilash - processing
-        await PropertyObject.updateStatus(objectId, 'processing');
+        console.log('✅ Obyekt topildi:', object.id);
+        console.log('   Kvartil:', object.kvartil);
+        console.log('   XET:', object.xet);
+
+        // ✅ Status yangilash - faqat elon_status
+        await PropertyObject.update(objectId, {
+            elon_status: 'processing'
+        });
+
+        console.log('✅ Status yangilandi: processing');
 
         // Navbatga qo'shish
         global.adQueue = global.adQueue || [];
@@ -71,7 +114,7 @@ exports.postAd = async (req, res) => {
         console.log(`📤 Elon navbatga qo'shildi: ${objectId}`);
         console.log(`   Navbat uzunligi: ${global.adQueue.length}`);
 
-        // Response yuborish (tezkor)
+        // Response yuborish
         res.json({
             success: true,
             message: 'Elon navbatga qo\'shildi',
@@ -86,6 +129,7 @@ exports.postAd = async (req, res) => {
 
     } catch (error) {
         console.error('❌ Elon berishda xato:', error);
+        console.error('   Error stack:', error.stack);
         res.status(500).json({
             success: false,
             error: error.message
@@ -94,7 +138,7 @@ exports.postAd = async (req, res) => {
 };
 
 /**
- * Navbatni qayta ishlash
+ * ✅ FIXED: Navbatni qayta ishlash (faqat elon_status)
  */
 async function processAdQueue() {
     if (!global.adQueue || global.adQueue.length === 0) {
@@ -118,45 +162,61 @@ async function processAdQueue() {
         console.log(`   Kvartil: ${object.kvartil}`);
         console.log(`   XET: ${object.xet}`);
         console.log(`   Narx: ${object.narx}`);
+        console.log(`   M²: ${object.m2}`);
 
-        // ✅ OLX.uz ga HAQIQIY elon berish
+        // ✅ OLX.uz ga elon berish
         const result = await postToOLX(object);
 
-        // Status yangilash - posted
-        await PropertyObject.updateStatus(
-            objectId,
-            'posted',
-            new Date().toISOString()
-        );
-
         console.log(`✅ Elon muvaffaqiyatli berildi: ${objectId}`);
-        console.log(`   OLX URL: ${result.adUrl}`);
+        console.log(`   OLX URL: ${result.adUrl || 'N/A'}`);
+
+        // ✅ Status yangilash - faqat elon_status va elon_date
+        await PropertyObject.update(objectId, {
+            elon_status: 'posted',
+            elon_date: new Date()
+        });
+
+        console.log(`✅ Database yangilandi:`);
+        console.log(`   elon_status: posted`);
+        console.log(`   elon_date: ${new Date().toLocaleString('uz-UZ')}`);
 
         // Navbatdan o'chirish
         global.adQueue.shift();
 
-        // 10 soniya kutish (OLX rate limit)
+        // Keyingi elonga o'tish (10 soniya kutib)
         if (global.adQueue.length > 0) {
             console.log(`⏳ 10 soniya kutish... (Navbatda: ${global.adQueue.length})`);
             setTimeout(() => {
                 processAdQueue();
             }, 10000);
         } else {
-            console.log('✅ Navbat bo\'sh - barcha elonlar berildi');
+            console.log('🎉 Navbat bo\'sh - barcha elonlar berildi!');
         }
 
     } catch (error) {
-        console.error(`❌ Elon berishda xato: ${objectId}`, error);
+        console.error(`❌ Elon berishda xato: ${objectId}`);
+        console.error(`   Error message: ${error.message}`);
+        console.error(`   Error stack:`, error.stack);
 
-        // Status yangilash - waiting (qayta urinish uchun)
-        await PropertyObject.updateStatus(objectId, 'waiting');
+        try {
+            // ✅ Xato statusini yangilash - faqat elon_status
+            await PropertyObject.update(objectId, {
+                elon_status: 'error'
+            });
+
+            console.log(`✅ Database yangilandi:`);
+            console.log(`   elon_status: error`);
+
+        } catch (updateError) {
+            console.error(`❌ Status yangilashda xato:`, updateError.message);
+        }
 
         // Navbatdan o'chirish
         global.adQueue.shift();
 
-        // Keyingisiga o'tish
+        // Keyingi elonga o'tish
         if (global.adQueue.length > 0) {
-            console.log(`⏭️ Keyingi elonga o'tilmoqda...`);
+            console.log(`⏭️ Keyingi elonga o'tilmoqda... (Navbatda: ${global.adQueue.length})`);
             setTimeout(() => {
                 processAdQueue();
             }, 10000);
@@ -171,29 +231,25 @@ async function processAdQueue() {
 exports.getQueueStatus = async (req, res) => {
     try {
         const queue = global.adQueue || [];
-
-        // Queue'dagi obyektlar haqida ma'lumot
         const queueDetails = [];
+
         for (const objectId of queue) {
             const obj = await PropertyObject.getById(objectId);
             if (obj) {
-                queueDetails.push({
-                    id: obj.id,
-                    kvartil: obj.kvartil,
-                    xet: obj.xet,
-                    narx: obj.narx
-                });
+                queueDetails.push(transformObject(obj));
             }
         }
 
         res.json({
             success: true,
-            queue: queueDetails,
+            queue: queue,                                    // ✅ ID array
+            queueDetails: queueDetails,                      // ✅ Full objects
             queueLength: queue.length,
             isProcessing: queue.length > 0,
             currentlyProcessing: queue.length > 0 ? queueDetails[0] : null
         });
     } catch (error) {
+        console.error('❌ Navbat statusini olishda xato:', error);
         res.status(500).json({
             success: false,
             error: error.message
@@ -242,11 +298,12 @@ exports.search = async (req, res) => {
         }
 
         const results = await PropertyObject.search(q.trim());
+        const transformedResults = results.map(transformObject);
 
         res.json({
             success: true,
-            count: results.length,
-            results
+            count: transformedResults.length,
+            results: transformedResults
         });
 
     } catch (error) {
@@ -265,6 +322,15 @@ exports.search = async (req, res) => {
 exports.deleteObject = async (req, res) => {
     try {
         const { id } = req.params;
+
+        // UUID validation
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(id)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Noto\'g\'ri UUID format'
+            });
+        }
 
         const object = await PropertyObject.getById(id);
         if (!object) {

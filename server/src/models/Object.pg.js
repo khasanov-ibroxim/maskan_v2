@@ -1,5 +1,5 @@
 // server/src/models/Object.pg.js
-const { query } = require('../config/database');
+const {query} = require('../config/database');
 
 class PropertyObject {
     /**
@@ -10,26 +10,38 @@ class PropertyObject {
 
         console.log('\n💾 PostgreSQL ga saqlash...');
         console.log('  Unique ID:', uniqueId);
-        console.log('  Kvartil:', objectData.kvartil);
-        console.log('  XET:', objectData.xet);
 
-        // Check if exists
         const existing = await query(
             'SELECT id, elon_status, elon_date, created_at FROM objects WHERE unique_id = $1',
             [uniqueId]
         );
 
         if (existing.rows.length > 0) {
-            // Update existing
             const result = await query(
-                `UPDATE objects SET
-                                    sana = $1, kvartil = $2, xet = $3, tell = $4, m2 = $5, narx = $6,
-                                    fio = $7, uy_turi = $8, xolati = $9, planirovka = $10, balkon = $11,
-                                    torets = $12, dom = $13, kvartira = $14, osmotir = $15, opisaniya = $16,
-                                    rieltor = $17, xodim = $18, sheet_type = $19, rasmlar = $20,
-                                    updated_at = CURRENT_TIMESTAMP
+                `UPDATE objects
+                 SET sana       = $1,
+                     kvartil    = $2,
+                     xet        = $3,
+                     tell       = $4,
+                     m2         = $5,
+                     narx       = $6,
+                     fio        = $7,
+                     uy_turi    = $8,
+                     xolati     = $9,
+                     planirovka = $10,
+                     balkon     = $11,
+                     torets     = $12,
+                     dom        = $13,
+                     kvartira   = $14,
+                     osmotir    = $15,
+                     opisaniya  = $16,
+                     rieltor    = $17,
+                     xodim      = $18,
+                     sheet_type = $19,
+                     rasmlar    = $20,
+                     updated_at = CURRENT_TIMESTAMP
                  WHERE unique_id = $21
-                     RETURNING *`,
+                 RETURNING *`,
                 [
                     objectData.sana, objectData.kvartil, objectData.xet, objectData.tell,
                     objectData.m2, objectData.narx, objectData.fio, objectData.uy_turi,
@@ -43,16 +55,13 @@ class PropertyObject {
             console.log('✅ Obyekt yangilandi:', uniqueId);
             return result.rows[0];
         } else {
-            // Insert new
             const result = await query(
-                `INSERT INTO objects (
-                    unique_id, sana, kvartil, xet, tell, m2, narx, fio, uy_turi,
-                    xolati, planirovka, balkon, torets, dom, kvartira, osmotir,
-                    opisaniya, rieltor, xodim, sheet_type, rasmlar, elon_status
-                ) VALUES (
-                             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
-                             $15, $16, $17, $18, $19, $20, $21, 'waiting'
-                         ) RETURNING *`,
+                `INSERT INTO objects (unique_id, sana, kvartil, xet, tell, m2, narx, fio, uy_turi,
+                                      xolati, planirovka, balkon, torets, dom, kvartira, osmotir,
+                                      opisaniya, rieltor, xodim, sheet_type, rasmlar, elon_status)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
+                         $15, $16, $17, $18, $19, $20, $21, 'waiting')
+                 RETURNING *`,
                 [
                     uniqueId, objectData.sana, objectData.kvartil, objectData.xet,
                     objectData.tell, objectData.m2, objectData.narx, objectData.fio,
@@ -69,7 +78,63 @@ class PropertyObject {
     }
 
     /**
-     * Get all objects with sorting
+     * ✅ CRITICAL FIX: Universal update with proper $ placeholders
+     */
+    static async update(id, updates) {
+        try {
+            // ✅ UUID validation
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            if (!uuidRegex.test(id)) {
+                throw new Error(`Noto'g'ri UUID format: ${id} (type: ${typeof id})`);
+            }
+
+            const fields = [];
+            const values = [];
+            let paramCount = 1;
+
+            // ✅ CRITICAL FIX: $ belgisi qo'shildi
+            for (const [key, value] of Object.entries(updates)) {
+                fields.push(`${key} = $${paramCount}`);
+                values.push(value);
+                paramCount++;
+            }
+
+            if (fields.length === 0) {
+                throw new Error('Hech qanday yangilanish yo\'q');
+            }
+
+            fields.push(`updated_at = CURRENT_TIMESTAMP`);
+            values.push(id);
+
+            // ✅ CRITICAL FIX: $ belgisi qo'shildi
+            const sql = `
+                UPDATE objects
+                SET ${fields.join(', ')}
+                WHERE id = $${paramCount}
+RETURNING *
+`;
+
+            console.log('📝 UPDATE SQL:', sql);
+            console.log('📝 VALUES:', values);
+            console.log('📝 ID:', id, 'Type:', typeof id);
+
+            const result = await query(sql, values);
+
+            if (result.rows.length === 0) {
+                throw new Error(`Obyekt topilmadi: ${id}`);
+            }
+
+            console.log('✅ Obyekt yangilandi:', id);
+            return result.rows[0];
+
+        } catch (error) {
+            console.error('❌ Update xato:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * ✅ FIXED: Get all objects with proper $ placeholders
      */
     static async getAll(filters = {}) {
         let sql = 'SELECT * FROM objects WHERE 1=1';
@@ -91,31 +156,27 @@ class PropertyObject {
             params.push(filters.elonStatus);
         }
 
-        // ✅ SORTING - Kvartil bo'yicha
-        sql += ` ORDER BY 
-            CASE 
-                WHEN kvartil ~ '^Yunusobod\\s*-\\s*\\d+$' THEN 1
-                WHEN kvartil ~ '^Ц\\s*-\\s*\\d+$' THEN 2
-                WHEN kvartil = 'Bodomzor' THEN 3
-                WHEN kvartil = 'Minor' THEN 4
-                ELSE 999
-            END,
-            CASE 
-                WHEN kvartil ~ '\\d+' THEN CAST(SUBSTRING(kvartil FROM '\\d+') AS INTEGER)
-                ELSE 0
-            END,
-            created_at DESC
-        `;
+        sql += ` ORDER BY created_at DESC`;
 
         const result = await query(sql, params);
         return result.rows;
     }
 
     /**
-     * Get by ID
+     * ✅ Get by ID (UUID validation)
      */
     static async getById(id) {
-        const result = await query('SELECT * FROM objects WHERE id = $1', [id]);
+        // ✅ UUID validation
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(id)) {
+            console.error('❌ Noto\'g\'ri UUID format:', id, 'Type:', typeof id);
+            return null;
+        }
+
+        const result = await query(
+            'SELECT * FROM objects WHERE id = $1',
+            [id]
+        );
         return result.rows[0] || null;
     }
 
@@ -123,39 +184,41 @@ class PropertyObject {
      * Update status
      */
     static async updateStatus(id, status, elonDate = null) {
-        const result = await query(
-            `UPDATE objects
-             SET elon_status = $1, elon_date = $2, updated_at = CURRENT_TIMESTAMP
-             WHERE id = $3
-                 RETURNING *`,
-            [status, elonDate, id]
-        );
+        const updates = {
+            elon_status: status
+        };
 
-        if (result.rows[0]) {
-            console.log(`✅ Obyekt ${id} status yangilandi: ${status}`);
+        if (elonDate) {
+            updates.elon_date = elonDate;
         }
 
-        return result.rows[0] || null;
+        return await this.update(id, updates);
     }
 
     /**
-     * Get waiting objects for posting
+     * Get waiting objects
      */
     static async getWaiting(limit = 50) {
         const result = await query(
-            `SELECT * FROM objects
+            `SELECT *
+             FROM objects
              WHERE elon_status = 'waiting'
              ORDER BY created_at ASC
-                 LIMIT $1`,
+             LIMIT $1`,
             [limit]
         );
         return result.rows;
     }
 
     /**
-     * Delete object
+     * ✅ Delete object (UUID validation)
      */
     static async delete(id) {
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(id)) {
+            throw new Error(`Noto'g'ri UUID format: ${id}`);
+        }
+
         await query('DELETE FROM objects WHERE id = $1', [id]);
         console.log(`🗑️ Obyekt ${id} o'chirildi`);
         return true;
@@ -166,15 +229,14 @@ class PropertyObject {
      */
     static async getStats() {
         const result = await query(
-            `SELECT
-                 COUNT(*) as total,
-                 COUNT(*) FILTER (WHERE elon_status = 'waiting') as waiting,
-                 COUNT(*) FILTER (WHERE elon_status = 'processing') as processing,
-                 COUNT(*) FILTER (WHERE elon_status = 'posted') as posted,
-                 COUNT(*) FILTER (WHERE elon_status = 'error') as error,
-                 COUNT(DISTINCT kvartil) as unique_kvartils,
-                 COUNT(DISTINCT rieltor) as unique_rieltors,
-                 COUNT(*) FILTER (WHERE created_at > CURRENT_TIMESTAMP - INTERVAL '24 hours') as added_24h
+            `SELECT COUNT(*)                                                                     as total,
+                    COUNT(*) FILTER (WHERE elon_status = 'waiting')                              as waiting,
+                    COUNT(*) FILTER (WHERE elon_status = 'processing')                           as processing,
+                    COUNT(*) FILTER (WHERE elon_status = 'posted')                               as posted,
+                    COUNT(*) FILTER (WHERE elon_status = 'error')                                as error,
+                    COUNT(DISTINCT kvartil)                                                      as unique_kvartils,
+                    COUNT(DISTINCT rieltor)                                                      as unique_rieltors,
+                    COUNT(*) FILTER (WHERE created_at > CURRENT_TIMESTAMP - INTERVAL '24 hours') as added_24h
              FROM objects`
         );
         return result.rows[0];
@@ -185,10 +247,9 @@ class PropertyObject {
      */
     static async getByKvartil() {
         const result = await query(
-            `SELECT
-                 kvartil,
-                 COUNT(*) as count,
-                COUNT(*) FILTER (WHERE elon_status = 'posted') as posted_count
+            `SELECT kvartil,
+                    COUNT(*)                                       as count,
+                    COUNT(*) FILTER (WHERE elon_status = 'posted') as posted_count
              FROM objects
              GROUP BY kvartil
              ORDER BY count DESC`
@@ -201,7 +262,8 @@ class PropertyObject {
      */
     static async getByRieltor(rieltor) {
         const result = await query(
-            `SELECT * FROM objects
+            `SELECT *
+             FROM objects
              WHERE rieltor = $1
              ORDER BY created_at DESC`,
             [rieltor]
@@ -214,20 +276,112 @@ class PropertyObject {
      */
     static async search(searchTerm) {
         const result = await query(
-            `SELECT * FROM objects
-             WHERE
-                 kvartil ILIKE $1 OR
-                 xet ILIKE $1 OR
-                 tell ILIKE $1 OR
-                 fio ILIKE $1 OR
-                 rieltor ILIKE $1 OR
-                 opisaniya ILIKE $1
+            `SELECT *
+             FROM objects
+             WHERE kvartil ILIKE $1
+                OR xet ILIKE $1
+                OR tell ILIKE $1
+                OR fio ILIKE $1
+                OR rieltor ILIKE $1
+                OR opisaniya ILIKE $1
              ORDER BY created_at DESC
-                 LIMIT 100`,
+             LIMIT 100`,
             [`%${searchTerm}%`]
         );
         return result.rows;
     }
+
+    /**
+     * ✅ Processing statusga o'tkazish (TO'G'RI)
+     */
+    static async setProcessing(id) {
+        try {
+            const sql = `
+            UPDATE objects
+            SET elon_status = $1,
+                updated_at  = CURRENT_TIMESTAMP
+            WHERE id = $2
+            RETURNING *
+        `;
+
+            const result = await query(sql, ['processing', id]);
+
+            if (result.rows.length === 0) {
+                throw new Error('Obyekt topilmadi');
+            }
+
+            console.log(`✅ Status yangilandi: ${id} -> processing`);
+            return result.rows[0];
+
+        } catch (error) {
+            console.error('❌ setProcessing xato:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * ✅ Posted statusga o'tkazish (TUZATILGAN!)
+     */
+    static async setPosted(id, adUrl) {
+        try {
+            const sql = `
+            UPDATE objects
+            SET elon_status = $1,
+                elon_date   = CURRENT_TIMESTAMP,
+                updated_at  = CURRENT_TIMESTAMP
+            WHERE id = $2
+            RETURNING *
+        `;
+
+            const result = await query(sql, ['posted', id]);
+
+            if (result.rows.length === 0) {
+                throw new Error('Obyekt topilmadi');
+            }
+
+            console.log(`✅ Status yangilandi: ${id} -> posted`);
+            if (adUrl) {
+                console.log(`✅ Elon URL: ${adUrl}`);
+            }
+            return result.rows[0];
+
+        } catch (error) {
+            console.error('❌ setPosted xato:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * ✅ Error statusga o'tkazish (TUZATILGAN!)
+     */
+    static async setError(id, errorMessage) {
+        try {
+            const sql = `
+            UPDATE objects
+            SET elon_status = $1,
+                updated_at  = CURRENT_TIMESTAMP
+            WHERE id = $2
+            RETURNING *
+        `;
+
+            const result = await query(sql, ['error', id]);
+
+            if (result.rows.length === 0) {
+                throw new Error('Obyekt topilmadi');
+            }
+
+            console.log(`⚠️ Status yangilandi: ${id} -> error`);
+            if (errorMessage) {
+                console.log(`⚠️ Xato: ${errorMessage}`);
+            }
+            return result.rows[0];
+
+        } catch (error) {
+            console.error('❌ setError xato:', error);
+            throw error;
+        }
+    }
+
 }
 
 module.exports = PropertyObject;

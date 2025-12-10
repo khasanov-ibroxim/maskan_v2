@@ -1,8 +1,52 @@
-// server/src/models/User.pg.js - FIXED
+// server/src/models/User.pg.js - FIXED VERSION
 const bcrypt = require('bcryptjs');
 const { query } = require('../config/database');
 
 class User {
+
+
+
+    /**
+     * Get all sessions
+     */
+    static async getSessions() {
+        const result = await query(
+            'SELECT * FROM sessions ORDER BY login_time DESC'
+        );
+        return result.rows;
+    }
+
+    /**
+     * Get logs with filters
+     */
+    static async getLogs(filters = {}) {
+        let sql = 'SELECT * FROM activity_logs WHERE 1=1';
+        const params = [];
+        let paramCount = 1;
+
+        if (filters.userId) {
+            sql += ` AND user_id = ${paramCount++}`;
+            params.push(filters.userId);
+        }
+
+        if (filters.action) {
+            sql += ` AND action = ${paramCount++}`;
+            params.push(filters.action);
+        }
+
+        sql += ' ORDER BY timestamp DESC';
+
+        if (filters.limit) {
+            sql += ` LIMIT ${paramCount}`;
+            params.push(filters.limit);
+        }
+
+        const result = await query(sql, params);
+        return result.rows;
+    }
+
+
+
     /**
      * Get all users (without password)
      */
@@ -14,14 +58,30 @@ class User {
     }
 
     /**
-     * Find user by username (WITH PASSWORD for login)
+     * ✅ CRITICAL FIX: Find user by username WITH PASSWORD for login
      */
     static async findByUsername(username) {
+        console.log('🔍 Finding user:', username);
+
         const result = await query(
-            'SELECT * FROM users WHERE username = $1', // ✅ SELECT * to include password
+            'SELECT * FROM users WHERE username = $1',
             [username]
         );
-        return result.rows[0] || null;
+
+        const user = result.rows[0] || null;
+
+        if (user) {
+            console.log('✅ User topildi:', username);
+            console.log('   ID:', user.id);
+            console.log('   Role:', user.role);
+            console.log('   Active:', user.is_active);
+            console.log('   Password exists:', !!user.password);
+            console.log('   Password length:', user.password ? user.password.length : 0);
+        } else {
+            console.log('❌ User topilmadi:', username);
+        }
+
+        return user;
     }
 
     /**
@@ -118,15 +178,32 @@ class User {
     }
 
     /**
-     * Compare password
+     * ✅ CRITICAL FIX: Compare password with proper logging
      */
     static async comparePassword(plainPassword, hashedPassword) {
-        // ✅ FIXED: Check if hashedPassword exists
+        console.log('🔐 Password tekshirilmoqda...');
+        console.log('   Plain password length:', plainPassword ? plainPassword.length : 0);
+        console.log('   Hash exists:', !!hashedPassword);
+        console.log('   Hash length:', hashedPassword ? hashedPassword.length : 0);
+
         if (!hashedPassword) {
             console.error('❌ Password hash yo\'q!');
             return false;
         }
-        return await bcrypt.compare(plainPassword, hashedPassword);
+
+        if (!plainPassword) {
+            console.error('❌ Plain password yo\'q!');
+            return false;
+        }
+
+        try {
+            const isMatch = await bcrypt.compare(plainPassword, hashedPassword);
+            console.log('   Password match:', isMatch ? '✅ TO\'G\'RI' : '❌ NOTO\'G\'RI');
+            return isMatch;
+        } catch (error) {
+            console.error('❌ Password compare xato:', error.message);
+            return false;
+        }
     }
 
     /**

@@ -525,7 +525,7 @@ const FormMaskan = () => {
                         >
                             {realtors.map((realtor) => (
                                 <Option value={realtor.username} key={realtor.id}>
-                                    {realtor.fullName} ({realtor.username})
+                                    {realtor.full_name} ({realtor.username})
                                 </Option>
                             ))}
                         </Select>
