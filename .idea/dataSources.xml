@@ -8,5 +8,12 @@
       <jdbc-url>jdbc:postgresql://localhost:5432/maskan</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
+    <data-source source="LOCAL" name="maskan@194.163.140.30" uuid="324f41c9-ba80-4815-8de5-c2a66fbbadc0">
+      <driver-ref>postgresql</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>org.postgresql.Driver</jdbc-driver>
+      <jdbc-url>jdbc:postgresql://194.163.140.30:5432/maskan</jdbc-url>
+      <working-dir>$ProjectFileDir$</working-dir>
+    </data-source>
   </component>
 </project>

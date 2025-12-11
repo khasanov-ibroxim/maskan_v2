@@ -1,4 +1,4 @@
-// index.js (Root papkada)
+require('dotenv').config({ path: __dirname + '/.env' });
 const app = require('./src/app');
 const { PORT } = require('./src/config/constants');
 

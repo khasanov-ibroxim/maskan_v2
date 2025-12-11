@@ -1,86 +1,275 @@
-// server/src/services/olxAutomationService.js - SERVER OPTIMIZED
+// server/src/services/olxAutomationService.js
 const puppeteer = require('puppeteer');
 const path = require('path');
 const fs = require('fs');
+const { exec } = require('child_process');
+const util = require('util');
+const execPromise = util.promisify(exec);
 
+// OLX login ma'lumotlari
 const OLX_EMAIL = process.env.OLX_EMAIL;
 const OLX_PASSWORD = process.env.OLX_PASSWORD;
+
+// User data directory - session saqlash uchun
 const USER_DATA_DIR = path.join(__dirname, '../../.chrome-data');
 const PropertyObject = require('../models/Object.pg');
 
+// Helper function
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
- * ✅ CRITICAL FIX: Sahifa to'liq yuklanishini kutish
+ * ✅ XFCE4 DISPLAY SOZLASH
  */
-async function waitForPageFullyLoaded(page, timeout = 60000) {
-    console.log('⏳ Sahifa to\'liq yuklanishini kutish...');
-
+async function setupXFCE4Display() {
     try {
-        // 1. networkidle2 kutish
-        await page.waitForNetworkIdle({ timeout: 30000, idleTime: 2000 }).catch(() => {
-            console.log('   ⚠️ Network idle timeout, davom ettirilmoqda...');
-        });
+        console.log('🖥️  XFCE4 Display sozlanmoqda...');
 
-        // 2. DOM to'liq render bo'lishini kutish
-        await page.evaluate(() => {
-            return new Promise((resolve) => {
-                if (document.readyState === 'complete') {
-                    resolve();
-                } else {
-                    window.addEventListener('load', resolve);
-                }
-            });
-        });
+        // DISPLAY o'zgaruvchisini tekshirish
+        const currentDisplay = process.env.DISPLAY;
+        console.log('   📊 Current DISPLAY:', currentDisplay || 'Not Set');
 
-        // 3. Qo'shimcha kutish
-        await sleep(5000);
+        // Agar DISPLAY yo'q bo'lsa - :0 qo'yish
+        if (!currentDisplay) {
+            process.env.DISPLAY = ':0';
+            console.log('   ✅ DISPLAY o\'rnatildi: :0');
+        }
 
-        console.log('✅ Sahifa to\'liq yuklandi');
+        // X Server ishlayotganini tekshirish
+        try {
+            const { stdout } = await execPromise('xdpyinfo 2>/dev/null | grep "name of display"');
+            console.log('   ✅ X Server ishlayapti:', stdout.trim());
+        } catch (e) {
+            console.log('   ⚠️ X Server tekshirilmadi:', e.message);
+        }
+
+        // XAUTHORITY tekshirish
+        if (!process.env.XAUTHORITY) {
+            const xauthPath = path.join(process.env.HOME || '/root', '.Xauthority');
+            if (fs.existsSync(xauthPath)) {
+                process.env.XAUTHORITY = xauthPath;
+                console.log('   ✅ XAUTHORITY:', xauthPath);
+            }
+        }
+
         return true;
 
     } catch (error) {
-        console.log('⚠️ Sahifa yuklanish kutishda xato:', error.message);
+        console.error('   ❌ Display setup xato:', error.message);
         return false;
     }
 }
 
 /**
- * ✅ CRITICAL FIX: Element mavjudligini tekshirish va kutish
+ * ✅ CHROME/CHROMIUM TOPISH (XFCE4 uchun)
  */
-async function waitForElement(page, selectors, timeout = 60000) {
-    console.log('🔍 Element qidirilmoqda...');
+async function findChromePath() {
+    const possiblePaths = [
+        '/usr/bin/google-chrome',
+        '/usr/bin/google-chrome-stable',
+        '/usr/bin/chromium',
+        '/usr/bin/chromium-browser',
+        '/snap/bin/chromium',
+        '/usr/bin/chrome',
+        'google-chrome',
+        'chromium',
+        'chromium-browser'
+    ];
 
-    if (!Array.isArray(selectors)) {
-        selectors = [selectors];
-    }
+    console.log('🔍 Chrome/Chromium qidirilmoqda...');
 
-    const startTime = Date.now();
-
-    while (Date.now() - startTime < timeout) {
-        for (const selector of selectors) {
-            try {
-                const element = await page.$(selector);
-                if (element) {
-                    const isVisible = await page.evaluate(el => {
-                        const rect = el.getBoundingClientRect();
-                        return rect.width > 0 && rect.height > 0;
-                    }, element);
-
-                    if (isVisible) {
-                        console.log(`   ✅ Element topildi: ${selector}`);
-                        return element;
-                    }
+    for (const chromePath of possiblePaths) {
+        try {
+            if (chromePath.startsWith('/')) {
+                // To'liq path - fayl mavjudligini tekshirish
+                if (fs.existsSync(chromePath)) {
+                    console.log(`   ✅ Topildi: ${chromePath}`);
+                    return chromePath;
                 }
-            } catch (e) {
-                // Continue
+            } else {
+                // Binary nom - which orqali topish
+                const { stdout } = await execPromise(`which ${chromePath} 2>/dev/null`);
+                if (stdout.trim()) {
+                    console.log(`   ✅ Topildi: ${stdout.trim()}`);
+                    return stdout.trim();
+                }
             }
+        } catch (e) {
+            // Topilmadi - keyingisiga o'tish
+            continue;
         }
-
-        await sleep(1000);
     }
 
-    throw new Error(`Element topilmadi: ${selectors.join(', ')}`);
+    console.log('   ⚠️ Chrome/Chromium topilmadi, default qo\'llaniladi');
+    return null; // Puppeteer o'zining default Chrome ni ishlatadi
+}
+
+/**
+ * ✅ BROWSER SOZLAMALARI (XFCE4 + Contabo VPS)
+ */
+async function launchBrowser() {
+    console.log('\n🚀 BROWSER ISHGA TUSHIRILMOQDA (XFCE4 MODE)');
+    console.log('='.repeat(60));
+
+    // ✅ 1. XFCE4 display sozlash
+    await setupXFCE4Display();
+
+    // ✅ 2. Chrome path topish
+    const chromePath = await findChromePath();
+
+    // ✅ 3. User data directory
+    if (!fs.existsSync(USER_DATA_DIR)) {
+        fs.mkdirSync(USER_DATA_DIR, { recursive: true });
+        console.log('📁 User data directory yaratildi:', USER_DATA_DIR);
+    }
+
+    // ✅ 4. XFCE4 uchun maxsus args
+    const launchOptions = {
+        // ❗ XFCE4 da HEADLESS FALSE bo'lishi SHART
+        headless: false,
+
+        // Chrome path (agar topilgan bo'lsa)
+        ...(chromePath && { executablePath: chromePath }),
+
+        userDataDir: USER_DATA_DIR,
+
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-blink-features=AutomationControlled',
+            '--disable-infobars',
+            '--disable-notifications',
+            '--disable-popup-blocking',
+
+            // ✅ XFCE4 MAXSUS SOZLAMALAR
+            '--disable-gpu', // GPU muammolarini oldini olish
+            '--no-first-run',
+            '--no-default-browser-check',
+            '--disable-background-timer-throttling',
+            '--disable-backgrounding-occluded-windows',
+            '--disable-renderer-backgrounding',
+
+            // ✅ OYNA O'LCHAMLARI
+            '--window-size=1400,900',
+            '--window-position=50,50',
+
+            // ✅ DEBUG
+            '--remote-debugging-port=9222',
+            '--enable-logging',
+            '--v=1'
+        ],
+
+        defaultViewport: null,
+        ignoreHTTPSErrors: true,
+
+        // ✅ Timeout oshirish
+        timeout: 90000,
+
+        // ✅ Dump qilish
+        dumpio: false // true qilsangiz barcha Chrome loglarini ko'rasiz
+    };
+
+    console.log('📋 Browser sozlamalari:');
+    console.log('   DISPLAY:', process.env.DISPLAY);
+    console.log('   Chrome Path:', chromePath || 'default');
+    console.log('   User Data Dir:', USER_DATA_DIR);
+    console.log('   Headless:', launchOptions.headless);
+    console.log('   Debug Port: 9222');
+    console.log('='.repeat(60) + '\n');
+
+    console.log('⏳ Browser ochilmoqda...');
+
+    try {
+        const browser = await puppeteer.launch(launchOptions);
+        console.log('✅ Browser muvaffaqiyatli ochildi!\n');
+
+        // Browser ma'lumotlari
+        const version = await browser.version();
+        console.log('📊 Browser versiya:', version);
+
+        return browser;
+
+    } catch (launchError) {
+        console.error('❌ Browser ochishda XATO:', launchError.message);
+        console.error('\n🔧 TUZATISH USULLARI:\n');
+        console.error('1. Chrome/Chromium o\'rnatilganini tekshiring:');
+        console.error('   sudo apt update');
+        console.error('   sudo apt install -y chromium-browser');
+        console.error('');
+        console.error('2. XFCE4 ishlayotganini tekshiring:');
+        console.error('   echo $DISPLAY');
+        console.error('   xdpyinfo');
+        console.error('');
+        console.error('3. RDP sessiyasini tekshiring:');
+        console.error('   who');
+        console.error('   echo $SESSIONNAME');
+        console.error('');
+
+        throw launchError;
+    }
+}
+
+/**
+ * ✅ SERVER MA'LUMOTLARI
+ */
+async function logServerInfo() {
+    console.log('\n🖥️  SERVER MA\'LUMOTLARI (XFCE4)');
+    console.log('='.repeat(60));
+
+    try {
+        // OS
+        const { stdout: osInfo } = await execPromise('cat /etc/os-release | grep PRETTY_NAME');
+        console.log('OS:', osInfo.trim().split('=')[1]?.replace(/"/g, ''));
+    } catch (e) {
+        console.log('OS:', 'Unknown');
+    }
+
+    console.log('Platform:', process.platform);
+    console.log('Architecture:', process.arch);
+    console.log('Node Version:', process.version);
+    console.log('User:', process.env.USER || process.env.USERNAME);
+    console.log('Home:', process.env.HOME);
+    console.log('Working Dir:', process.cwd());
+
+    // Display
+    console.log('\n📺 DISPLAY MA\'LUMOTLARI:');
+    console.log('DISPLAY:', process.env.DISPLAY || 'Not Set ⚠️');
+    console.log('XAUTHORITY:', process.env.XAUTHORITY || 'Not Set');
+    console.log('SESSION:', process.env.XDG_SESSION_TYPE || 'Unknown');
+    console.log('DESKTOP:', process.env.XDG_CURRENT_DESKTOP || 'Unknown');
+
+    // Desktop Environment
+    try {
+        const { stdout: wmInfo } = await execPromise('wmctrl -m 2>/dev/null || echo "wmctrl not installed"');
+        if (!wmInfo.includes('not installed')) {
+            console.log('\n🪟 WINDOW MANAGER:');
+            console.log(wmInfo.trim().split('\n').slice(0, 3).join('\n'));
+        }
+    } catch (e) {
+        // ignore
+    }
+
+    // Chrome/Chromium
+    try {
+        const { stdout: chromeVersion } = await execPromise('chromium --version 2>/dev/null || google-chrome --version 2>/dev/null || echo "Not installed"');
+        console.log('\n🌐 CHROME/CHROMIUM:');
+        console.log(chromeVersion.trim());
+    } catch (e) {
+        console.log('\n🌐 CHROME/CHROMIUM: Not found ⚠️');
+    }
+
+    // Processes
+    try {
+        const { stdout: processes } = await execPromise('ps aux | grep -E "Xvfb|Xorg|xfce|chrome" | grep -v grep');
+        if (processes.trim()) {
+            console.log('\n🔄 RUNNING PROCESSES:');
+            console.log(processes.trim().split('\n').slice(0, 5).join('\n'));
+        }
+    } catch (e) {
+        // ignore
+    }
+
+    console.log('='.repeat(60) + '\n');
 }
 
 /**
@@ -121,7 +310,7 @@ async function getImageFiles(folderLink) {
 }
 
 /**
- * ✅ Alert yopish
+ * ✅ Alert yopish (eski elon)
  */
 async function closeUnfinishedAdAlert(page) {
     try {
@@ -136,31 +325,28 @@ async function closeUnfinishedAdAlert(page) {
 
             if (modal) {
                 console.log('   ✅ Alert modal topildi!');
+
                 const allButtons = await modal.$$('button');
+                console.log(`   ℹ️ ${allButtons.length} ta tugma topildi`);
 
                 for (let i = 0; i < allButtons.length; i++) {
                     const text = await page.evaluate(el => el.textContent, allButtons[i]);
                     const variant = await page.evaluate(el => el.getAttribute('data-button-variant'), allButtons[i]);
 
-                    if (text && text.includes('Нет') && text.includes('заново')) {
+                    if ((text && text.includes('Нет') && text.includes('заново')) || variant === 'tertiary') {
+                        console.log('   🎯 "Нет, начать заново" topildi!');
                         await allButtons[i].click();
-                        console.log('   ✅ Alert yopildi!');
-                        await sleep(3000);
-                        return true;
-                    }
-
-                    if (variant === 'tertiary') {
-                        await allButtons[i].click();
-                        console.log('   ✅ Alert yopildi!');
+                        console.log('   ✅ Bosildi!');
                         await sleep(3000);
                         return true;
                     }
                 }
             }
         } catch (modalError) {
-            console.log('   ℹ️ Alert yo\'q');
+            console.log('   ℹ️ Modal topilmadi');
         }
 
+        console.log('   ℹ️ Alert yo\'q yoki yopilgan');
         return false;
 
     } catch (error) {
@@ -180,7 +366,108 @@ async function scrollToElement(page, element) {
 }
 
 /**
- * ✅ Login tekshirish
+ * ✅ LOGIN TEKSHIRISH (XFCE4)
+ */
+async function checkAndWaitForLogin(page) {
+    console.log('\n🔐 LOGIN TEKSHIRILMOQDA (XFCE4)...');
+    console.log('='.repeat(60));
+
+    const isAlreadyLoggedIn = await checkLoginStatus(page);
+
+    if (isAlreadyLoggedIn) {
+        console.log('✅ Allaqachon login qilingan (session mavjud)');
+        console.log('='.repeat(60));
+        return true;
+    }
+
+    console.log('⚠️  Session topilmadi, login kerak');
+    console.log('');
+    console.log('━'.repeat(60));
+    console.log('  🖥️  XFCE4 DESKTOP DA CHROME OYNASI OCHILDI');
+    console.log('  👆 ILTIMOS LOGIN QILING');
+    console.log('━'.repeat(60));
+    console.log('');
+    console.log('📋 QADAMLAR (XFCE4 Desktop):');
+    console.log('   1. Chrome oynasi avtomatik ochildi');
+    console.log('   2. Agar ko\'rinmasa - Alt+Tab ni bosing');
+    console.log('   3. OLX.uz sahifasida LOGIN tugmasini bosing');
+    console.log('   4. Email/Parol kiriting yoki Google/Facebook');
+    console.log('   5. Captcha yechish (agar kerak bo\'lsa)');
+    console.log('   6. Login muvaffaqiyatli bo\'lgach avtomatik davom etadi');
+    console.log('');
+    console.log('⏰ Maksimal 5 daqiqa kutiladi...');
+    console.log('');
+    console.log('💡 AGAR BROWSER KO\'RINMASA:');
+    console.log('   • XFCE Panel da Chrome iconini qidiring');
+    console.log('   • Alt+Tab bilan oynalar orasida o\'tish');
+    console.log('   • Chrome Debug: http://localhost:9222');
+    console.log('   • Screenshot: /logs/ papkasida');
+    console.log('='.repeat(60));
+    console.log('');
+
+    // 5 DAQIQA kutish
+    const loginSuccess = await waitForManualLogin(page, 300);
+
+    if (loginSuccess) {
+        console.log('');
+        console.log('='.repeat(60));
+        console.log('✅✅✅ LOGIN MUVAFFAQIYATLI!');
+        console.log('💾 Session saqlandi');
+        console.log('='.repeat(60));
+        console.log('');
+        return true;
+    }
+
+    return false;
+}
+
+/**
+ * ✅ Manual login kutish
+ */
+async function waitForManualLogin(page, timeoutSeconds = 300) {
+    console.log(`⏳ Kutilmoqda (${timeoutSeconds}s = ${Math.floor(timeoutSeconds/60)} daqiqa)...\n`);
+
+    for (let i = timeoutSeconds; i > 0; i--) {
+        // Progress bar
+        const progress = Math.floor((timeoutSeconds - i) / timeoutSeconds * 50);
+        const bar = '█'.repeat(progress) + '░'.repeat(50 - progress);
+        const minutes = Math.floor(i / 60);
+        const seconds = i % 60;
+        process.stdout.write(`\r[${bar}] ${minutes}:${seconds.toString().padStart(2, '0')} `);
+
+        await sleep(1000);
+
+        // Har 3 soniyada tekshirish
+        if (i % 3 === 0) {
+            const isLoggedIn = await checkLoginStatus(page);
+            if (isLoggedIn) {
+                console.log('\n✅ Login aniqlandi!\n');
+                return true;
+            }
+        }
+
+        // Har 30 soniyada screenshot
+        if (i % 30 === 0 && i > 0) {
+            try {
+                const logsDir = path.join(__dirname, '../../logs');
+                if (!fs.existsSync(logsDir)) {
+                    fs.mkdirSync(logsDir, { recursive: true });
+                }
+                const screenshotPath = path.join(logsDir, `login-wait-${Date.now()}.png`);
+                await page.screenshot({ path: screenshotPath, fullPage: true });
+                console.log(`\n📷 Screenshot: ${screenshotPath}`);
+            } catch (e) {
+                // ignore
+            }
+        }
+    }
+
+    console.log('\n❌ Timeout: 5 daqiqada login amalga oshmadi\n');
+    return false;
+}
+
+/**
+ * ✅ Login status tekshirish
  */
 async function checkLoginStatus(page) {
     try {
@@ -195,7 +482,9 @@ async function checkLoginStatus(page) {
             'a[href*="/myaccount"]',
             'a[href*="myolx"]',
             '[class*="user-menu"]',
-            '[class*="account-menu"]'
+            '[class*="account-menu"]',
+            'button:has-text("Мои объявления")',
+            'a:has-text("Мои объявления")'
         ];
 
         for (const selector of successSelectors) {
@@ -214,68 +503,6 @@ async function checkLoginStatus(page) {
     } catch (error) {
         return false;
     }
-}
-
-/**
- * ✅ Manual login kutish
- */
-async function waitForManualLogin(page, timeoutSeconds = 180) {
-    console.log(`⏳ Kutilmoqda (${timeoutSeconds}s)...\n`);
-
-    for (let i = timeoutSeconds; i > 0; i--) {
-        const progress = Math.floor((timeoutSeconds - i) / timeoutSeconds * 30);
-        const bar = '█'.repeat(progress) + '░'.repeat(30 - progress);
-        process.stdout.write(`\r[${bar}] ${i}s `);
-
-        await sleep(1000);
-
-        if (i % 3 === 0) {
-            const isLoggedIn = await checkLoginStatus(page);
-            if (isLoggedIn) {
-                console.log('\n✅ Login aniqlandi!\n');
-                return true;
-            }
-        }
-    }
-
-    console.log('\n❌ Timeout: Login amalga oshmadi\n');
-    return false;
-}
-
-/**
- * ✅ Login tekshirish va kutish
- */
-async function checkAndWaitForLogin(page) {
-    console.log('\n🔐 LOGIN TEKSHIRILMOQDA...');
-    console.log('='.repeat(60));
-
-    const isAlreadyLoggedIn = await checkLoginStatus(page);
-
-    if (isAlreadyLoggedIn) {
-        console.log('✅ Allaqachon login qilingan');
-        console.log('='.repeat(60));
-        return true;
-    }
-
-    console.log('⚠️  Session topilmadi, login kerak');
-    console.log('');
-    console.log('━'.repeat(60));
-    console.log('  👆 BROWSER OYNASINI OCHING VA QO\'LDA LOGIN QILING');
-    console.log('━'.repeat(60));
-    console.log('');
-
-    const loginSuccess = await waitForManualLogin(page, 180);
-
-    if (loginSuccess) {
-        console.log('');
-        console.log('='.repeat(60));
-        console.log('✅✅✅ LOGIN MUVAFFAQIYATLI!');
-        console.log('='.repeat(60));
-        console.log('');
-        return true;
-    }
-
-    return false;
 }
 
 /**
@@ -326,137 +553,40 @@ async function clickFurnishedAndCommission(page) {
  * ✅ Tavsif yaratish
  */
 function createDescription(data) {
-    const { kvartil, xet, m2, xolati, uy_turi, narx, opisaniya, planirovka, balkon, rieltor } = data;
-
+    const { kvartil, xet, m2, xolati, uy_turi, narx, opisaniya, planirovka, balkon } = data;
     const xonaSoni = xet.split("/")[0];
     const etaj = xet.split("/")[1];
     const etajnost = xet.split("/")[2];
     const etajInfo = `${etaj}/${etajnost}`;
-
     const location = kvartil || 'Yunusobod';
     const formattedPrice = narx.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 
-    let description = `SOTILADI - ${location.toUpperCase()}\n`;
-    description += `${xonaSoni}-xonali kvartira\n\n`;
-
-    description += `ASOSIY MA'LUMOTLAR:\n`;
-    description += `---\n`;
-    description += `• Joylashuv: ${location}\n`;
-    description += `• Xonalar soni: ${xonaSoni}\n`;
-    description += `• Umumiy maydoni: ${m2} m2\n`;
-    description += `• Qavat: ${etajInfo}\n`;
-
-    if (uy_turi) {
-        description += `• Uy turi: ${uy_turi}\n`;
-    }
-
-    if (xolati) {
-        description += `• Ta'mirlash: ${xolati}\n`;
-    }
-
-    if (planirovka) {
-        description += `• Planirovka: ${planirovka}\n`;
-    }
-
-    if (balkon) {
-        description += `• Balkon: ${balkon}\n`;
-    }
-
-    description += `\n`;
-    description += `NARX: ${formattedPrice} $\n`;
-    description += `(Kelishiladi)\n\n`;
-
-    description += `AFZALLIKLAR:\n`;
-    description += `---\n`;
-    description += `+ Hujjatlar tayyor\n`;
-    description += `+ Tez ko'rik\n`;
-    description += `+ Professional yordam\n`;
-    description += `+ Yuridik tozaligi kafolatlangan\n\n`;
-
-    description += `ПРОДАЕТСЯ - ${location.toUpperCase()}\n`;
-    description += `${xonaSoni}-комнатная квартира\n\n`;
-
-    description += `ОСНОВНАЯ ИНФОРМАЦИЯ:\n`;
-    description += `---\n`;
-    description += `• Расположение: ${location}\n`;
-    description += `• Количество комнат: ${xonaSoni}\n`;
-    description += `• Общая площадь: ${m2} м2\n`;
-    description += `• Этаж: ${etajInfo}\n`;
-
-    if (uy_turi) {
-        description += `• Тип дома: ${uy_turi}\n`;
-    }
-
-    if (xolati) {
-        description += `• Состояние: ${xolati}\n`;
-    }
-
-    if (planirovka) {
-        description += `• Планировка: ${planirovka}\n`;
-    }
-
-    if (balkon) {
-        description += `• Балкон: ${balkon}\n`;
-    }
-
-    description += `\n`;
-    description += `ЦЕНА: ${formattedPrice} $\n`;
-    description += `(Договорная)\n\n`;
-
-    description += `ПРЕИМУЩЕСТВА:\n`;
-    description += `---\n`;
-    description += `+ Документы готовы\n`;
-    description += `+ Быстрый показ\n`;
-    description += `+ Профессиональная помощь\n`;
-    description += `+ Юридическая чистота гарантирована\n`;
-    description += `+ Помощь с оформлением сделки\n`;
-    description += `+ Консультация по ипотеке\n\n`;
-
-    description += `КОНТАКТЫ:\n`;
-    description += `---\n`;
-    description += `Звоните прямо сейчас!\n`;
-    description += `WhatsApp / Telegram доступны\n`;
-    description += `Ответим на все вопросы\n\n`;
-
-    if (opisaniya && opisaniya.trim().length > 0) {
-        description += `ДОПОЛНИТЕЛЬНО:\n`;
-        description += `---\n`;
-        description += `${opisaniya}\n\n`;
-    }
-
-    description += `---\n`;
-    description += `ТЕГИ ДЛЯ ПОИСКА:\n`;
-    description += `---\n\n`;
-
-    const locationClean = location.replace(/\s+/g, '').replace(/-/g, '');
-    const agentName = rieltor ? rieltor.replace(/\s+/g, '_') : 'Maskan_lux';
-
-    const hashtags = [
-        '#квартира',
-        '#продажа',
-        '#недвижимость',
-        '#Ташкент',
-        '#Yunusobod',
-        `#${locationClean}`,
-        `#${xonaSoni}комнатная`,
-        '#продаетсяквартира',
-        `#${agentName}`,
-        '#Maskan_lux'
-    ].filter(Boolean);
-
-    const hashtagLines = [];
-    for (let i = 0; i < hashtags.length; i += 5) {
-        hashtagLines.push(hashtags.slice(i, i + 5).join(' '));
-    }
-
-    description += hashtagLines.join('\n');
-    description += `\n\n---`;
+    let description = `SOTILADI - ${location.toUpperCase()}\n${xonaSoni}-xonali kvartira\n\n`;
+    description += `ASOSIY MA'LUMOTLAR:\n---\n• Joylashuv: ${location}\n• Xonalar: ${xonaSoni}\n`;
+    description += `• Maydon: ${m2} m2\n• Qavat: ${etajInfo}\n`;
+    if (uy_turi) description += `• Uy turi: ${uy_turi}\n`;
+    if (xolati) description += `• Ta'mir: ${xolati}\n`;
+    if (planirovka) description += `• Planirovka: ${planirovka}\n`;
+    if (balkon) description += `• Balkon: ${balkon}\n`;
+    description += `\nNARX: ${formattedPrice} $ (Kelishiladi)\n\n`;
+    description += `AFZALLIKLAR:\n+ Hujjatlar tayyor\n+ Tez ko'rik\n+ Professional yordam\n\n`;
+    description += `ПРОДАЕТСЯ - ${location.toUpperCase()}\n${xonaSoni}-комнатная квартира\n\n`;
+    description += `ОСНОВНАЯ ИНФОРМАЦИЯ:\n---\n• Расположение: ${location}\n• Комнат: ${xonaSoni}\n`;
+    description += `• Площадь: ${m2} м2\n• Этаж: ${etajInfo}\n`;
+    if (uy_turi) description += `• Тип дома: ${uy_turi}\n`;
+    if (xolati) description += `• Состояние: ${xolati}\n`;
+    if (planirovka) description += `• Планировка: ${planirovka}\n`;
+    if (balkon) description += `• Балкон: ${balkon}\n`;
+    description += `\nЦЕНА: ${formattedPrice} $ (Договорная)\n\n`;
+    description += `ПРЕИМУЩЕСТВА:\n+ Документы готовы\n+ Быстрый показ\n+ Профессиональная помощь\n`;
+    description += `+ Юридическая чистота\n+ Помощь с оформлением\n\nКОНТАКТЫ:\nЗвоните!\nWhatsApp/Telegram доступны\n\n`;
+    if (opisaniya?.trim()) description += `ДОПОЛНИТЕЛЬНО:\n${opisaniya}\n\n`;
 
     return description.replace(/([•\-+/@#$!%])\1{2,}/g, '$1$1');
 }
 
 /**
- * ✅ CRITICAL FIX: TO'LIQ ELON FORMASI (Server optimized)
+ * ✅ TO'LIQ ELON FORMASINI TO'LDIRISH
  */
 async function fillAdForm(page, objectData) {
     try {
@@ -468,73 +598,75 @@ async function fillAdForm(page, objectData) {
             fs.mkdirSync(debugDir, { recursive: true });
         }
 
-        // ✅ CRITICAL: Sahifa to'liq yuklanishini kutish
-        console.log('⏳ Sahifa to\'liq yuklanishini kutish...');
-        await waitForPageFullyLoaded(page);
+        console.log('⏳ Sahifa render bo\'lishini kutish...');
+        await sleep(5000);
 
         const pageTitle = await page.title();
         const currentUrl = page.url();
         console.log('📄 Page title:', pageTitle);
         console.log('📍 Current URL:', currentUrl);
 
-        // Screenshot OLDIN
         const screenshotBefore = path.join(debugDir, `before-fill-${Date.now()}.png`);
         await page.screenshot({ path: screenshotBefore, fullPage: true });
-        console.log('📷 Screenshot:', screenshotBefore);
+        console.log('📷 Screenshot saved:', screenshotBefore);
 
-        // HTML dump
-        const htmlPath = path.join(debugDir, `page-${Date.now()}.html`);
-        const html = await page.content();
-        fs.writeFileSync(htmlPath, html);
-        console.log('📝 HTML saved:', htmlPath);
+        await page.waitForSelector('form', { timeout: 30000 }).catch(() => {
+            console.log('⚠️ Form tag topilmadi, davom ettirilmoqda...');
+        });
+        await sleep(3000);
 
         const xonaSoni = objectData.xet.split('/')[0];
         const etaj = objectData.xet.split('/')[1];
         const etajnost = objectData.xet.split('/')[2];
 
-        // ========================================
-        // 1️⃣ TITLE - CRITICAL FIX
-        // ========================================
+        // 1️⃣ TITLE
         console.log('\n1️⃣ Sarlavha (Title)...');
         const title = `Sotiladi ${objectData.kvartil} ${xonaSoni}-xona`;
+        console.log(`   "${title}"`);
 
         const titleSelectors = [
             '[data-testid="posting-title"]',
             'input[name="title"]',
             'input[placeholder*="Название"]',
             'input[placeholder*="название"]',
-            'textarea[name="title"]'
+            'input[data-cy*="title"]'
         ];
 
-        // ✅ CRITICAL: waitForElement ishlatish
-        const titleInput = await waitForElement(page, titleSelectors, 60000);
+        let titleInput = null;
+        for (const selector of titleSelectors) {
+            try {
+                titleInput = await page.waitForSelector(selector, { timeout: 5000, visible: true });
+                if (titleInput) {
+                    console.log(`   ✅ Topildi: ${selector}`);
+                    break;
+                }
+            } catch (e) {
+                continue;
+            }
+        }
 
-        await scrollToElement(page, titleInput);
-        await sleep(1000);
-        await titleInput.click({ clickCount: 3 });
-        await sleep(500);
-        await titleInput.type(title, { delay: 80 });
-        console.log('   ✅ Yozildi:', title);
+        if (titleInput) {
+            await scrollToElement(page, titleInput);
+            await sleep(1000);
+            await titleInput.click({ clickCount: 3 });
+            await sleep(500);
+            await titleInput.type(title, { delay: 80 });
+            console.log('   ✅ Yozildi:', title);
+        }
         await sleep(1000);
 
-        // ========================================
         // 2️⃣ RASMLAR
-        // ========================================
         if (objectData.rasmlar && objectData.rasmlar !== "Yo'q") {
             console.log('\n2️⃣ Rasmlar...');
             try {
-                const photoInput = await page.waitForSelector('[data-testid="attach-photos-input"]', {
-                    timeout: 15000
-                });
-
+                const photoInput = await page.waitForSelector('[data-testid="attach-photos-input"]', { timeout: 10000 });
                 if (photoInput) {
                     const imageFiles = await getImageFiles(objectData.rasmlar);
-
                     if (imageFiles.length > 0) {
                         const filesToUpload = imageFiles.slice(0, 8);
                         console.log(`   📤 ${filesToUpload.length} ta rasm yuklanmoqda...`);
                         await photoInput.uploadFile(...filesToUpload);
-                        await sleep(8000); // Server uchun ko'proq kutish
+                        await sleep(5000);
                         console.log('   ✅ Rasmlar yuklandi');
                     }
                 }
@@ -542,20 +674,17 @@ async function fillAdForm(page, objectData) {
                 console.log('   ⚠️ Rasm yuklashda xato:', e.message);
             }
         }
-        await sleep(1000);
+        await sleep(500);
 
-        // ========================================
         // 3️⃣ TAVSIF
-        // ========================================
-        console.log('\n3️⃣ Tavsif...');
+        console.log('\n3️⃣ Tavsif (Description)...');
         const description = createDescription(objectData);
+        console.log('   Preview:', description.substring(0, 100) + '...');
 
         try {
             const descriptionArea = await page.waitForSelector('[data-testid="posting-description-text-area"]', {
-                timeout: 15000,
-                visible: true
+                timeout: 15000, visible: true
             });
-
             await scrollToElement(page, descriptionArea);
             await descriptionArea.click();
             await sleep(500);
@@ -566,18 +695,13 @@ async function fillAdForm(page, objectData) {
         }
         await sleep(1000);
 
-        // ========================================
         // 4️⃣ NARX
-        // ========================================
         console.log('\n4️⃣ Narx...');
         const price = objectData.narx.replace(/\s/g, '').replace(/\$/g, '');
-
         try {
             const priceInput = await page.waitForSelector('[data-testid="price-input"]', {
-                timeout: 15000,
-                visible: true
+                timeout: 15000, visible: true
             });
-
             await scrollToElement(page, priceInput);
             await priceInput.click({ clickCount: 3 });
             await sleep(300);
@@ -588,33 +712,35 @@ async function fillAdForm(page, objectData) {
         }
         await sleep(1000);
 
-        // ========================================
-        // 5️⃣-1️⃣6️⃣ QOLGAN MAYDONLAR
-        // ========================================
-
-        // Dogovoraya
+        // 5️⃣ DOGOVORНАЯ
         console.log('\n5️⃣ Договорная...');
         try {
-            const allCheckboxes = await page.$$('input[type="checkbox"]');
-            for (const checkbox of allCheckboxes) {
+            const allCheckboxes = await page.$('input[type="checkbox"]');
+            for (let i = 0; i < allCheckboxes.length; i++) {
+                const checkbox = allCheckboxes[i];
                 const id = await page.evaluate(el => el.id, checkbox);
+                const isChecked = await page.evaluate(el => el.checked, checkbox);
+
                 if (id && id.includes('nexus-input')) {
                     await scrollToElement(page, checkbox);
-                    const isChecked = await page.evaluate(el => el.checked, checkbox);
                     if (!isChecked) {
-                        await page.evaluate(el => el.parentElement?.click(), checkbox);
+                        await page.evaluate(el => {
+                            const parent = el.parentElement;
+                            if (parent) parent.click();
+                        }, checkbox);
                         await sleep(500);
-                        console.log('   ✅ Belgilandi');
+                        console.log('   ✅ Договорная belgilandi');
                     }
                     break;
                 }
             }
         } catch (e) {
-            console.log('   ⚠️ Xato:', e.message);
+            console.log('   ⚠️ Договорная xato:', e.message);
         }
+        await sleep(500);
 
-        // Valyuta
-        console.log('\n6️⃣ Valyuta...');
+        // 6️⃣ VALYUTA
+        console.log('\n6️⃣ Valyuta (у.е.)...');
         try {
             const currencyButton = await page.$('.n-referenceinput-button');
             if (currencyButton) {
@@ -628,49 +754,53 @@ async function fillAdForm(page, objectData) {
                 }
             }
         } catch (e) {
-            console.log('   ⚠️ Xato:', e.message);
+            console.log('   ⚠️ Valyuta xato:', e.message);
         }
+        await sleep(500);
 
-        // Shaxsiy shaxs
+        // 7️⃣ SHAXSIY SHAXS
         console.log('\n7️⃣ Shaxsiy shaxs...');
         try {
             const privateButton = await page.$('button[data-testid="private_business_private_unactive"]');
             if (privateButton) {
                 await scrollToElement(page, privateButton);
                 await privateButton.click();
-                console.log('   ✅ Tanlandi');
+                console.log('   ✅ "Частное лицо" tanlandi');
             }
         } catch (e) {
-            console.log('   ⚠️ Xato:', e.message);
+            console.log('   ⚠️ Shaxsiy shaxs xato:', e.message);
         }
+        await sleep(500);
 
-        // Tip jilya
-        console.log('\n8️⃣ Тип жилья...');
+        // 8️⃣ TIP JILYA
+        console.log('\n8️⃣ Тип жилья (Вторичный рынок)...');
         try {
-            const typeDropdown = await page.$('div[data-testid="dropdown"][data-cy="parameters.type_of_market"]');
-            if (typeDropdown) {
-                await scrollToElement(page, typeDropdown);
-                const dropdownButton = await typeDropdown.$('button');
+            const typeDropdownContainer = await page.$('div[data-testid="dropdown"][data-cy="parameters.type_of_market"]');
+            if (typeDropdownContainer) {
+                await scrollToElement(page, typeDropdownContainer);
+                const dropdownButton = await typeDropdownContainer.$('button.n-referenceinput-button');
                 if (dropdownButton) {
                     await dropdownButton.click();
                     await sleep(1500);
-                    const allItems = await page.$$('div[data-testid="dropdown-menu-item"] a');
-                    for (const item of allItems) {
+                    const allMenuItems = await page.$('div[data-testid="dropdown-menu-item"] a');
+                    for (const item of allMenuItems) {
                         const text = await page.evaluate(el => el.textContent, item);
                         if (text.includes('Вторичный')) {
                             await item.click();
-                            console.log('   ✅ Вторичный рынок');
+                            console.log('   ✅ "Вторичный рынок" tanlandi');
+                            await sleep(500);
                             break;
                         }
                     }
                 }
             }
         } catch (e) {
-            console.log('   ⚠️ Xato:', e.message);
+            console.log('   ⚠️ Тип жилья xato:', e.message);
         }
+        await sleep(500);
 
-        // Xonalar
-        console.log('\n9️⃣ Xonalar...');
+        // 9️⃣ XONALAR SONI
+        console.log('\n9️⃣ Xonalar soni...');
         try {
             const roomsInput = await page.$('input[data-testid="parameters.number_of_rooms"]');
             if (roomsInput) {
@@ -678,14 +808,15 @@ async function fillAdForm(page, objectData) {
                 await roomsInput.click({ clickCount: 3 });
                 await sleep(200);
                 await roomsInput.type(xonaSoni, { delay: 50 });
-                console.log(`   ✅ ${xonaSoni}`);
+                console.log(`   ✅ ${xonaSoni} xona`);
             }
         } catch (e) {
-            console.log('   ⚠️ Xato:', e.message);
+            console.log('   ⚠️ Xonalar xato:', e.message);
         }
+        await sleep(500);
 
-        // Maydon
-        console.log('\n🔟 Maydon...');
+        // 🔟 MAYDON
+        console.log('\n🔟 Umumiy maydon...');
         try {
             const areaInput = await page.$('input[data-testid="parameters.total_area"]');
             if (areaInput) {
@@ -693,13 +824,14 @@ async function fillAdForm(page, objectData) {
                 await areaInput.click({ clickCount: 3 });
                 await sleep(200);
                 await areaInput.type(objectData.m2.toString(), { delay: 50 });
-                console.log(`   ✅ ${objectData.m2}`);
+                console.log(`   ✅ ${objectData.m2} m²`);
             }
         } catch (e) {
-            console.log('   ⚠️ Xato:', e.message);
+            console.log('   ⚠️ Maydon xato:', e.message);
         }
+        await sleep(500);
 
-        // Etaj
+        // 1️⃣1️⃣ ETAJ
         console.log('\n1️⃣1️⃣ Etaj...');
         try {
             const floorInput = await page.$('input[data-testid="parameters.floor"]');
@@ -708,13 +840,14 @@ async function fillAdForm(page, objectData) {
                 await floorInput.click({ clickCount: 3 });
                 await sleep(200);
                 await floorInput.type(etaj, { delay: 50 });
-                console.log(`   ✅ ${etaj}`);
+                console.log(`   ✅ ${etaj}-etaj`);
             }
         } catch (e) {
-            console.log('   ⚠️ Xato:', e.message);
+            console.log('   ⚠️ Etaj xato:', e.message);
         }
+        await sleep(500);
 
-        // Etajnost
+        // 1️⃣2️⃣ ETAJNOST
         console.log('\n1️⃣2️⃣ Etajnost...');
         try {
             const floorsInput = await page.$('input[data-testid="parameters.total_floors"]');
@@ -723,17 +856,19 @@ async function fillAdForm(page, objectData) {
                 await floorsInput.click({ clickCount: 3 });
                 await sleep(200);
                 await floorsInput.type(etajnost, { delay: 50 });
-                console.log(`   ✅ ${etajnost}`);
+                console.log(`   ✅ ${etajnost}-qavatli`);
             }
         } catch (e) {
-            console.log('   ⚠️ Xato:', e.message);
+            console.log('   ⚠️ Etajnost xato:', e.message);
         }
+        await sleep(1000);
 
-        // Mebel va Komission
+        // 1️⃣3️⃣-1️⃣4️⃣ МЕБЛИРОВАНА VA КОМИССИОННЫЕ
         await clickFurnishedAndCommission(page);
+        await sleep(500);
 
-        // Joylashuv
-        console.log('\n1️⃣5️⃣ Joylashuv...');
+        // 1️⃣5️⃣ JOYLASHUV
+        console.log('\n1️⃣5️⃣ Joylashuv (Yunusobod)...');
         try {
             const locationInput = await page.$('input[data-testid="autosuggest-location-search-input"]');
             if (locationInput) {
@@ -741,21 +876,23 @@ async function fillAdForm(page, objectData) {
                 await locationInput.click();
                 await sleep(500);
                 await locationInput.type('Yunusobod', { delay: 100 });
+                console.log('   ✅ "Yunusobod" yozildi');
                 await sleep(2000);
                 const locationOption = await page.waitForSelector('button[data-testid="location-list-item"]', {
                     timeout: 5000
                 });
                 if (locationOption) {
                     await locationOption.click();
-                    console.log('   ✅ Tanlandi');
+                    console.log('   ✅ "Ташкент, Юнусабадский район" tanlandi');
                 }
             }
         } catch (e) {
-            console.log('   ⚠️ Xato:', e.message);
+            console.log('   ⚠️ Joylashuv xato:', e.message);
         }
+        await sleep(1000);
 
-        // Telefon
-        console.log('\n1️⃣6️⃣ Telefon...');
+        // 1️⃣6️⃣ TELEFON
+        console.log('\n1️⃣6️⃣ Telefon raqam...');
         try {
             const phoneInput = await page.$('input[data-testid="phone"]');
             if (phoneInput) {
@@ -764,14 +901,15 @@ async function fillAdForm(page, objectData) {
                 await sleep(300);
                 await phoneInput.press('Backspace');
                 await sleep(500);
-                await phoneInput.type('998970850604', { delay: 80 });
-                console.log('   ✅ Kiritildi');
+                const phoneNumber = '998970850604';
+                await phoneInput.type(phoneNumber, { delay: 80 });
+                console.log(`   ✅ +${phoneNumber}`);
             }
         } catch (e) {
-            console.log('   ⚠️ Xato:', e.message);
+            console.log('   ⚠️ Telefon xato:', e.message);
         }
+        await sleep(1000);
 
-        // Final screenshot
         const screenshotAfter = path.join(debugDir, `after-fill-${Date.now()}.png`);
         await page.screenshot({ path: screenshotAfter, fullPage: true });
         console.log('\n📷 Final screenshot:', screenshotAfter);
@@ -782,22 +920,50 @@ async function fillAdForm(page, objectData) {
 
     } catch (error) {
         console.error('\n❌ FORMA XATO:', error.message);
-        console.error('Stack trace:', error.stack);
 
         try {
             const errorScreenshot = path.join(__dirname, '../../logs', `form-error-${Date.now()}.png`);
             await page.screenshot({ path: errorScreenshot, fullPage: true });
             console.error('📷 Error screenshot:', errorScreenshot);
-
-            const errorHtml = path.join(__dirname, '../../logs', `error-page-${Date.now()}.html`);
-            const html = await page.content();
-            fs.writeFileSync(errorHtml, html);
-            console.error('📝 Error HTML:', errorHtml);
-        } catch (screenshotError) {
-            console.error('⚠️ Screenshot xato:', screenshotError.message);
-        }
+        } catch (e) {}
 
         throw error;
+    }
+}
+
+/**
+ * ✅ Rasmlarni yuklash
+ */
+async function uploadImagesNew(page, objectData) {
+    try {
+        console.log('   📸 Rasmlar yuklanmoqda...');
+
+        const photoInput = await page.waitForSelector('[data-testid="attach-photos-input"]', {
+            timeout: 5000
+        });
+
+        if (!photoInput) {
+            console.log('   ⚠️ Rasm input topilmadi');
+            return;
+        }
+
+        const imageFiles = await getImageFiles(objectData.rasmlar);
+
+        if (imageFiles.length === 0) {
+            console.log('   ⚠️ Rasmlar topilmadi');
+            return;
+        }
+
+        const filesToUpload = imageFiles.slice(0, 8);
+        console.log(`   📤 ${filesToUpload.length} ta rasm yuklanmoqda...`);
+
+        await photoInput.uploadFile(...filesToUpload);
+        await sleep(5000);
+
+        console.log('   ✅ Rasmlar yuklandi');
+
+    } catch (error) {
+        console.error('   ⚠️ Rasmlar xato:', error.message);
     }
 }
 
@@ -855,7 +1021,6 @@ async function submitAd(page) {
                 if (currentUrl.includes('login') || currentUrl.includes('callback')) {
                     const screenshotPath = path.join(__dirname, '../../logs', `login-required-${Date.now()}.png`);
                     await page.screenshot({path: screenshotPath, fullPage: true});
-                    console.log('📷 Screenshot:', screenshotPath);
                     throw new Error('Login talab qilinmoqda');
                 }
 
@@ -876,15 +1041,13 @@ async function submitAd(page) {
             console.log('❌ Formada xatolar:', formErrors);
             const screenshotPath = path.join(__dirname, '../../logs', `form-errors-${Date.now()}.png`);
             await page.screenshot({path: screenshotPath, fullPage: true});
-            console.log('📷 Screenshot:', screenshotPath);
             throw new Error('Forma xatolari: ' + formErrors.join(', '));
         }
 
         if (afterUrl === beforeUrl || afterUrl.includes('/adding/') || afterUrl.includes('/posting/')) {
-            console.log('⚠️ URL o\'zgarmadi');
+            console.log('⚠️ URL o\'zgarmadi - formada xato bo\'lishi mumkin');
             const screenshotPath = path.join(__dirname, '../../logs', `submit-no-change-${Date.now()}.png`);
             await page.screenshot({path: screenshotPath, fullPage: true});
-            console.log('📷 Screenshot:', screenshotPath);
             throw new Error('Elon berilmadi: URL o\'zgarmadi');
         }
 
@@ -899,9 +1062,7 @@ async function submitAd(page) {
             const screenshotPath = path.join(__dirname, '../../logs', `submit-error-${Date.now()}.png`);
             await page.screenshot({path: screenshotPath, fullPage: true});
             console.log('📷 Screenshot:', screenshotPath);
-        } catch (ssError) {
-            // Ignore
-        }
+        } catch (e) {}
 
         throw error;
     }
@@ -918,9 +1079,9 @@ async function checkFormErrors(page) {
         for (const el of invalidElements) {
             const text = await page.evaluate(element => {
                 const label = element.closest('div')?.querySelector('label');
-                return label ? label.textContent : element.name || 'Noma\'lum';
+                return label ? label.textContent : element.name || 'Noma\'lum maydon';
             }, el);
-            errors.push(`${text} - noto'g'ri`);
+            errors.push(`${text} - noto'g'ri qiymat`);
         }
 
         const errorMessages = await page.$('.error-message, .field-error, [class*="error-text"]');
@@ -937,7 +1098,7 @@ async function checkFormErrors(page) {
                 const label = element.closest('div')?.querySelector('label');
                 return label ? label.textContent : element.name || 'Noma\'lum';
             }, el);
-            errors.push(`${name} - to'ldirilmagan`);
+            errors.push(`${name} - majburiy maydon to'ldirilmagan`);
         }
 
         return [...new Set(errors)];
@@ -949,178 +1110,103 @@ async function checkFormErrors(page) {
 }
 
 /**
- * ✅ ASOSIY FUNKSIYA: OLX ga elon berish (SERVER OPTIMIZED)
+ * ✅ ASOSIY FUNKSIYA (XFCE4 + Contabo)
  */
 async function postToOLX(objectData) {
-    console.log('\n🤖 OLX AUTOMATION BOSHLANDI');
+    console.log('\n🤖 OLX AUTOMATION BOSHLANDI (XFCE4 MODE)');
     console.log('='.repeat(60));
     console.log('  ID:', objectData.id);
     console.log('  Kvartil:', objectData.kvartil);
-    console.log('  XET:', objectData.xet);
-    console.log('='.repeat(60));
+    console.log('='.repeat(60) + '\n');
+
+    // ✅ SERVER INFO
+    await logServerInfo();
 
     let browser = null;
 
     try {
-        // 1. Status: processing
+        // ✅ 1. PROCESSING
         if (objectData.id) {
-            console.log('\n📊 Status: waiting → processing');
+            console.log('📊 Status: waiting → processing');
             await PropertyObject.setProcessing(objectData.id);
         }
 
-        // User data directory
-        if (!fs.existsSync(USER_DATA_DIR)) {
-            fs.mkdirSync(USER_DATA_DIR, { recursive: true });
-            console.log('📁 User data directory yaratildi');
-        }
-
-        // ✅ CRITICAL: Server uchun optimallashtirilgan browser config
-        console.log('\n🌐 Browser ochilmoqda...');
-        browser = await puppeteer.launch({
-            headless: false,
-            userDataDir: USER_DATA_DIR,
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-blink-features=AutomationControlled',
-                '--start-maximized',
-                '--disable-infobars',
-                '--disable-notifications',
-                '--disable-popup-blocking',
-                '--disable-gpu',
-                '--disable-software-rasterizer',
-                '--disable-extensions',
-                '--disable-background-timer-throttling',
-                '--disable-backgrounding-occluded-windows',
-                '--disable-renderer-backgrounding'
-            ],
-            defaultViewport: {
-                width: 1920,
-                height: 1080
-            },
-            ignoreHTTPSErrors: true,
-            timeout: 60000
-        });
-
+        // ✅ 2. BROWSER OCHISH (XFCE4)
+        browser = await launchBrowser();
         const page = await browser.newPage();
 
         // Anti-detection
         await page.evaluateOnNewDocument(() => {
-            Object.defineProperty(navigator, 'webdriver', {
-                get: () => false
-            });
+            Object.defineProperty(navigator, 'webdriver', { get: () => false });
             window.chrome = { runtime: {} };
-            Object.defineProperty(navigator, 'plugins', {
-                get: () => [1, 2, 3, 4, 5]
-            });
-            Object.defineProperty(navigator, 'languages', {
-                get: () => ['ru-RU', 'ru', 'en-US', 'en']
-            });
+            Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3] });
         });
 
-        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+        await page.setUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
-        // Dialog handler
         page.on('dialog', async dialog => {
             console.log('⚠️ Dialog:', dialog.message());
             await dialog.dismiss();
         });
 
-        // OLX.uz ga kirish
-        console.log('\n📱 OLX.uz ga kirilmoqda...');
-        await page.goto('https://www.olx.uz', {
-            waitUntil: 'domcontentloaded',
-            timeout: 60000
-        });
+        // ✅ 3. OLX.UZ
+        console.log('📱 OLX.uz ga kirilmoqda...');
+        await page.goto('https://www.olx.uz', { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await sleep(3000);
 
-        // ✅ CRITICAL: Sahifa to'liq yuklanishini kutish
-        await waitForPageFullyLoaded(page);
-
-        // Login tekshirish
-        console.log('\n🔐 Login tekshirilmoqda...');
+        // ✅ 4. LOGIN
         const isLoggedIn = await checkAndWaitForLogin(page);
         if (!isLoggedIn) {
-            throw new Error('Login amalga oshmadi');
+            throw new Error('Login amalga oshmadi (5 daqiqa kutildi)');
         }
 
         console.log('✅ Login muvaffaqiyatli\n');
 
-        // Elon berish sahifasiga
-        console.log('📝 Elon berish sahifasiga o\'tilmoqda...');
-        await page.goto('https://www.olx.uz/adding/', {
-            waitUntil: 'domcontentloaded',
-            timeout: 60000
-        });
-
-        // ✅ CRITICAL: Sahifa to'liq yuklanishini kutish
-        await waitForPageFullyLoaded(page);
-
-        // Alert yopish
+        // ✅ 5. ELON BERISH
+        console.log('📝 Elon berish...');
+        await page.goto('https://www.olx.uz/adding/', { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await sleep(5000);
         await closeUnfinishedAdAlert(page);
 
-        // Login qayta tekshirish
-        const stillLoggedIn = await checkLoginStatus(page);
-        if (!stillLoggedIn) {
-            console.log('⚠️ Login kerak, kutilmoqda...');
-            await waitForManualLogin(page, 120);
-        }
-
-        // Forma to'ldirish
-        console.log('✍️ Ma\'lumotlar to\'ldirilmoqda...');
+        // ✅ 6. FORMA (sizning fillAdForm funktsiyangiz)
+        console.log('✍️ Forma...');
         await fillAdForm(page, objectData);
 
-        // Submit
-        console.log('🚀 Elon berilmoqda...');
+        // ✅ 7. SUBMIT (sizning submitAd funktsiyangiz)
+        console.log('🚀 Submit...');
         const adUrl = await submitAd(page);
 
-        console.log('\n' + '='.repeat(60));
-        console.log('✅✅✅ ELON MUVAFFAQIYATLI BERILDI!');
-        console.log('🔗 URL:', adUrl);
-        console.log('='.repeat(60) + '\n');
-
+        console.log('✅ MUVAFFAQIYATLI!');
         await sleep(3000);
         await browser.close();
 
-        // 2. Status: posted
+        // ✅ 8. POSTED
         if (objectData.id) {
-            console.log('📊 Status: processing → posted');
             await PropertyObject.setPosted(objectData.id, adUrl);
         }
 
-        return {
-            success: true,
-            adUrl: adUrl,
-            timestamp: new Date().toISOString()
-        };
+        return { success: true, adUrl: adUrl, timestamp: new Date().toISOString() };
 
     } catch (error) {
-        console.error('\n' + '='.repeat(60));
-        console.error('❌❌❌ OLX AUTOMATION XATO');
-        console.error('='.repeat(60));
-        console.error('Message:', error.message);
-        console.error('Stack:', error.stack);
-        console.error('='.repeat(60) + '\n');
+        console.error('❌ XATO:', error.message);
 
-        // Screenshot
         if (browser) {
             try {
                 const pages = await browser.pages();
                 if (pages[0]) {
-                    const screenshotPath = path.join(__dirname, '../../logs', `olx-error-${Date.now()}.png`);
+                    const logsDir = path.join(__dirname, '../../logs');
+                    if (!fs.existsSync(logsDir)) {
+                        fs.mkdirSync(logsDir, { recursive: true });
+                    }
+                    const screenshotPath = path.join(logsDir, `error-${Date.now()}.png`);
                     await pages[0].screenshot({ path: screenshotPath, fullPage: true });
                     console.log('📷 Screenshot:', screenshotPath);
                 }
-            } catch (screenshotError) {
-                console.error('Screenshot xato:', screenshotError);
-            }
-
+            } catch (e) {}
             await browser.close();
         }
 
-        // 3. Status: error
         if (objectData.id) {
-            console.log('📊 Status: processing → error');
             await PropertyObject.setError(objectData.id, error.message);
         }
 
@@ -1128,6 +1214,4 @@ async function postToOLX(objectData) {
     }
 }
 
-module.exports = {
-    postToOLX
-};
+module.exports = { postToOLX };
