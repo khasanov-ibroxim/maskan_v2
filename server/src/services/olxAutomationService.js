@@ -538,7 +538,7 @@ async function submitAd(page) {
     try {
         console.log('\n🚀 ELON BERILMOQDA...');
 
-        const submitButton = await page.waitForSelector('button[type="submit"]', { timeout: 10000 });
+        const submitButton = await page.waitForSelector('button[data-testid="submit-btn"]', { timeout: 10000 });
         const beforeUrl = page.url();
 
         await submitButton.click();
