@@ -1,9 +1,6 @@
-// client/src/components/ObjectsList.jsx - EDIT MODAL bilan
+// client/src/components/ObjectsList.jsx
 import React, { useEffect, useState } from 'react';
-import {
-    Table, Button, Space, Tag, message, Tooltip, Input, Select,
-    Modal, Form, InputNumber
-} from 'antd';
+import { Table, Button, Space, Tag, message, Tooltip, Input, Select } from 'antd';
 import {
     FolderOpenOutlined,
     ShopOutlined,
@@ -13,15 +10,12 @@ import {
     SyncOutlined,
     SearchOutlined,
     FilterOutlined,
-    ClearOutlined,
-    EditOutlined,
-    SaveOutlined
+    ClearOutlined
 } from '@ant-design/icons';
 import api from '../utils/api.jsx';
 
 const { Search } = Input;
 const { Option } = Select;
-const { TextArea } = Input;
 
 const ObjectsList = () => {
     const [objects, setObjects] = useState([]);
@@ -30,12 +24,7 @@ const ObjectsList = () => {
     const [queueStatus, setQueueStatus] = useState({ queue: [], queueLength: 0 });
     const [postingId, setPostingId] = useState(null);
 
-    // ✅ EDIT MODAL state
-    const [editModalVisible, setEditModalVisible] = useState(false);
-    const [editingObject, setEditingObject] = useState(null);
-    const [editForm] = Form.useForm();
-    const [editLoading, setEditLoading] = useState(false);
-
+    // ✅ Filter state
     const [filters, setFilters] = useState({
         searchText: '',
         kvartil: null,
@@ -45,6 +34,7 @@ const ObjectsList = () => {
         maxPrice: null
     });
 
+    // ✅ Table filters & sorters state
     const [tableParams, setTableParams] = useState({
         pagination: {
             current: 1,
@@ -63,6 +53,7 @@ const ObjectsList = () => {
         loadObjects();
         loadQueueStatus();
 
+        // ✅ 10 minutda 1 marta (600000ms)
         const interval = setInterval(() => {
             console.log('🔄 Auto-refresh queue status (10 min)');
             loadQueueStatus();
@@ -71,6 +62,7 @@ const ObjectsList = () => {
         return () => clearInterval(interval);
     }, []);
 
+    // ✅ Objects yoki filters o'zgarganda filterlash
     useEffect(() => {
         applyFilters();
     }, [objects, filters]);
@@ -78,6 +70,7 @@ const ObjectsList = () => {
     const applyFilters = () => {
         let filtered = [...objects];
 
+        // Search filter
         if (filters.searchText) {
             const searchLower = filters.searchText.toLowerCase();
             filtered = filtered.filter(obj =>
@@ -89,18 +82,22 @@ const ObjectsList = () => {
             );
         }
 
+        // Kvartil filter
         if (filters.kvartil) {
             filtered = filtered.filter(obj => obj.kvartil === filters.kvartil);
         }
 
+        // Rieltor filter
         if (filters.rieltor) {
             filtered = filtered.filter(obj => obj.rieltor === filters.rieltor);
         }
 
+        // Status filter
         if (filters.status) {
             filtered = filtered.filter(obj => obj.elonStatus === filters.status);
         }
 
+        // Price range filter
         if (filters.minPrice) {
             filtered = filtered.filter(obj => obj.narx >= filters.minPrice);
         }
@@ -110,13 +107,43 @@ const ObjectsList = () => {
 
         setFilteredObjects(filtered);
 
+        // ✅ Pagination total'ni yangilash, lekin current page'ni SAQLASH
         setTableParams(prev => ({
             ...prev,
             pagination: {
                 ...prev.pagination,
                 total: filtered.length
+                // current va pageSize SAQLANADI!
             }
         }));
+    };
+
+    const handleDownloadUploads = async () => {
+        try {
+            message.loading('Uploads papka yuklanmoqda... (Bu biroz vaqt olishi mumkin)', 0);
+
+            const response = await api.get('/download-uploads-zip', {
+                responseType: 'blob',
+                timeout: 300000
+            });
+
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `uploads_backup_${Date.now()}.zip`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+
+            message.destroy();
+            message.success('Uploads papka muvaffaqiyatli yuklandi! 📦');
+
+        } catch (error) {
+            message.destroy();
+            console.error('Uploads yuklab olishda xato:', error);
+            message.error('Xato: ' + (error.response?.data?.error || error.message));
+        }
     };
 
     const loadObjects = async () => {
@@ -146,6 +173,7 @@ const ObjectsList = () => {
     };
 
     const handlePostAd = async (objectId) => {
+        console.log('🔍 Post Ad called:', objectId);
         setPostingId(objectId);
         try {
             const response = await api.post('/api/excel/post-ad', { objectId });
@@ -163,74 +191,6 @@ const ObjectsList = () => {
         } finally {
             setPostingId(null);
         }
-    };
-
-    // ✅ EDIT MODAL ochish
-    const handleEditClick = (record) => {
-        console.log('✏️ Edit clicked:', record);
-        setEditingObject(record);
-
-        // Form'ga qiymatlarni o'rnatish
-        editForm.setFieldsValue({
-            kvartil: record.kvartil,
-            xet: record.xet,
-            tell: record.tell,
-            m2: record.m2,
-            narx: record.narx,
-            fio: record.fio,
-            uy_turi: record.uyTuri,
-            xolati: record.xolati,
-            planirovka: record.planirovka,
-            balkon: record.balkon,
-            torets: record.torets,
-            dom: record.dom,
-            kvartira: record.kvartira,
-            osmotir: record.osmotir,
-            opisaniya: record.opisaniya,
-            rieltor: record.rieltor,
-            xodim: record.xodim
-        });
-
-        setEditModalVisible(true);
-    };
-
-    // ✅ EDIT SAVE
-    const handleEditSave = async () => {
-        try {
-            const values = await editForm.validateFields();
-            setEditLoading(true);
-
-            console.log('💾 Saqlash:', values);
-
-            // Backend'ga yuborish
-            const response = await api.put(`/api/excel/objects/${editingObject.id}`, values);
-
-            if (response.data.success) {
-                message.success('✅ Obyekt muvaffaqiyatli yangilandi!');
-                setEditModalVisible(false);
-                setEditingObject(null);
-                editForm.resetFields();
-
-                // Ro'yxatni yangilash
-                await loadObjects();
-            }
-        } catch (error) {
-            console.error('Saqlashda xato:', error);
-            if (error.response?.data?.error) {
-                message.error(error.response.data.error);
-            } else {
-                message.error('Saqlashda xato yuz berdi');
-            }
-        } finally {
-            setEditLoading(false);
-        }
-    };
-
-    // ✅ EDIT CANCEL
-    const handleEditCancel = () => {
-        setEditModalVisible(false);
-        setEditingObject(null);
-        editForm.resetFields();
     };
 
     const openFolder = (url) => {
@@ -253,7 +213,10 @@ const ObjectsList = () => {
         return <Tag color={config.color} icon={config.icon}>{config.text}</Tag>;
     };
 
+    // ✅ Pagination/Filter/Sorter o'zgarganda
     const handleTableChange = (pagination, filters, sorter) => {
+        console.log('📄 Table changed:', { pagination, filters, sorter });
+
         setTableParams({
             pagination,
             filters,
@@ -261,6 +224,7 @@ const ObjectsList = () => {
         });
     };
 
+    // ✅ Filterlarni tozalash
     const clearFilters = () => {
         setFilters({
             searchText: '',
@@ -271,6 +235,7 @@ const ObjectsList = () => {
             maxPrice: null
         });
 
+        // ✅ Pagination'ni birinchi sahifaga qaytarish
         setTableParams(prev => ({
             ...prev,
             pagination: {
@@ -282,36 +247,9 @@ const ObjectsList = () => {
         message.success('Filterlar tozalandi');
     };
 
+    // ✅ Unique values olish
     const getUniqueValues = (key) => {
         return [...new Set(objects.map(obj => obj[key]).filter(Boolean))].sort();
-    };
-
-    const handleDownloadUploads = async () => {
-        try {
-            message.loading('Uploads papka yuklanmoqda...', 0);
-
-            const response = await api.get('/download-uploads-zip', {
-                responseType: 'blob',
-                timeout: 300000
-            });
-
-            const url = window.URL.createObjectURL(new Blob([response.data]));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `uploads_backup_${Date.now()}.zip`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            window.URL.revokeObjectURL(url);
-
-            message.destroy();
-            message.success('Uploads papka muvaffaqiyatli yuklandi! 📦');
-
-        } catch (error) {
-            message.destroy();
-            console.error('Uploads yuklab olishda xato:', error);
-            message.error('Xato: ' + (error.response?.data?.error || error.message));
-        }
     };
 
     const columns = [
@@ -358,12 +296,6 @@ const ObjectsList = () => {
             sorter: (a, b) => (a.narx || 0) - (b.narx || 0)
         },
         {
-            title: 'Turi',
-            dataIndex: 'sheet_type',
-            key: 'sheet_type',
-            width: 140
-        },
-        {
             title: 'Telefon',
             dataIndex: 'tell',
             key: 'tell',
@@ -384,7 +316,7 @@ const ObjectsList = () => {
         {
             title: 'Amallar',
             key: 'actions',
-            width: 220,
+            width: 180,
             fixed: 'right',
             render: (_, record) => {
                 const isInQueue = queueStatus.queue.includes(record.id);
@@ -393,16 +325,6 @@ const ObjectsList = () => {
 
                 return (
                     <Space size="small">
-                        {/* ✅ EDIT button */}
-                        <Tooltip title="Tahrirlash">
-                            <Button
-                                type="default"
-                                size="small"
-                                icon={<EditOutlined />}
-                                onClick={() => handleEditClick(record)}
-                            />
-                        </Tooltip>
-
                         <Tooltip title="Rasmlarni ochish">
                             <Button
                                 type="default"
@@ -433,7 +355,7 @@ const ObjectsList = () => {
 
     return (
         <div style={{ padding: '20px' }}>
-            {/* FILTER PANEL */}
+            {/* ✅ FILTER PANEL */}
             <div style={{
                 marginBottom: 16,
                 background: '#f5f5f5',
@@ -442,6 +364,7 @@ const ObjectsList = () => {
             }}>
                 <Space wrap style={{ width: '100%', justifyContent: 'space-between' }}>
                     <Space wrap>
+                        {/* Search */}
                         <Search
                             placeholder="Qidirish (kvartil, telefon, rieltor...)"
                             allowClear
@@ -451,6 +374,7 @@ const ObjectsList = () => {
                             prefix={<SearchOutlined />}
                         />
 
+                        {/* Kvartil filter */}
                         <Select
                             placeholder="Kvartil"
                             allowClear
@@ -463,6 +387,7 @@ const ObjectsList = () => {
                             ))}
                         </Select>
 
+                        {/* Rieltor filter */}
                         <Select
                             placeholder="Rieltor"
                             allowClear
@@ -475,6 +400,7 @@ const ObjectsList = () => {
                             ))}
                         </Select>
 
+                        {/* Status filter */}
                         <Select
                             placeholder="Status"
                             allowClear
@@ -488,6 +414,7 @@ const ObjectsList = () => {
                             <Option value="error">Xato</Option>
                         </Select>
 
+                        {/* Price range */}
                         <Input
                             placeholder="Min narx"
                             type="number"
@@ -505,6 +432,7 @@ const ObjectsList = () => {
                             prefix="$"
                         />
 
+                        {/* Clear filters */}
                         <Button
                             icon={<ClearOutlined />}
                             onClick={clearFilters}
@@ -514,6 +442,7 @@ const ObjectsList = () => {
                         </Button>
                     </Space>
 
+                    {/* Active filters count */}
                     {Object.values(filters).some(v => v !== null && v !== '') && (
                         <Tag color="blue" icon={<FilterOutlined />}>
                             Faol filterlar: {Object.values(filters).filter(v => v !== null && v !== '').length}
@@ -522,7 +451,7 @@ const ObjectsList = () => {
                 </Space>
             </div>
 
-            {/* ACTION BUTTONS */}
+            {/* ✅ ACTION BUTTONS */}
             <div style={{
                 marginBottom: 16,
                 display: 'flex',
@@ -574,7 +503,7 @@ const ObjectsList = () => {
                 </div>
             </div>
 
-            {/* TABLE */}
+            {/* ✅ TABLE */}
             <Table
                 columns={columns}
                 dataSource={filteredObjects}
@@ -582,150 +511,13 @@ const ObjectsList = () => {
                 loading={loading}
                 pagination={tableParams.pagination}
                 onChange={handleTableChange}
-                scroll={{ x: 1600 }}
+                scroll={{ x: 1400 }}
                 size="small"
                 bordered
                 rowClassName={(record, index) =>
                     index % 2 === 0 ? 'table-row-light' : 'table-row-dark'
                 }
             />
-
-            {/* ✅ EDIT MODAL */}
-            <Modal
-                title={
-                    <Space>
-                        <EditOutlined />
-                        <span>Obyektni tahrirlash</span>
-                    </Space>
-                }
-                open={editModalVisible}
-                onCancel={handleEditCancel}
-                width={800}
-                footer={[
-                    <Button key="cancel" onClick={handleEditCancel}>
-                        Bekor qilish
-                    </Button>,
-                    <Button
-                        key="save"
-                        type="primary"
-                        icon={<SaveOutlined />}
-                        loading={editLoading}
-                        onClick={handleEditSave}
-                    >
-                        Saqlash
-                    </Button>
-                ]}
-            >
-                <Form
-                    form={editForm}
-                    layout="vertical"
-                    style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: 16 }}
-                >
-                    <Form.Item
-                        label="Kvartil"
-                        name="kvartil"
-                        rules={[{ required: true, message: 'Kvartilni kiriting!' }]}
-                    >
-                        <Input placeholder="Yunusobod-5" />
-                    </Form.Item>
-
-                    <Form.Item
-                        label="X/E/T"
-                        name="xet"
-                        rules={[{ required: true, message: 'XET ni kiriting!' }]}
-                    >
-                        <Input placeholder="3/7/9" />
-                    </Form.Item>
-
-                    <Form.Item
-                        label="Telefon"
-                        name="tell"
-                    >
-                        <Input placeholder="+998901234567" />
-                    </Form.Item>
-
-                    <Space style={{ width: '100%' }} size="large">
-                        <Form.Item
-                            label="Maydon (m²)"
-                            name="m2"
-                            style={{ width: '48%' }}
-                        >
-                            <Input placeholder="65" />
-                        </Form.Item>
-
-                        <Form.Item
-                            label="Narx ($)"
-                            name="narx"
-                            style={{ width: '48%' }}
-                        >
-                            <InputNumber
-                                placeholder="85000"
-                                style={{ width: '100%' }}
-                                formatter={value => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                                parser={value => value.replace(/\$\s?|(,*)/g, '')}
-                            />
-                        </Form.Item>
-                    </Space>
-
-                    <Form.Item label="F.I.O" name="fio">
-                        <Input placeholder="Familiya Ism" />
-                    </Form.Item>
-
-                    <Space style={{ width: '100%' }} size="large">
-                        <Form.Item label="Uy turi" name="uy_turi" style={{ width: '48%' }}>
-                            <Input placeholder="Blok" />
-                        </Form.Item>
-
-                        <Form.Item label="Xolati" name="xolati" style={{ width: '48%' }}>
-                            <Input placeholder="Evroremont" />
-                        </Form.Item>
-                    </Space>
-
-                    <Space style={{ width: '100%' }} size="large">
-                        <Form.Item label="Planirovka" name="planirovka" style={{ width: '48%' }}>
-                            <Input placeholder="Ajratlangan" />
-                        </Form.Item>
-
-                        <Form.Item label="Balkon" name="balkon" style={{ width: '48%' }}>
-                            <Input placeholder="2 ta" />
-                        </Form.Item>
-                    </Space>
-
-                    <Space style={{ width: '100%' }} size="large">
-                        <Form.Item label="Torets" name="torets" style={{ width: '48%' }}>
-                            <Input placeholder="Ha" />
-                        </Form.Item>
-
-                        <Form.Item label="Dom" name="dom" style={{ width: '48%' }}>
-                            <Input placeholder="Yangi" />
-                        </Form.Item>
-                    </Space>
-
-                    <Space style={{ width: '100%' }} size="large">
-                        <Form.Item label="Kvartira" name="kvartira" style={{ width: '48%' }}>
-                            <Input placeholder="Burchak" />
-                        </Form.Item>
-
-                        <Form.Item label="Osmotir" name="osmotir" style={{ width: '48%' }}>
-                            <Input placeholder="2024-12-15 14:00" />
-                        </Form.Item>
-                    </Space>
-
-                    <Form.Item label="Opisaniya" name="opisaniya">
-                        <TextArea rows={4} placeholder="Qo'shimcha ma'lumot..." />
-                    </Form.Item>
-
-                    <Space style={{ width: '100%' }} size="large">
-                        <Form.Item label="Rieltor" name="rieltor" style={{ width: '48%' }}>
-                            <Input placeholder="Aziz" disabled />
-                        </Form.Item>
-
-                        <Form.Item label="Xodim" name="xodim" style={{ width: '48%' }}>
-                            <Input placeholder="Sarvar" />
-                        </Form.Item>
-                    </Space>
-                </Form>
-            </Modal>
         </div>
     );
 };

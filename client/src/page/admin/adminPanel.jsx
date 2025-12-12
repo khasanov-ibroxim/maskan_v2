@@ -9,7 +9,8 @@ import {
     ReloadOutlined, DownloadOutlined, EditOutlined, HomeOutlined
 } from '@ant-design/icons';
 import api from '../../utils/api.jsx';
-import ObjectsList from '../../components/ObjectsList.jsx';
+// import ObjectsList from '../../components/ObjectsList.jsx';
+import ObjectsList from '../ObjectsList.js';
 
 const {Option} = Select;
 const {TabPane} = Tabs;

@@ -1,3 +1,5 @@
-2025/12/12-23:34:08.318 85e0 Reusing MANIFEST D:\project\maskan\maskan_v2\server\chrome-data\Default\Local Storage\leveldb/MANIFEST-000001
-2025/12/12-23:34:08.327 85e0 Recovering log #39
-2025/12/12-23:34:08.331 85e0 Reusing old log D:\project\maskan\maskan_v2\server\chrome-data\Default\Local Storage\leveldb/000039.log 
+2025/12/13-00:18:49.325 6664 Reusing MANIFEST D:\project\maskan\maskan_v2\server\chrome-data\Default\Local Storage\leveldb/MANIFEST-000001
+2025/12/13-00:18:49.333 6664 Recovering log #39
+2025/12/13-00:18:49.334 6664 Level-0 table #42: started
+2025/12/13-00:18:49.343 6664 Level-0 table #42: 26992 bytes OK
+2025/12/13-00:18:49.349 6664 Delete type=0 #39
