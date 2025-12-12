@@ -10,7 +10,7 @@ async function testHeadless() {
     console.log('🧪 HEADLESS MODE TEST (SERVER)');
     console.log('='.repeat(60));
 
-    const USER_DATA_DIR = path.join(__dirname, '.chrome-data');
+    const USER_DATA_DIR = path.join(__dirname, 'chrome-data');
 
     if (!fs.existsSync(USER_DATA_DIR)) {
         console.error('❌ User Data Directory topilmadi!');

@@ -8,7 +8,7 @@ async function testLogin() {
     console.log('🧪 OLX LOGIN TEST (LOCAL)');
     console.log('='.repeat(60));
 
-    const USER_DATA_DIR = path.join(__dirname, '.chrome-data');
+    const USER_DATA_DIR = path.join(__dirname, 'chrome-data');
 
     const browser = await puppeteer.launch({
         headless: false, // ✅ Local da ko'rish uchun
@@ -33,7 +33,7 @@ async function testLogin() {
         console.log('\n📋 User Data Directory saqlandi:');
         console.log('   Path:', USER_DATA_DIR);
         console.log('\n📤 Serverga ko\'chirish uchun:');
-        console.log(`   scp -r ${USER_DATA_DIR}/* root@your-ip:/path/to/server/.chrome-data/`);
+        console.log(`   scp -r ${USER_DATA_DIR}/* root@194.163.140.30:/var/www/maskan_v2/server/chrome-data/`);
     } else {
         console.log('⚠️ Login yo\'q. Iltimos login qiling...');
         console.log('⏳ 2 daqiqa kutilmoqda...');

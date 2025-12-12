@@ -3,7 +3,6 @@ const puppeteer = require('puppeteer');
 const path = require('path');
 const fs = require('fs');
 const PropertyObject = require('../models/Object.pg');
-
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
@@ -13,7 +12,7 @@ async function launchBrowser() {
     console.log('\n🚀 BROWSER ISHGA TUSHIRILMOQDA (HEADLESS MODE - CONTABO)');
     console.log('='.repeat(60));
 
-    const USER_DATA_DIR = path.join(__dirname, '../../.chrome-data');
+    const USER_DATA_DIR = path.join(__dirname, '../../chrome-data');
     if (!fs.existsSync(USER_DATA_DIR)) {
         fs.mkdirSync(USER_DATA_DIR, { recursive: true });
     }
@@ -159,7 +158,7 @@ async function ensureLoggedIn(page) {
     console.error('\n📋 QANDAY LOGIN QILISH (Headless mode):');
     console.error('1. Lokal kompyuterda browserda OLX.uz ga login qiling');
     console.error('2. Puppeteer User Data fayllarini Contabo serverga ko\'chiring:');
-    console.error('   scp -r .chrome-data/* your-server:/path/to/.chrome-data/');
+    console.error('   scp -r chrome-data/* your-server:/path/to/chrome-data/');
     console.error('3. Yoki Chrome Extension "EditThisCookie" ishlatib cookiesni export qiling');
     console.error('4. Cookiesni JSON faylga saqlab serverga yuklang\n');
 
