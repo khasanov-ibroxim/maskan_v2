@@ -33,7 +33,7 @@ router.get('/objects', protect, authorize('admin', 'manager'), getObjects);
  * POST /api/excel/post-ad
  * Body: { objectId: "uuid" }
  */
-router.post('/post-ad', protect, authorize('admin', 'manager'), postAd);
+router.post('/post-ad', protect, postAd);
 
 /**
  * Navbat statusi
