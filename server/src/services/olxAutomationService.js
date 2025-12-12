@@ -200,60 +200,278 @@ async function clickFurnishedAndCommission(page) {
 }
 
 async function fillAdForm(page, objectData) {
-    console.log('\n📝 FORMA TO\'LDIRISH');
-    await sleep(5000);
-    const xonaSoni = objectData.xet.split('/')[0];
-    const etaj = objectData.xet.split('/')[1];
-    const etajnost = objectData.xet.split('/')[2];
-
-    // Title
-    console.log('1️⃣ Sarlavha...');
-    const title = `Sotiladi ${objectData.kvartil} ${xonaSoni}-xona`;
     try {
-        await page.waitForSelector('[data-testid="posting-title"]', { timeout: 10000 });
-        await page.type('[data-testid="posting-title"]', title, { delay: 50 });
-        console.log('   ✅');
-    } catch (e) { console.log('   ⚠️', e.message); }
-    await sleep(1000);
+        console.log('\n📝 FORMA TO\'LDIRISH');
+        console.log('='.repeat(60));
 
-    // Images
-    console.log('2️⃣ Rasmlar...');
-    if (objectData.rasmlar && objectData.rasmlar !== "Yo'q") {
+        await sleep(5000);
+
+        const xonaSoni = objectData.xet.split('/')[0];
+        const etaj = objectData.xet.split('/')[1];
+        const etajnost = objectData.xet.split('/')[2];
+
+        // 1. TITLE
+        console.log('1️⃣ Sarlavha...');
+        const title = `Sotiladi ${objectData.kvartil} ${xonaSoni}-xona`;
         try {
-            const photoInput = await page.waitForSelector('[data-testid="attach-photos-input"]', { timeout: 10000 });
-            const imageFiles = await getImageFiles(objectData.rasmlar);
-            if (imageFiles.length > 0) {
-                await photoInput.uploadFile(...imageFiles.slice(0, 8));
-                await sleep(5000);
-                console.log(`   ✅ ${imageFiles.slice(0, 8).length} ta`);
+            await page.waitForSelector('input[data-testid="posting-title"]', { timeout: 10000 });
+            await page.type('[data-testid="posting-title"]', title, { delay: 50 });
+            console.log('   ✅ Yozildi');
+        } catch (e) {
+            console.log('   ⚠️ Xato:', e.message);
+        }
+        await sleep(1000);
+
+        // 2. IMAGES
+        console.log('2️⃣ Rasmlar...');
+        if (objectData.rasmlar && objectData.rasmlar !== "Yo'q") {
+            try {
+                const photoInput = await page.waitForSelector('[data-testid="attach-photos-input"]', { timeout: 10000 });
+                const imageFiles = await getImageFiles(objectData.rasmlar);
+                if (imageFiles.length > 0) {
+                    const filesToUpload = imageFiles.slice(0, 8);
+                    await photoInput.uploadFile(...filesToUpload);
+                    await sleep(5000);
+                    console.log(`   ✅ ${filesToUpload.length} ta rasm yuklandi`);
+                }
+            } catch (e) {
+                console.log('   ⚠️ Xato:', e.message);
             }
-        } catch (e) { console.log('   ⚠️', e.message); }
+        }
+        await sleep(1000);
+
+        // 3. DESCRIPTION
+        console.log('3️⃣ Tavsif...');
+        const description = createDescription(objectData);
+        try {
+            await page.waitForSelector('[data-testid="posting-description-text-area"]', { timeout: 10000 });
+            await page.type('[data-testid="posting-description-text-area"]', description, { delay: 20 });
+            console.log('   ✅ Yozildi');
+        } catch (e) {
+            console.log('   ⚠️ Xato:', e.message);
+        }
+        await sleep(1000);
+
+        // 4. PRICE
+        console.log('4️⃣ Narx...');
+        const price = objectData.narx.replace(/\s/g, '').replace(/\$/g, '');
+        try {
+            await page.waitForSelector('[data-testid="price-input"]', { timeout: 10000 });
+            await page.click('[data-testid="price-input"]', { clickCount: 3 });
+            await page.type('[data-testid="price-input"]', price, { delay: 50 });
+            console.log(`   ✅ ${price}`);
+        } catch (e) {
+            console.log('   ⚠️ Xato:', e.message);
+        }
+        await sleep(1000);
+
+        // 5. NEGOTIABLE
+        console.log('5️⃣ Договорная...');
+        try {
+            const checkboxes = await page.$$('input[type="checkbox"]');
+            for (const checkbox of checkboxes) {
+                const id = await page.evaluate(el => el.id, checkbox);
+                if (id && id.includes('nexus-input')) {
+                    await page.evaluate(el => {
+                        const parent = el.parentElement;
+                        if (parent) parent.click();
+                    }, checkbox);
+                    await sleep(500);
+                    console.log('   ✅ Belgilandi');
+                    break;
+                }
+            }
+        } catch (e) {
+            console.log('   ⚠️ Xato:', e.message);
+        }
+        await sleep(500);
+
+        // 6. CURRENCY
+        console.log('6️⃣ Valyuta...');
+        try {
+            const currencyButton = await page.$('.n-referenceinput-button');
+            if (currencyButton) {
+                await currencyButton.click();
+                await sleep(1500);
+                const uyeOption = await page.$('div[name="1_UYE"][role="radio"]');
+                if (uyeOption) {
+                    await uyeOption.click();
+                    console.log('   ✅ у.е. tanlandi');
+                }
+            }
+        } catch (e) {
+            console.log('   ⚠️ Xato:', e.message);
+        }
+        await sleep(500);
+
+        // 7. PRIVATE PERSON
+        console.log('\n7️⃣ Shaxsiy shaxs...');
+        try {
+            const privateButton = await page.$('button[data-testid="private_business_private_unactive"]');
+            if (privateButton) {
+                await scrollToElement(page, privateButton);
+                await privateButton.click();
+                console.log('   ✅ "Частное лицо" tanlandi');
+            }
+        } catch (e) {
+            console.log('   ⚠️ Xato:', e.message);
+        }
+        await sleep(500);
+
+        // 8. TYPE OF MARKET
+        console.log('\n8️⃣ Тип жилья (Вторичный рынок)...');
+        try {
+            const typeDropdownContainer = await page.$('div[data-testid="dropdown"][data-cy="parameters.type_of_market"]');
+            if (typeDropdownContainer) {
+                await scrollToElement(page, typeDropdownContainer);
+                const dropdownButton = await typeDropdownContainer.$('button.n-referenceinput-button');
+                if (dropdownButton) {
+                    await dropdownButton.click();
+                    await sleep(1500);
+                    const allMenuItems = await page.$$('div[data-testid="dropdown-menu-item"] a');
+                    for (const item of allMenuItems) {
+                        const text = await page.evaluate(el => el.textContent, item);
+                        if (text.includes('Вторичный')) {
+                            await item.click();
+                            console.log('   ✅ "Вторичный рынок" tanlandi');
+                            await sleep(500);
+                            break;
+                        }
+                    }
+                }
+            }
+        } catch (e) {
+            console.log('   ⚠️ Xato:', e.message);
+        }
+        await sleep(500);
+
+        // 9. ROOMS
+        console.log('\n9️⃣ Xonalar soni...');
+        try {
+            const roomsInput = await page.$('input[data-testid="parameters.number_of_rooms"]');
+            if (roomsInput) {
+                await scrollToElement(page, roomsInput);
+                await roomsInput.click({ clickCount: 3 });
+                await sleep(200);
+                await roomsInput.type(xonaSoni, { delay: 50 });
+                console.log(`   ✅ ${xonaSoni} xona`);
+            }
+        } catch (e) {
+            console.log('   ⚠️ Xato:', e.message);
+        }
+        await sleep(500);
+
+        // 10. AREA
+        console.log('\n🔟 Umumiy maydon...');
+        try {
+            const areaInput = await page.$('input[data-testid="parameters.total_area"]');
+            if (areaInput) {
+                await scrollToElement(page, areaInput);
+                await areaInput.click({ clickCount: 3 });
+                await sleep(200);
+                await areaInput.type(objectData.m2.toString(), { delay: 50 });
+                console.log(`   ✅ ${objectData.m2} m²`);
+            }
+        } catch (e) {
+            console.log('   ⚠️ Xato:', e.message);
+        }
+        await sleep(500);
+
+        // 11. FLOOR
+        console.log('\n1️⃣1️⃣ Etaj...');
+        try {
+            const floorInput = await page.$('input[data-testid="parameters.floor"]');
+            if (floorInput) {
+                await scrollToElement(page, floorInput);
+                await floorInput.click({ clickCount: 3 });
+                await sleep(200);
+                await floorInput.type(etaj, { delay: 50 });
+                console.log(`   ✅ ${etaj}-etaj`);
+            }
+        } catch (e) {
+            console.log('   ⚠️ Xato:', e.message);
+        }
+        await sleep(500);
+
+        // 12. TOTAL FLOORS
+        console.log('\n1️⃣2️⃣ Etajnost...');
+        try {
+            const floorsInput = await page.$('input[data-testid="parameters.total_floors"]');
+            if (floorsInput) {
+                await scrollToElement(page, floorsInput);
+                await floorsInput.click({ clickCount: 3 });
+                await sleep(200);
+                await floorsInput.type(etajnost, { delay: 50 });
+                console.log(`   ✅ ${etajnost}-qavatli`);
+            }
+        } catch (e) {
+            console.log('   ⚠️ Xato:', e.message);
+        }
+        await sleep(1000);
+
+        // 13-14. FURNISHED & COMMISSION
+        await clickFurnishedAndCommission(page);
+        await sleep(500);
+
+        // 15. LOCATION
+        console.log('\n1️⃣5️⃣ Joylashuv (Yunusobod)...');
+        try {
+            const locationInput = await page.$('input[data-testid="autosuggest-location-search-input"]');
+            if (locationInput) {
+                await scrollToElement(page, locationInput);
+                await locationInput.click();
+                await sleep(500);
+                await locationInput.type('Yunusobod', { delay: 100 });
+                console.log('   ✅ "Yunusobod" yozildi');
+                await sleep(2000);
+                const locationOption = await page.waitForSelector('button[data-testid="location-list-item"]', {
+                    timeout: 5000
+                });
+                if (locationOption) {
+                    await locationOption.click();
+                    console.log('   ✅ "Ташкент, Юнусабадский район" tanlandi');
+                }
+            }
+        } catch (e) {
+            console.log('   ⚠️ Xato:', e.message);
+        }
+        await sleep(1000);
+
+        // 16. PHONE
+        console.log('\n1️⃣6️⃣ Telefon raqam...');
+        try {
+            const phoneInput = await page.$('input[data-testid="phone"]');
+            if (phoneInput) {
+                await scrollToElement(page, phoneInput);
+                await phoneInput.click({ clickCount: 3 });
+                await sleep(300);
+                await phoneInput.press('Backspace');
+                await sleep(500);
+                const phoneNumber = '998970850604';
+                await phoneInput.type(phoneNumber, { delay: 80 });
+                console.log(`   ✅ +${phoneNumber}`);
+            }
+        } catch (e) {
+            console.log('   ⚠️ Xato:', e.message);
+        }
+        await sleep(1000);
+
+        console.log('\n✅ FORMA TO\'LDIRILDI');
+        console.log('='.repeat(60) + '\n');
+
+        // Screenshot
+        const logsDir = path.join(__dirname, '../../logs');
+        if (!fs.existsSync(logsDir)) {
+            fs.mkdirSync(logsDir, { recursive: true });
+        }
+        const screenshotPath = path.join(logsDir, `form-filled-${Date.now()}.png`);
+        await page.screenshot({ path: screenshotPath, fullPage: true });
+        console.log('📷 Screenshot:', screenshotPath);
+
+    } catch (error) {
+        console.error('❌ FORMA XATO:', error.message);
+        throw error;
     }
-    await sleep(1000);
-
-    // Description
-    console.log('3️⃣ Tavsif...');
-    try {
-        await page.type('[data-testid="posting-description-text-area"]', createDescription(objectData), { delay: 20 });
-        console.log('   ✅');
-    } catch (e) { console.log('   ⚠️', e.message); }
-    await sleep(1000);
-
-    // Price
-    console.log('4️⃣ Narx...');
-    const price = objectData.narx.replace(/\s/g, '').replace(/\$/g, '');
-    try {
-        await page.click('[data-testid="price-input"]', { clickCount: 3 });
-        await page.type('[data-testid="price-input"]', price, { delay: 50 });
-        console.log(`   ✅ ${price}`);
-    } catch (e) { console.log('   ⚠️', e.message); }
-    await sleep(1000);
-
-    // Other fields simplified for brevity...
-    console.log('5️⃣-1️⃣6️⃣ Qolgan maydonlar...');
-    // [Same as before - all fields]
-
-    console.log('\n✅ FORMA TO\'LDIRILDI\n');
 }
 
 async function submitAd(page) {
