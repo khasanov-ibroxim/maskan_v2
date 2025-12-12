@@ -8,7 +8,7 @@ async function testLogin() {
     console.log('🧪 OLX LOGIN TEST (LOCAL)');
     console.log('='.repeat(60));
 
-    const USER_DATA_DIR = path.join(__dirname, 'chrome-data');
+    const USER_DATA_DIR = path.join(__dirname, '../chrome-data');
 
     const browser = await puppeteer.launch({
         headless: false, // ✅ Local da ko'rish uchun
