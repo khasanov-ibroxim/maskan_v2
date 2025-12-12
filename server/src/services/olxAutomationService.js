@@ -125,7 +125,7 @@ async function launchBrowser() {
     // ✅ 4. XFCE4 uchun maxsus args
     const launchOptions = {
         // ❗ XFCE4 da HEADLESS FALSE bo'lishi SHART
-        headless: false,
+        headless: true,
 
         // Chrome path (agar topilgan bo'lsa)
         ...(chromePath && { executablePath: chromePath }),
