@@ -8,7 +8,7 @@ const {
     getQueueStatus,
     getStats,
     search,
-    deleteObject
+    deleteObject, updateObject
 } = require('../controllers/excelController');
 
 // ============================================
@@ -52,6 +52,8 @@ router.get('/search', protect, search);
  * DELETE /api/excel/objects/:id
  */
 router.delete('/objects/:id', protect, authorize('admin'), deleteObject);
+
+router.put('/objects/:id', protect, authorize('admin', 'manager'), updateObject);
 
 // ============================================
 // ADMIN ONLY ROUTES

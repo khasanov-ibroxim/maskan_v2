@@ -434,6 +434,102 @@ exports.cleanTempImages = async (req, res) => {
     }
 };
 
+
+/**
+ * ✅ YANGI: Update object
+ * PUT /api/excel/objects/:id
+ */
+exports.updateObject = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updates = req.body;
+
+        console.log('\n📝 OBYEKT YANGILANMOQDA');
+        console.log('='.repeat(60));
+        console.log('  ID:', id);
+        console.log('  Updates:', Object.keys(updates));
+
+        // UUID validation
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(id)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Noto\'g\'ri UUID format'
+            });
+        }
+
+        // 1. PostgreSQL'dan obyektni topish
+        const object = await PropertyObject.getById(id);
+        if (!object) {
+            return res.status(404).json({
+                success: false,
+                error: 'Obyekt topilmadi'
+            });
+        }
+
+        console.log('  ✅ Obyekt topildi:', object.kvartil, object.xet);
+
+        // 2. PostgreSQL'da yangilash
+        console.log('\n💾 PostgreSQL ga yangilanmoqda...');
+        const updatedObject = await PropertyObject.update(id, updates);
+        console.log('  ✅ PostgreSQL yangilandi');
+
+        // 3. App Script'ga yuborish (GLAVNIY va RIELTOR)
+        const appScriptUpdates = {
+            action: 'update',
+            id: object.unique_id, // ✅ unique_id ishlatish
+            updates: updates
+        };
+
+        // 3.1 GLAVNIY EXCEL
+        const { HERO_APP_SCRIPT } = require('../config/env');
+        if (HERO_APP_SCRIPT) {
+            console.log('\n📊 GLAVNIY EXCEL ga yuborish...');
+            try {
+                await sendToAppScriptWithRetry(HERO_APP_SCRIPT, appScriptUpdates);
+                console.log('  ✅ GLAVNIY EXCEL yangilandi');
+            } catch (error) {
+                console.error('  ❌ GLAVNIY EXCEL xato:', error.message);
+            }
+        }
+
+        // 3.2 RIELTOR EXCEL
+        const User = require('../models/User.pg');
+        try {
+            const realtors = await User.getRealtors();
+            const rielterInfo = realtors.find(u => u.username === object.rieltor);
+
+            if (rielterInfo?.app_script_url) {
+                console.log('\n👨‍💼 RIELTOR EXCEL ga yuborish...');
+                await sendToAppScriptWithRetry(
+                    rielterInfo.app_script_url,
+                    appScriptUpdates,
+                    rielterInfo.id
+                );
+                console.log('  ✅ RIELTOR EXCEL yangilandi');
+            }
+        } catch (error) {
+            console.error('  ❌ RIELTOR EXCEL xato:', error.message);
+        }
+
+        console.log('\n✅ YANGILANISH TUGADI');
+        console.log('='.repeat(60) + '\n');
+
+        res.json({
+            success: true,
+            message: 'Obyekt muvaffaqiyatli yangilandi',
+            object: transformObject(updatedObject)
+        });
+
+    } catch (error) {
+        console.error('❌ Update xato:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
     getObjects: exports.getObjects,
     postAd: exports.postAd,
@@ -442,5 +538,6 @@ module.exports = {
     search: exports.search,
     deleteObject: exports.deleteObject,
     clearQueue: exports.clearQueue,
-    cleanTempImages: exports.cleanTempImages
+    cleanTempImages: exports.cleanTempImages,
+    updateObject: exports.updateObject 
 };
