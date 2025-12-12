@@ -1,25 +1,20 @@
-// server/src/services/olxAutomationService.js - FIXED HEADLESS
+// server/src/services/olxAutomationService.js - COOKIE VERSION
 const puppeteer = require('puppeteer');
 const path = require('path');
 const fs = require('fs');
 const PropertyObject = require('../models/Object.pg');
+const { loadCookies, validateCookies, getCookieInfo } = require('./olxCookieManager');
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
- * ✅ CONTABO SERVERDA ISHLASH UCHUN BROWSER SOZLAMALARI
+ * ✅ BROWSER CONFIG
  */
 async function launchBrowser() {
-    console.log('\n🚀 BROWSER ISHGA TUSHIRILMOQDA (HEADLESS MODE - CONTABO)');
+    console.log('\n🚀 BROWSER ISHGA TUSHIRILMOQDA (COOKIE MODE)');
     console.log('='.repeat(60));
 
-    const USER_DATA_DIR = path.join(__dirname, '../../chrome-data');
-    if (!fs.existsSync(USER_DATA_DIR)) {
-        fs.mkdirSync(USER_DATA_DIR, { recursive: true });
-    }
-
-    // ✅ CRITICAL: Contabo serverda HEADLESS TRUE bo'lishi SHART
     const launchOptions = {
-        headless: true, // ✅ Server uchun ALWAYS TRUE
+        headless: true,
 
         args: [
             '--no-sandbox',
@@ -28,7 +23,7 @@ async function launchBrowser() {
             '--disable-gpu',
             '--no-first-run',
             '--no-zygote',
-            '--single-process', // ✅ VPS uchun
+            '--single-process',
             '--disable-blink-features=AutomationControlled',
             '--disable-infobars',
             '--disable-notifications',
@@ -37,15 +32,16 @@ async function launchBrowser() {
             '--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         ],
 
-        userDataDir: USER_DATA_DIR,
+        // ❌ IMPORTANT: userDataDir ni ISHLATMAYMIZ
+        // Faqat cookies ishlatamiz
+
         defaultViewport: { width: 1920, height: 1080 },
         ignoreHTTPSErrors: true,
         timeout: 90000
     };
 
     console.log('📋 Browser sozlamalari:');
-    console.log('   Mode: HEADLESS (Contabo VPS)');
-    console.log('   User Data Dir:', USER_DATA_DIR);
+    console.log('   Mode: HEADLESS (Cookie-based login)');
     console.log('='.repeat(60) + '\n');
 
     try {
@@ -60,7 +56,64 @@ async function launchBrowser() {
 }
 
 /**
- * ✅ RASM FAYLLARINI TOPISH
+ * ✅ LOGIN WITH COOKIES
+ */
+async function ensureLoggedIn(page) {
+    console.log('\n🔐 COOKIE LOGIN...');
+    console.log('='.repeat(60));
+
+    // 1. Cookie info
+    const cookieInfo = getCookieInfo();
+    console.log('📊 Cookie fayl info:');
+    console.log('   Mavjud:', cookieInfo.exists ? '✅ HA' : '❌ YO\'Q');
+    if (cookieInfo.exists) {
+        console.log('   Cookies soni:', cookieInfo.count);
+        console.log('   Fayl hajmi:', cookieInfo.size);
+        console.log('   O\'zgartirilgan:', cookieInfo.modified);
+    }
+
+    // 2. Load cookies
+    if (!cookieInfo.exists) {
+        console.error('\n❌ COOKIE FAYLI TOPILMADI!');
+        console.error('\n📋 QANDAY YARATISH:');
+        console.error('1. Lokal kompyuterda:');
+        console.error('   node src/scripts/olxManualLogin.js');
+        console.error('\n2. Cookies fayli yaratiladi:');
+        console.error('   cookies/olx-cookies.json');
+        console.error('\n3. Serverga yuklash:');
+        console.error('   scp cookies/olx-cookies.json root@your-server:/path/to/server/cookies/\n');
+
+        throw new Error('Cookie fayli topilmadi');
+    }
+
+    console.log('\n📥 Cookies yuklanmoqda...');
+    const loaded = await loadCookies(page);
+
+    if (!loaded) {
+        throw new Error('Cookies yuklanmadi');
+    }
+
+    // 3. Validate cookies
+    console.log('\n🔍 Cookies tekshirilmoqda...');
+    const isValid = await validateCookies(page);
+
+    if (!isValid) {
+        console.error('\n❌ COOKIES INVALID!');
+        console.error('Cookies expire bo\'lgan yoki noto\'g\'ri.');
+        console.error('Yangi cookies yaratish uchun:');
+        console.error('   node src/scripts/olxManualLogin.js\n');
+
+        throw new Error('Cookies invalid - yangi login kerak');
+    }
+
+    console.log('✅ LOGIN MUVAFFAQIYATLI (Cookies orqali)');
+    console.log('='.repeat(60) + '\n');
+
+    return true;
+}
+
+/**
+ * ✅ GET IMAGE FILES
  */
 async function getImageFiles(folderLink) {
     try {
@@ -102,113 +155,7 @@ async function getImageFiles(folderLink) {
 }
 
 /**
- * ✅ LOGIN STATUS TEKSHIRISH
- */
-async function checkLoginStatus(page) {
-    try {
-        const currentUrl = page.url();
-
-        if (currentUrl.includes('login') || currentUrl.includes('callback')) {
-            return false;
-        }
-
-        // ✅ IMPROVED: Ko'proq selektorlar
-        const successSelectors = [
-            '[data-testid="myolx-link"]',
-            'a[href*="/myaccount"]',
-            'a[href*="myolx"]',
-            '[class*="user-menu"]',
-            'button:has-text("Мои объявления")'
-        ];
-
-        for (const selector of successSelectors) {
-            try {
-                const element = await page.$(selector);
-                if (element) {
-                    console.log(`✅ Login element topildi: ${selector}`);
-                    return true;
-                }
-            } catch {
-                continue;
-            }
-        }
-
-        return false;
-
-    } catch (error) {
-        console.error('⚠️ Login tekshirishda xato:', error.message);
-        return false;
-    }
-}
-
-/**
- * ✅ HEADLESS MODE DA LOGIN (Cookie-based)
- */
-async function ensureLoggedIn(page) {
-    console.log('\n🔐 LOGIN TEKSHIRILMOQDA...');
-
-    const isLoggedIn = await checkLoginStatus(page);
-
-    if (isLoggedIn) {
-        console.log('✅ Allaqachon login qilingan (cookies mavjud)');
-        return true;
-    }
-
-    console.error('❌ LOGIN YO\'Q!');
-    console.error('\n📋 QANDAY LOGIN QILISH (Headless mode):');
-    console.error('1. Lokal kompyuterda browserda OLX.uz ga login qiling');
-    console.error('2. Puppeteer User Data fayllarini Contabo serverga ko\'chiring:');
-    console.error('   scp -r chrome-data/* your-server:/path/to/chrome-data/');
-    console.error('3. Yoki Chrome Extension "EditThisCookie" ishlatib cookiesni export qiling');
-    console.error('4. Cookiesni JSON faylga saqlab serverga yuklang\n');
-
-    throw new Error('OLX.uz ga login qilinmagan. Cookies yuklab serverni qayta ishga tushiring.');
-}
-/**
- * ✅ Mebel va Komission
- */
-async function clickFurnishedAndCommission(page) {
-    try {
-        console.log('\n🔘 Меблирована - Нет...');
-        const furnishedNoButton = await page.$('button[data-cy="parameters.furnished_no"]');
-
-        if (furnishedNoButton) {
-            await scrollToElement(page, furnishedNoButton);
-            const beforePressed = await page.evaluate(el => el.getAttribute('aria-pressed'), furnishedNoButton);
-
-            if (beforePressed !== 'true') {
-                await furnishedNoButton.click();
-                await sleep(1000);
-                console.log('   ✅ Bosildi');
-            } else {
-                console.log('   ℹ️ Allaqachon bosilgan');
-            }
-        }
-
-        await sleep(500);
-
-        console.log('\n🔘 Комиссионные - Нет...');
-        const commissionNoButton = await page.$('button[data-cy="parameters.comission_no"]');
-
-        if (commissionNoButton) {
-            await scrollToElement(page, commissionNoButton);
-            const beforePressed = await page.evaluate(el => el.getAttribute('aria-pressed'), commissionNoButton);
-
-            if (beforePressed !== 'true') {
-                await commissionNoButton.click();
-                await sleep(1000);
-                console.log('   ✅ Bosildi');
-            } else {
-                console.log('   ℹ️ Allaqachon bosilgan');
-            }
-        }
-
-    } catch (e) {
-        console.log('   ❌ Xato:', e.message);
-    }
-}
-/**
- * ✅ TAVSIF YARATISH
+ * ✅ CREATE DESCRIPTION
  */
 function createDescription(data) {
     const { kvartil, xet, m2, xolati, uy_turi, narx, opisaniya, planirovka, balkon } = data;
@@ -253,11 +200,55 @@ async function scrollToElement(page, element) {
 }
 
 /**
- * ✅ FORMA TO'LDIRISH (HEADLESS FRIENDLY)
+ * ✅ CLICK FURNISHED & COMMISSION
+ */
+async function clickFurnishedAndCommission(page) {
+    try {
+        console.log('\n🔘 Меблирована - Нет...');
+        const furnishedNoButton = await page.$('button[data-cy="parameters.furnished_no"]');
+
+        if (furnishedNoButton) {
+            await scrollToElement(page, furnishedNoButton);
+            const beforePressed = await page.evaluate(el => el.getAttribute('aria-pressed'), furnishedNoButton);
+
+            if (beforePressed !== 'true') {
+                await furnishedNoButton.click();
+                await sleep(1000);
+                console.log('   ✅ Bosildi');
+            } else {
+                console.log('   ℹ️ Allaqachon bosilgan');
+            }
+        }
+
+        await sleep(500);
+
+        console.log('\n🔘 Комиссионные - Нет...');
+        const commissionNoButton = await page.$('button[data-cy="parameters.comission_no"]');
+
+        if (commissionNoButton) {
+            await scrollToElement(page, commissionNoButton);
+            const beforePressed = await page.evaluate(el => el.getAttribute('aria-pressed'), commissionNoButton);
+
+            if (beforePressed !== 'true') {
+                await commissionNoButton.click();
+                await sleep(1000);
+                console.log('   ✅ Bosildi');
+            } else {
+                console.log('   ℹ️ Allaqachon bosilgan');
+            }
+        }
+
+    } catch (e) {
+        console.log('   ❌ Xato:', e.message);
+    }
+}
+
+/**
+ * ✅ FILL FORM
  */
 async function fillAdForm(page, objectData) {
     try {
-        console.log('\n📝 FORMA TO\'LDIRISH (Headless Mode)');
+        console.log('\n📝 FORMA TO\'LDIRISH');
         console.log('='.repeat(60));
 
         await sleep(5000);
@@ -278,7 +269,7 @@ async function fillAdForm(page, objectData) {
         }
         await sleep(1000);
 
-        // 2. RASMLAR
+        // 2. IMAGES
         console.log('2️⃣ Rasmlar...');
         if (objectData.rasmlar && objectData.rasmlar !== "Yo'q") {
             try {
@@ -296,7 +287,7 @@ async function fillAdForm(page, objectData) {
         }
         await sleep(1000);
 
-        // 3. TAVSIF
+        // 3. DESCRIPTION
         console.log('3️⃣ Tavsif...');
         const description = createDescription(objectData);
         try {
@@ -308,7 +299,7 @@ async function fillAdForm(page, objectData) {
         }
         await sleep(1000);
 
-        // 4. NARX
+        // 4. PRICE
         console.log('4️⃣ Narx...');
         const price = objectData.narx.replace(/\s/g, '').replace(/\$/g, '');
         try {
@@ -321,7 +312,7 @@ async function fillAdForm(page, objectData) {
         }
         await sleep(1000);
 
-        // 5. DOGOVORНАЯ
+        // 5. NEGOTIABLE
         console.log('5️⃣ Договорная...');
         try {
             const checkboxes = await page.$$('input[type="checkbox"]');
@@ -342,7 +333,7 @@ async function fillAdForm(page, objectData) {
         }
         await sleep(500);
 
-        // 6. VALYUTA
+        // 6. CURRENCY
         console.log('6️⃣ Valyuta...');
         try {
             const currencyButton = await page.$('.n-referenceinput-button');
@@ -360,7 +351,7 @@ async function fillAdForm(page, objectData) {
         }
         await sleep(500);
 
-        // 7️⃣ SHAXSIY SHAXS
+        // 7. PRIVATE PERSON
         console.log('\n7️⃣ Shaxsiy shaxs...');
         try {
             const privateButton = await page.$('button[data-testid="private_business_private_unactive"]');
@@ -370,11 +361,11 @@ async function fillAdForm(page, objectData) {
                 console.log('   ✅ "Частное лицо" tanlandi');
             }
         } catch (e) {
-            console.log('   ⚠️ Shaxsiy shaxs xato:', e.message);
+            console.log('   ⚠️ Xato:', e.message);
         }
         await sleep(500);
 
-        // 8️⃣ TIP JILYA
+        // 8. TYPE OF MARKET
         console.log('\n8️⃣ Тип жилья (Вторичный рынок)...');
         try {
             const typeDropdownContainer = await page.$('div[data-testid="dropdown"][data-cy="parameters.type_of_market"]');
@@ -384,7 +375,7 @@ async function fillAdForm(page, objectData) {
                 if (dropdownButton) {
                     await dropdownButton.click();
                     await sleep(1500);
-                    const allMenuItems = await page.$('div[data-testid="dropdown-menu-item"] a');
+                    const allMenuItems = await page.$$('div[data-testid="dropdown-menu-item"] a');
                     for (const item of allMenuItems) {
                         const text = await page.evaluate(el => el.textContent, item);
                         if (text.includes('Вторичный')) {
@@ -397,11 +388,11 @@ async function fillAdForm(page, objectData) {
                 }
             }
         } catch (e) {
-            console.log('   ⚠️ Тип жилья xato:', e.message);
+            console.log('   ⚠️ Xato:', e.message);
         }
         await sleep(500);
 
-        // 9️⃣ XONALAR SONI
+        // 9. ROOMS
         console.log('\n9️⃣ Xonalar soni...');
         try {
             const roomsInput = await page.$('input[data-testid="parameters.number_of_rooms"]');
@@ -413,11 +404,11 @@ async function fillAdForm(page, objectData) {
                 console.log(`   ✅ ${xonaSoni} xona`);
             }
         } catch (e) {
-            console.log('   ⚠️ Xonalar xato:', e.message);
+            console.log('   ⚠️ Xato:', e.message);
         }
         await sleep(500);
 
-        // 🔟 MAYDON
+        // 10. AREA
         console.log('\n🔟 Umumiy maydon...');
         try {
             const areaInput = await page.$('input[data-testid="parameters.total_area"]');
@@ -429,11 +420,11 @@ async function fillAdForm(page, objectData) {
                 console.log(`   ✅ ${objectData.m2} m²`);
             }
         } catch (e) {
-            console.log('   ⚠️ Maydon xato:', e.message);
+            console.log('   ⚠️ Xato:', e.message);
         }
         await sleep(500);
 
-        // 1️⃣1️⃣ ETAJ
+        // 11. FLOOR
         console.log('\n1️⃣1️⃣ Etaj...');
         try {
             const floorInput = await page.$('input[data-testid="parameters.floor"]');
@@ -445,11 +436,11 @@ async function fillAdForm(page, objectData) {
                 console.log(`   ✅ ${etaj}-etaj`);
             }
         } catch (e) {
-            console.log('   ⚠️ Etaj xato:', e.message);
+            console.log('   ⚠️ Xato:', e.message);
         }
         await sleep(500);
 
-        // 1️⃣2️⃣ ETAJNOST
+        // 12. TOTAL FLOORS
         console.log('\n1️⃣2️⃣ Etajnost...');
         try {
             const floorsInput = await page.$('input[data-testid="parameters.total_floors"]');
@@ -461,15 +452,15 @@ async function fillAdForm(page, objectData) {
                 console.log(`   ✅ ${etajnost}-qavatli`);
             }
         } catch (e) {
-            console.log('   ⚠️ Etajnost xato:', e.message);
+            console.log('   ⚠️ Xato:', e.message);
         }
         await sleep(1000);
 
-        // 1️⃣3️⃣-1️⃣4️⃣ МЕБЛИРОВАНА VA КОМИССИОННЫЕ
+        // 13-14. FURNISHED & COMMISSION
         await clickFurnishedAndCommission(page);
         await sleep(500);
 
-        // 1️⃣5️⃣ JOYLASHUV
+        // 15. LOCATION
         console.log('\n1️⃣5️⃣ Joylashuv (Yunusobod)...');
         try {
             const locationInput = await page.$('input[data-testid="autosuggest-location-search-input"]');
@@ -489,11 +480,11 @@ async function fillAdForm(page, objectData) {
                 }
             }
         } catch (e) {
-            console.log('   ⚠️ Joylashuv xato:', e.message);
+            console.log('   ⚠️ Xato:', e.message);
         }
         await sleep(1000);
 
-        // 1️⃣6️⃣ TELEFON
+        // 16. PHONE
         console.log('\n1️⃣6️⃣ Telefon raqam...');
         try {
             const phoneInput = await page.$('input[data-testid="phone"]');
@@ -508,14 +499,14 @@ async function fillAdForm(page, objectData) {
                 console.log(`   ✅ +${phoneNumber}`);
             }
         } catch (e) {
-            console.log('   ⚠️ Telefon xato:', e.message);
+            console.log('   ⚠️ Xato:', e.message);
         }
         await sleep(1000);
 
         console.log('\n✅ FORMA TO\'LDIRILDI');
         console.log('='.repeat(60) + '\n');
 
-        // Screenshot (debug uchun)
+        // Screenshot
         const logsDir = path.join(__dirname, '../../logs');
         if (!fs.existsSync(logsDir)) {
             fs.mkdirSync(logsDir, { recursive: true });
@@ -531,7 +522,7 @@ async function fillAdForm(page, objectData) {
 }
 
 /**
- * ✅ SUBMIT QILISH
+ * ✅ SUBMIT AD
  */
 async function submitAd(page) {
     try {
@@ -562,10 +553,10 @@ async function submitAd(page) {
 }
 
 /**
- * ✅ ASOSIY FUNKSIYA
+ * ✅ MAIN FUNCTION
  */
 async function postToOLX(objectData) {
-    console.log('\n🤖 OLX AUTOMATION (HEADLESS - CONTABO)');
+    console.log('\n🤖 OLX AUTOMATION (COOKIE-BASED LOGIN)');
     console.log('='.repeat(60));
     console.log('  ID:', objectData.id);
     console.log('  Kvartil:', objectData.kvartil);
@@ -586,30 +577,25 @@ async function postToOLX(objectData) {
             Object.defineProperty(navigator, 'webdriver', { get: () => false });
         });
 
-        // 3. OLX.UZ
-        console.log('📱 OLX.uz...');
-        await page.goto('https://www.olx.uz', { waitUntil: 'domcontentloaded', timeout: 60000 });
-        await sleep(3000);
-
-        // 4. LOGIN TEKSHIRISH
+        // 3. LOAD COOKIES & LOGIN CHECK
         await ensureLoggedIn(page);
 
-        // 5. ADDING PAGE
+        // 4. ADDING PAGE
         console.log('📝 Elon berish sahifasi...');
         await page.goto('https://www.olx.uz/adding/', { waitUntil: 'domcontentloaded', timeout: 30000 });
         await sleep(5000);
 
-        // 6. FORMA
+        // 5. FILL FORM
         await fillAdForm(page, objectData);
 
-        // 7. SUBMIT
+        // 6. SUBMIT
         const adUrl = await submitAd(page);
 
         console.log('✅ MUVAFFAQIYATLI!');
         await sleep(2000);
         await browser.close();
 
-        // 8. POSTED
+        // 7. POSTED
         await PropertyObject.setPosted(objectData.id, adUrl);
 
         return { success: true, adUrl, timestamp: new Date().toISOString() };

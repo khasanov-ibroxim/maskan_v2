@@ -9,6 +9,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "cleanup": "node -e \"require('./src/services/cleanupScheduler').manualCleanup({ cleanTemp: true, cleanLogs: true })\"",
     "excel-stats": "node -e \"require('./src/services/localExcelService').getExcelStats().then(console.log)\"",
+    "olx:login": "node src/scripts/olxManualLogin.js",
     "test:login": "node tests/test-olx-login.js",
     "test:db": "node tests/test-database.js",
     "test:headless": "node tests/test-olx-headless.js",
