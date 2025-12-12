@@ -72,7 +72,7 @@ async function validateCookies(page) {
             });
 
             // Wait for page to stabilize
-            await page.waitForTimeout(3000);
+            await new Promise(resolve => setTimeout(resolve, 3000));
 
             // ✅ IMPROVED: Multiple validation methods
 
@@ -136,7 +136,7 @@ async function validateCookies(page) {
                         console.log('❌ Login sahifasiga redirect bo\'ldi');
                         if (attempt < maxRetries) {
                             console.log(`⏳ ${attempt * 2} soniya kutib qayta uriniladi...`);
-                            await page.waitForTimeout(attempt * 2000);
+                            await new Promise(resolve => setTimeout(resolve, attempt * 2000));
                             continue;
                         }
                         return false;
@@ -149,7 +149,7 @@ async function validateCookies(page) {
                     console.log('⚠️ /adding/ sahifasini tekshirishda xato:', e.message);
                     if (attempt < maxRetries) {
                         console.log(`⏳ Qayta uriniladi...`);
-                        await page.waitForTimeout(2000);
+                        await new Promise(resolve => setTimeout(resolve, 2000));
                         continue;
                     }
                 }
@@ -159,7 +159,7 @@ async function validateCookies(page) {
 
             if (attempt < maxRetries) {
                 console.log(`⏳ ${attempt * 2} soniya kutib qayta uriniladi...`);
-                await page.waitForTimeout(attempt * 2000);
+                await new Promise(resolve => setTimeout(resolve, attempt * 2000));
                 continue;
             }
 
@@ -170,7 +170,7 @@ async function validateCookies(page) {
 
             if (attempt < maxRetries) {
                 console.log(`⏳ ${attempt * 2} soniya kutib qayta uriniladi...`);
-                await page.waitForTimeout(attempt * 2000);
+                await new Promise(resolve => setTimeout(resolve, attempt * 2000));
                 continue;
             }
 
