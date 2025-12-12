@@ -169,7 +169,7 @@ function cleanTempImages() {
  * Create description
  */
 function createDescription(data) {
-    const { kvartil, xet, m2, xolati, uy_turi, narx, opisaniya, planirovka, balkon } = data;
+    const { kvartil, xet, m2, xolati, uy_turi, narx, rieltor, planirovka, balkon , sheet_type } = data;
     const xonaSoni = xet.split("/")[0];
     const etaj = xet.split("/")[1];
     const etajnost = xet.split("/")[2];
@@ -177,25 +177,24 @@ function createDescription(data) {
     const location = kvartil || 'Yunusobod';
     const formattedPrice = narx.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 
-    let description = `SOTILADI - ${location.toUpperCase()}\n${xonaSoni}-xonali kvartira\n\n`;
+    let description = `${sheet_type === "Sotuv"?"SOTILADI" :"ARENDA"} - ${location.toUpperCase()}\n${xonaSoni}-xonali kvartira\n\n`;
     description += `ASOSIY MA'LUMOTLAR:\n---\n• Joylashuv: ${location}\n• Xonalar: ${xonaSoni}\n`;
     description += `• Maydon: ${m2} m²\n• Qavat: ${etajInfo}\n`;
     if (uy_turi) description += `• Uy turi: ${uy_turi}\n`;
     if (xolati) description += `• Ta'mir: ${xolati}\n`;
     if (planirovka) description += `• Planirovka: ${planirovka}\n`;
     if (balkon) description += `• Balkon: ${balkon}\n`;
-    description += `\nNARX: ${formattedPrice} $ (Kelishiladi)\n\n`;
+    description += `\nNARX: ${formattedPrice} y.e. (Kelishiladi)\n\n`;
 
-    description += `ПРОДАЕТСЯ - ${location.toUpperCase()}\n${xonaSoni}-комнатная квартира\n\n`;
+    description += `${sheet_type === "Sotuv"?"ПРОДАЕТСЯ" :"АРЕНДА"} - ${location.toUpperCase()}\n${xonaSoni}-комнатная квартира\n\n`;
     description += `ОСНОВНАЯ ИНФОРМАЦИЯ:\n---\n• Расположение: ${location}\n• Комнат: ${xonaSoni}\n`;
     description += `• Площадь: ${m2} м²\n• Этаж: ${etajInfo}\n`;
     if (uy_turi) description += `• Тип дома: ${uy_turi}\n`;
     if (xolati) description += `• Состояние: ${xolati}\n`;
     if (planirovka) description += `• Планировка: ${planirovka}\n`;
     if (balkon) description += `• Балкон: ${balkon}\n`;
-    description += `\nЦЕНА: ${formattedPrice} $ (Договорная)\n\n`;
-
-    if (opisaniya?.trim()) description += `\nДОПОЛНИТЕЛЬНО:\n${opisaniya}\n`;
+    description += `\nЦЕНА: ${formattedPrice} у.е. (Договорная)\n\n`;
+    description += `${rieltor}`;
 
     return description;
 }
@@ -347,7 +346,7 @@ async function fillOLXForm(page, objectData, imageFiles) {
 
         // 1. TITLE
         console.log('\n1️⃣ Sarlavha...');
-        const title = `Sotiladi ${objectData.kvartil} ${xonaSoni}-xona`;
+        const title = `${objectData.sheet_type === "Sotuv"?"SOTILADI" :"ARENDA"} ${objectData.kvartil} ${xonaSoni}-xona`;
         try {
             await page.waitForSelector('[data-testid="posting-title"]', { timeout: 10000 });
             await page.type('[data-testid="posting-title"]', title, { delay: 50 });
@@ -703,7 +702,7 @@ async function submitAd(page) {
 
         await page.waitForNavigation({
             waitUntil: 'networkidle2',
-            timeout: 30000
+            timeout: 10000
         }).catch(() => {
             console.log('  ℹ️ Navigation timeout');
         });

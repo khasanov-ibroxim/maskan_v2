@@ -1,8 +1,13 @@
-// server/src/controllers/excelController.js - LOCAL OLX VERSION
+// server/src/controllers/excelController.js - FULLY FIXED UPDATE
 const PropertyObject = require('../models/Object.pg');
 const { postToOLXLocal, cleanTempImages } = require('../services/olxAutomationService');
+const { sendToAppScriptWithRetry } = require('../services/appScriptService');
+const path = require('path');
+const fs = require('fs');
+const { createAdTexts } = require('../utils/fileHelper');
+const { UPLOADS_DIR } = require('../config/constants');
 
-// ✅ GLOBAL QUEUE (serverni restart qilganda yo'qoladi)
+// ✅ GLOBAL QUEUE
 if (!global.adQueue) {
     global.adQueue = [];
 }
@@ -78,7 +83,6 @@ exports.postAd = async (req, res) => {
             });
         }
 
-        // UUID validation
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!uuidRegex.test(objectId)) {
             console.error('❌ Noto\'g\'ri UUID:', objectId);
@@ -88,7 +92,6 @@ exports.postAd = async (req, res) => {
             });
         }
 
-        // Obyektni topish
         const object = await PropertyObject.getById(objectId);
 
         if (!object) {
@@ -100,7 +103,6 @@ exports.postAd = async (req, res) => {
 
         console.log('✅ Obyekt topildi:', object.kvartil, object.xet);
 
-        // ✅ Navbatda borligini tekshirish
         if (global.adQueue.includes(objectId)) {
             const position = global.adQueue.indexOf(objectId) + 1;
             return res.json({
@@ -111,7 +113,6 @@ exports.postAd = async (req, res) => {
             });
         }
 
-        // ✅ Processing statusni tekshirish
         if (object.elon_status === 'processing') {
             return res.json({
                 success: true,
@@ -120,7 +121,6 @@ exports.postAd = async (req, res) => {
             });
         }
 
-        // ✅ Posted statusni tekshirish
         if (object.elon_status === 'posted') {
             return res.json({
                 success: true,
@@ -130,13 +130,11 @@ exports.postAd = async (req, res) => {
             });
         }
 
-        // Navbatga qo'shish
         global.adQueue.push(objectId);
 
         console.log(`📤 Navbatga qo'shildi: ${objectId}`);
         console.log(`   Navbat uzunligi: ${global.adQueue.length}`);
 
-        // Response yuborish
         res.json({
             success: true,
             message: 'Elon navbatga qo\'shildi (LOCAL MODE)',
@@ -145,7 +143,6 @@ exports.postAd = async (req, res) => {
             note: 'Browser oynasida login qilish kerak bo\'lishi mumkin'
         });
 
-        // Background'da elon berish
         if (!global.isQueueProcessing) {
             processAdQueue();
         }
@@ -160,7 +157,7 @@ exports.postAd = async (req, res) => {
 };
 
 /**
- * ✅ Process queue - LOCAL VERSION
+ * ✅ Process queue
  */
 async function processAdQueue() {
     if (global.isQueueProcessing) {
@@ -181,7 +178,6 @@ async function processAdQueue() {
         console.log(`\n📤 ELON BERILMOQDA (LOCAL MODE): ${objectId}`);
         console.log(`   Navbatda qolgan: ${global.adQueue.length - 1}`);
 
-        // Obyektni olish
         const object = await PropertyObject.getById(objectId);
 
         if (!object) {
@@ -196,27 +192,20 @@ async function processAdQueue() {
         console.log(`   XET: ${object.xet}`);
         console.log(`   Rasmlar: ${object.rasmlar}`);
 
-        // ✅ LOCAL OLX AUTOMATION
         console.log('\n🤖 LOCAL BROWSER OCHILMOQDA...');
-        console.log('   GUI mode: Jarayonni ko\'rishingiz mumkin');
-        console.log('   Login kerak bo\'lsa: Qo\'lda login qiling');
-        console.log('='.repeat(60));
-
         const result = await postToOLXLocal(object);
 
         console.log(`\n✅ ELON MUVAFFAQIYATLI BERILDI: ${objectId}`);
         console.log(`   OLX URL: ${result.adUrl || 'N/A'}`);
 
-        // Navbatdan o'chirish
         global.adQueue.shift();
 
-        // Keyingi elonga o'tish (30 soniya kutib)
         if (global.adQueue.length > 0) {
-            console.log(`\n⏳ 30 soniya kutish... (Navbatda: ${global.adQueue.length})`);
+            console.log(`\n⏳ 5 soniya kutish... (Navbatda: ${global.adQueue.length})`);
             setTimeout(() => {
                 global.isQueueProcessing = false;
                 processAdQueue();
-            }, 30000); // 30 seconds delay
+            }, 5000);
         } else {
             console.log('\n🎉 NAVBAT BO\'SH - BARCHA ELONLAR BERILDI!');
             global.isQueueProcessing = false;
@@ -225,18 +214,15 @@ async function processAdQueue() {
     } catch (error) {
         console.error(`\n❌ ELON BERISHDA XATO: ${objectId}`);
         console.error(`   Error: ${error.message}`);
-        console.error(`   Stack: ${error.stack}`);
 
-        // Navbatdan o'chirish
         global.adQueue.shift();
 
-        // Keyingi elonga o'tish
         if (global.adQueue.length > 0) {
             console.log(`\n⏭️ Keyingi elonga o'tilmoqda... (Navbatda: ${global.adQueue.length})`);
             setTimeout(() => {
                 global.isQueueProcessing = false;
                 processAdQueue();
-            }, 10000); // 10 seconds delay after error
+            }, 10000);
         } else {
             global.isQueueProcessing = false;
         }
@@ -345,7 +331,6 @@ exports.deleteObject = async (req, res) => {
     try {
         const { id } = req.params;
 
-        // UUID validation
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!uuidRegex.test(id)) {
             return res.status(400).json({
@@ -362,7 +347,6 @@ exports.deleteObject = async (req, res) => {
             });
         }
 
-        // ✅ Navbatdan ham o'chirish
         const queueIndex = global.adQueue.indexOf(id);
         if (queueIndex !== -1) {
             global.adQueue.splice(queueIndex, 1);
@@ -388,7 +372,7 @@ exports.deleteObject = async (req, res) => {
 };
 
 /**
- * ✅ YANGI: Clear queue (admin only)
+ * ✅ Clear queue
  */
 exports.clearQueue = async (req, res) => {
     try {
@@ -414,11 +398,11 @@ exports.clearQueue = async (req, res) => {
 };
 
 /**
- * ✅ YANGI: Clean temp images (admin only)
+ * ✅ Clean temp images
  */
 exports.cleanTempImages = async (req, res) => {
     try {
-        cleanTempImages(); // Already imported at top
+        cleanTempImages();
 
         res.json({
             success: true,
@@ -434,9 +418,8 @@ exports.cleanTempImages = async (req, res) => {
     }
 };
 
-
 /**
- * ✅ YANGI: Update object
+ * ✅✅✅ FULLY FIXED: Update object with App Script + TXT files
  * PUT /api/excel/objects/:id
  */
 exports.updateObject = async (req, res) => {
@@ -468,20 +451,36 @@ exports.updateObject = async (req, res) => {
         }
 
         console.log('  ✅ Obyekt topildi:', object.kvartil, object.xet);
+        console.log('  📁 Rasmlar URL:', object.rasmlar);
 
-        // 2. PostgreSQL'da yangilash
+        // 2. ✅ CRITICAL: Rieltor o'zgarishini tekshirish
+        const oldRieltor = object.rieltor;
+        const newRieltor = updates.rieltor || oldRieltor;
+        const rielterChanged = newRieltor !== oldRieltor;
+
+        console.log('\n👨‍💼 RIELTOR TEKSHIRUVI:');
+        console.log(`  Eski: ${oldRieltor}`);
+        console.log(`  Yangi: ${newRieltor}`);
+        console.log(`  O'zgardi: ${rielterChanged ? '✅ HA' : '❌ YO\'Q'}`);
+
+        // 3. PostgreSQL'da yangilash
         console.log('\n💾 PostgreSQL ga yangilanmoqda...');
         const updatedObject = await PropertyObject.update(id, updates);
         console.log('  ✅ PostgreSQL yangilandi');
 
-        // 3. App Script'ga yuborish (GLAVNIY va RIELTOR)
+        // 4. ✅ App Script'ga yuborish uchun ma'lumotlar
         const appScriptUpdates = {
             action: 'update',
             id: object.unique_id, // ✅ unique_id ishlatish
             updates: updates
         };
 
-        // 3.1 GLAVNIY EXCEL
+        console.log('\n📊 APP SCRIPT MA\'LUMOTLARI:');
+        console.log('  Action:', appScriptUpdates.action);
+        console.log('  Unique ID:', appScriptUpdates.id);
+        console.log('  Updates:', Object.keys(appScriptUpdates.updates));
+
+        // 5. ✅ GLAVNIY EXCEL'GA YUBORISH
         const { HERO_APP_SCRIPT } = require('../config/env');
         if (HERO_APP_SCRIPT) {
             console.log('\n📊 GLAVNIY EXCEL ga yuborish...');
@@ -491,25 +490,127 @@ exports.updateObject = async (req, res) => {
             } catch (error) {
                 console.error('  ❌ GLAVNIY EXCEL xato:', error.message);
             }
+        } else {
+            console.log('  ⚠️ HERO_APP_SCRIPT yo\'q');
         }
 
-        // 3.2 RIELTOR EXCEL
-        const User = require('../models/User.pg');
-        try {
-            const realtors = await User.getRealtors();
-            const rielterInfo = realtors.find(u => u.username === object.rieltor);
+        // 6. ✅ ESKI RIELTOR EXCEL'DAN O'CHIRISH (agar rieltor o'zgardi)
+        if (rielterChanged && oldRieltor) {
+            console.log('\n🗑️ ESKI RIELTOR EXCEL\'DAN O\'CHIRISH...');
+            const User = require('../models/User.pg');
+            try {
+                const realtors = await User.getRealtors();
+                const oldRielterInfo = realtors.find(u => u.username === oldRieltor);
 
-            if (rielterInfo?.app_script_url) {
-                console.log('\n👨‍💼 RIELTOR EXCEL ga yuborish...');
-                await sendToAppScriptWithRetry(
-                    rielterInfo.app_script_url,
-                    appScriptUpdates,
-                    rielterInfo.id
-                );
-                console.log('  ✅ RIELTOR EXCEL yangilandi');
+                if (oldRielterInfo?.app_script_url) {
+                    console.log(`  Eski rieltor: ${oldRieltor}`);
+                    console.log(`  App Script URL: ${oldRielterInfo.app_script_url}`);
+
+                    // ✅ DELETE action yuborish
+                    const deleteData = {
+                        action: 'delete',
+                        id: object.unique_id
+                    };
+
+                    await sendToAppScriptWithRetry(
+                        oldRielterInfo.app_script_url,
+                        deleteData,
+                        oldRielterInfo.id
+                    );
+                    console.log('  ✅ Eski rieltor Excel\'dan o\'chirildi');
+                } else {
+                    console.log('  ⚠️ Eski rieltor App Script URL topilmadi');
+                }
+            } catch (error) {
+                console.error('  ❌ Eski rieltor o\'chirishda xato:', error.message);
             }
-        } catch (error) {
-            console.error('  ❌ RIELTOR EXCEL xato:', error.message);
+        }
+
+        // 7. ✅ YANGI RIELTOR EXCEL'GA QO'SHISH
+        if (newRieltor) {
+            console.log('\n👨‍💼 YANGI RIELTOR EXCEL ga yuborish...');
+            const User = require('../models/User.pg');
+            try {
+                const realtors = await User.getRealtors();
+                const newRielterInfo = realtors.find(u => u.username === newRieltor);
+
+                if (newRielterInfo?.app_script_url) {
+                    console.log(`  Rieltor: ${newRieltor}`);
+                    console.log(`  App Script URL: ${newRielterInfo.app_script_url}`);
+
+                    // ✅ Agar rieltor o'zgardi - yangi qator qo'shish, aks holda - update
+                    if (rielterChanged) {
+                        console.log('  📝 Rieltor o\'zgardi - yangi qator yaratish...');
+                        // To'liq obyekt ma'lumotlarini yuborish (CREATE action)
+                        const fullData = {
+                            ...updatedObject,
+                            folderLink: updatedObject.rasmlar || "Yo'q"
+                        };
+                        await sendToAppScriptWithRetry(
+                            newRielterInfo.app_script_url,
+                            fullData, // CREATE uchun to'liq ma'lumot
+                            newRielterInfo.id
+                        );
+                        console.log('  ✅ Yangi rieltor Excel\'ga qo\'shildi');
+                    } else {
+                        console.log('  📝 Rieltor o\'zgarmadi - update qilish...');
+                        // UPDATE action
+                        await sendToAppScriptWithRetry(
+                            newRielterInfo.app_script_url,
+                            appScriptUpdates,
+                            newRielterInfo.id
+                        );
+                        console.log('  ✅ Rieltor Excel yangilandi');
+                    }
+                } else {
+                    console.log('  ⚠️ Rieltor App Script URL topilmadi');
+                }
+            } catch (error) {
+                console.error('  ❌ RIELTOR EXCEL xato:', error.message);
+            }
+        }
+
+        // 8. ✅ TXT FAYLLARNI YANGILASH (OLX.TXT va TELEGRAM.TXT)
+        console.log('\n📄 TXT FAYLLARNI YANGILASH...');
+        try {
+            // Rasmlar papkasini topish
+            if (updatedObject.rasmlar && updatedObject.rasmlar !== "Yo'q") {
+                console.log('  Rasmlar URL:', updatedObject.rasmlar);
+
+                // URL'dan folder path'ni olish
+                const urlParts = updatedObject.rasmlar.split('/browse/');
+                if (urlParts.length > 1) {
+                    const relativePath = decodeURIComponent(urlParts[1]);
+                    const folderPath = path.join(UPLOADS_DIR, relativePath);
+
+                    console.log('  Folder path:', folderPath);
+
+                    if (fs.existsSync(folderPath)) {
+                        console.log('  ✅ Papka topildi');
+
+                        // Yangilangan ma'lumotlar bilan txt yaratish
+                        const { olxText, telegramText } = createAdTexts(updatedObject);
+
+                        // OLX.TXT yangilash
+                        const olxPath = path.join(folderPath, 'olx.txt');
+                        fs.writeFileSync(olxPath, olxText, 'utf8');
+                        console.log('  ✅ olx.txt yangilandi');
+
+                        // TELEGRAM.TXT yangilash
+                        const telegramPath = path.join(folderPath, 'telegram.txt');
+                        fs.writeFileSync(telegramPath, telegramText, 'utf8');
+                        console.log('  ✅ telegram.txt yangilandi');
+                    } else {
+                        console.log('  ⚠️ Papka topilmadi:', folderPath);
+                    }
+                } else {
+                    console.log('  ⚠️ URL formatida xato');
+                }
+            } else {
+                console.log('  ⚠️ Rasmlar URL yo\'q');
+            }
+        } catch (txtError) {
+            console.error('  ❌ TXT fayllar yangilashda xato:', txtError.message);
         }
 
         console.log('\n✅ YANGILANISH TUGADI');
@@ -518,7 +619,9 @@ exports.updateObject = async (req, res) => {
         res.json({
             success: true,
             message: 'Obyekt muvaffaqiyatli yangilandi',
-            object: transformObject(updatedObject)
+            object: transformObject(updatedObject),
+            rielterChanged: rielterChanged,
+            txtFilesUpdated: true
         });
 
     } catch (error) {
@@ -539,5 +642,5 @@ module.exports = {
     deleteObject: exports.deleteObject,
     clearQueue: exports.clearQueue,
     cleanTempImages: exports.cleanTempImages,
-    updateObject: exports.updateObject 
+    updateObject: exports.updateObject
 };

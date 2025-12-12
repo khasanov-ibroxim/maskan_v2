@@ -358,6 +358,12 @@ const ObjectsList = () => {
             sorter: (a, b) => (a.narx || 0) - (b.narx || 0)
         },
         {
+            title: 'Turi',
+            dataIndex: 'sheet_type',
+            key: 'sheet_type',
+            width: 140
+        },
+        {
             title: 'Telefon',
             dataIndex: 'tell',
             key: 'tell',
