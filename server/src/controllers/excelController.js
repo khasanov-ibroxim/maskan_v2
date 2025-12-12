@@ -1,6 +1,6 @@
-// server/src/controllers/excelController.js - FIXED
+// server/src/controllers/excelController.js - LOCAL OLX VERSION
 const PropertyObject = require('../models/Object.pg');
-const { postToOLX } = require('../services/olxAutomationService');
+const { postToOLXLocal, cleanTempImages } = require('../services/olxAutomationService');
 
 // ✅ GLOBAL QUEUE (serverni restart qilganda yo'qoladi)
 if (!global.adQueue) {
@@ -62,13 +62,13 @@ exports.getObjects = async (req, res) => {
 };
 
 /**
- * ✅ FIXED: Post Ad with better error handling
+ * ✅ Post Ad - LOCAL OLX VERSION
  */
 exports.postAd = async (req, res) => {
     try {
         const { objectId } = req.body;
 
-        console.log('\n📤 Post Ad Request:');
+        console.log('\n📤 Post Ad Request (LOCAL MODE):');
         console.log('   objectId:', objectId);
 
         if (!objectId) {
@@ -100,7 +100,7 @@ exports.postAd = async (req, res) => {
 
         console.log('✅ Obyekt topildi:', object.kvartil, object.xet);
 
-        // ✅ FIXED: Navbatda borligini tekshirish
+        // ✅ Navbatda borligini tekshirish
         if (global.adQueue.includes(objectId)) {
             const position = global.adQueue.indexOf(objectId) + 1;
             return res.json({
@@ -111,7 +111,7 @@ exports.postAd = async (req, res) => {
             });
         }
 
-        // ✅ FIXED: Processing statusni tekshirish
+        // ✅ Processing statusni tekshirish
         if (object.elon_status === 'processing') {
             return res.json({
                 success: true,
@@ -120,7 +120,7 @@ exports.postAd = async (req, res) => {
             });
         }
 
-        // ✅ FIXED: Posted statusni tekshirish
+        // ✅ Posted statusni tekshirish
         if (object.elon_status === 'posted') {
             return res.json({
                 success: true,
@@ -139,9 +139,10 @@ exports.postAd = async (req, res) => {
         // Response yuborish
         res.json({
             success: true,
-            message: 'Elon navbatga qo\'shildi',
+            message: 'Elon navbatga qo\'shildi (LOCAL MODE)',
             queuePosition: global.adQueue.length,
-            status: 'waiting'
+            status: 'waiting',
+            note: 'Browser oynasida login qilish kerak bo\'lishi mumkin'
         });
 
         // Background'da elon berish
@@ -159,7 +160,7 @@ exports.postAd = async (req, res) => {
 };
 
 /**
- * ✅ FIXED: Process queue with proper error handling
+ * ✅ Process queue - LOCAL VERSION
  */
 async function processAdQueue() {
     if (global.isQueueProcessing) {
@@ -177,7 +178,7 @@ async function processAdQueue() {
     const objectId = global.adQueue[0];
 
     try {
-        console.log(`\n📤 Elon berilmoqda: ${objectId}`);
+        console.log(`\n📤 ELON BERILMOQDA (LOCAL MODE): ${objectId}`);
         console.log(`   Navbatda qolgan: ${global.adQueue.length - 1}`);
 
         // Obyektni olish
@@ -193,42 +194,49 @@ async function processAdQueue() {
 
         console.log(`   Kvartil: ${object.kvartil}`);
         console.log(`   XET: ${object.xet}`);
+        console.log(`   Rasmlar: ${object.rasmlar}`);
 
-        // ✅ OLX ga elon berish
-        const result = await postToOLX(object);
+        // ✅ LOCAL OLX AUTOMATION
+        console.log('\n🤖 LOCAL BROWSER OCHILMOQDA...');
+        console.log('   GUI mode: Jarayonni ko\'rishingiz mumkin');
+        console.log('   Login kerak bo\'lsa: Qo\'lda login qiling');
+        console.log('='.repeat(60));
 
-        console.log(`✅ Elon muvaffaqiyatli berildi: ${objectId}`);
+        const result = await postToOLXLocal(object);
+
+        console.log(`\n✅ ELON MUVAFFAQIYATLI BERILDI: ${objectId}`);
         console.log(`   OLX URL: ${result.adUrl || 'N/A'}`);
 
         // Navbatdan o'chirish
         global.adQueue.shift();
 
-        // Keyingi elonga o'tish (10 soniya kutib)
+        // Keyingi elonga o'tish (30 soniya kutib)
         if (global.adQueue.length > 0) {
-            console.log(`⏳ 10 soniya kutish... (Navbatda: ${global.adQueue.length})`);
+            console.log(`\n⏳ 30 soniya kutish... (Navbatda: ${global.adQueue.length})`);
             setTimeout(() => {
                 global.isQueueProcessing = false;
                 processAdQueue();
-            }, 10000);
+            }, 30000); // 30 seconds delay
         } else {
-            console.log('🎉 Navbat bo\'sh - barcha elonlar berildi!');
+            console.log('\n🎉 NAVBAT BO\'SH - BARCHA ELONLAR BERILDI!');
             global.isQueueProcessing = false;
         }
 
     } catch (error) {
-        console.error(`❌ Elon berishda xato: ${objectId}`);
+        console.error(`\n❌ ELON BERISHDA XATO: ${objectId}`);
         console.error(`   Error: ${error.message}`);
+        console.error(`   Stack: ${error.stack}`);
 
         // Navbatdan o'chirish
         global.adQueue.shift();
 
         // Keyingi elonga o'tish
         if (global.adQueue.length > 0) {
-            console.log(`⏭️ Keyingi elonga o'tilmoqda... (Navbatda: ${global.adQueue.length})`);
+            console.log(`\n⏭️ Keyingi elonga o'tilmoqda... (Navbatda: ${global.adQueue.length})`);
             setTimeout(() => {
                 global.isQueueProcessing = false;
                 processAdQueue();
-            }, 10000);
+            }, 10000); // 10 seconds delay after error
         } else {
             global.isQueueProcessing = false;
         }
@@ -252,11 +260,13 @@ exports.getQueueStatus = async (req, res) => {
 
         res.json({
             success: true,
+            mode: 'LOCAL',
             queue: queue,
             queueDetails: queueDetails,
             queueLength: queue.length,
             isProcessing: global.isQueueProcessing,
-            currentlyProcessing: queue.length > 0 && global.isQueueProcessing ? queueDetails[0] : null
+            currentlyProcessing: queue.length > 0 && global.isQueueProcessing ? queueDetails[0] : null,
+            note: 'LOCAL mode: Browser oynasida login qilish kerak bo\'lishi mumkin'
         });
     } catch (error) {
         console.error('❌ Queue status xato:', error);
@@ -283,7 +293,8 @@ exports.getStats = async (req, res) => {
                 queue: {
                     length: global.adQueue?.length || 0,
                     isProcessing: global.isQueueProcessing || false
-                }
+                },
+                mode: 'LOCAL'
             }
         });
     } catch (error) {
@@ -351,7 +362,7 @@ exports.deleteObject = async (req, res) => {
             });
         }
 
-        // ✅ FIXED: Navbatdan ham o'chirish
+        // ✅ Navbatdan ham o'chirish
         const queueIndex = global.adQueue.indexOf(id);
         if (queueIndex !== -1) {
             global.adQueue.splice(queueIndex, 1);
@@ -376,11 +387,60 @@ exports.deleteObject = async (req, res) => {
     }
 };
 
+/**
+ * ✅ YANGI: Clear queue (admin only)
+ */
+exports.clearQueue = async (req, res) => {
+    try {
+        const queueLength = global.adQueue?.length || 0;
+        global.adQueue = [];
+        global.isQueueProcessing = false;
+
+        console.log(`🗑️ Navbat tozalandi: ${queueLength} ta obyekt`);
+
+        res.json({
+            success: true,
+            message: `Navbat tozalandi (${queueLength} ta obyekt)`,
+            clearedCount: queueLength
+        });
+
+    } catch (error) {
+        console.error('❌ Navbat tozalashda xato:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+};
+
+/**
+ * ✅ YANGI: Clean temp images (admin only)
+ */
+exports.cleanTempImages = async (req, res) => {
+    try {
+        cleanTempImages(); // Already imported at top
+
+        res.json({
+            success: true,
+            message: 'Vaqtinchalik rasmlar tozalandi'
+        });
+
+    } catch (error) {
+        console.error('❌ Temp tozalashda xato:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
     getObjects: exports.getObjects,
     postAd: exports.postAd,
     getQueueStatus: exports.getQueueStatus,
     getStats: exports.getStats,
     search: exports.search,
-    deleteObject: exports.deleteObject
+    deleteObject: exports.deleteObject,
+    clearQueue: exports.clearQueue,
+    cleanTempImages: exports.cleanTempImages
 };
