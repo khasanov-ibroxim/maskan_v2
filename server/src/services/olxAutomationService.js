@@ -215,7 +215,7 @@ async function fillAdForm(page, objectData) {
         const title = `Sotiladi ${objectData.kvartil} ${xonaSoni}-xona`;
         try {
             await page.waitForSelector('input[data-testid="posting-title"]', { timeout: 10000 });
-            await page.type('[data-testid="posting-title"]', title, { delay: 50 });
+            await page.type('input[data-testid="posting-title"]', title, { delay: 50 });
             console.log('   ✅ Yozildi');
         } catch (e) {
             console.log('   ⚠️ Xato:', e.message);
