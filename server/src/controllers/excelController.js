@@ -1,16 +1,24 @@
-// server/src/controllers/excelController.js
+// server/src/controllers/excelController.js - FIXED
 const PropertyObject = require('../models/Object.pg');
 const { postToOLX } = require('../services/olxAutomationService');
 
+// ✅ GLOBAL QUEUE (serverni restart qilganda yo'qoladi)
+if (!global.adQueue) {
+    global.adQueue = [];
+}
+if (!global.isQueueProcessing) {
+    global.isQueueProcessing = false;
+}
+
 /**
- * ✅ HELPER: DB object -> Frontend format
+ * ✅ HELPER: Transform object
  */
 function transformObject(obj) {
     if (!obj) return null;
     return {
         ...obj,
-        elonStatus: obj.elon_status,      // ✅ DB: elon_status -> Frontend: elonStatus
-        elonDate: obj.elon_date,          // ✅ DB: elon_date -> Frontend: elonDate
+        elonStatus: obj.elon_status,
+        elonDate: obj.elon_date,
         createdAt: obj.created_at,
         updatedAt: obj.updated_at,
         sheetType: obj.sheet_type,
@@ -20,8 +28,7 @@ function transformObject(obj) {
 }
 
 /**
- * Barcha obyektlarni olish
- * GET /api/excel/objects
+ * Get all objects
  */
 exports.getObjects = async (req, res) => {
     try {
@@ -35,8 +42,6 @@ exports.getObjects = async (req, res) => {
         if (status) filters.elonStatus = status;
 
         const objects = await PropertyObject.getAll(filters);
-
-        // ✅ Transform: snake_case -> camelCase
         const transformedObjects = objects.map(transformObject);
 
         console.log(`✅ ${transformedObjects.length} ta obyekt topildi`);
@@ -57,8 +62,7 @@ exports.getObjects = async (req, res) => {
 };
 
 /**
- * OLX ga elon berish
- * POST /api/excel/post-ad
+ * ✅ FIXED: Post Ad with better error handling
  */
 exports.postAd = async (req, res) => {
     try {
@@ -66,8 +70,6 @@ exports.postAd = async (req, res) => {
 
         console.log('\n📤 Post Ad Request:');
         console.log('   objectId:', objectId);
-        console.log('   Type:', typeof objectId);
-        console.log('   Length:', objectId?.length);
 
         if (!objectId) {
             return res.status(400).json({
@@ -76,13 +78,13 @@ exports.postAd = async (req, res) => {
             });
         }
 
-        // ✅ UUID validation
+        // UUID validation
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!uuidRegex.test(objectId)) {
-            console.error('❌ Noto\'g\'ri UUID format:', objectId);
+            console.error('❌ Noto\'g\'ri UUID:', objectId);
             return res.status(400).json({
                 success: false,
-                error: `Noto'g'ri UUID format: ${objectId}`
+                error: 'Noto\'g\'ri UUID format'
             });
         }
 
@@ -96,22 +98,42 @@ exports.postAd = async (req, res) => {
             });
         }
 
-        console.log('✅ Obyekt topildi:', object.id);
-        console.log('   Kvartil:', object.kvartil);
-        console.log('   XET:', object.xet);
+        console.log('✅ Obyekt topildi:', object.kvartil, object.xet);
 
-        // ✅ Status yangilash - faqat elon_status
-        await PropertyObject.update(objectId, {
-            elon_status: 'processing'
-        });
+        // ✅ FIXED: Navbatda borligini tekshirish
+        if (global.adQueue.includes(objectId)) {
+            const position = global.adQueue.indexOf(objectId) + 1;
+            return res.json({
+                success: true,
+                message: 'Allaqachon navbatda',
+                queuePosition: position,
+                status: 'waiting'
+            });
+        }
 
-        console.log('✅ Status yangilandi: processing');
+        // ✅ FIXED: Processing statusni tekshirish
+        if (object.elon_status === 'processing') {
+            return res.json({
+                success: true,
+                message: 'Allaqachon qayta ishlanmoqda',
+                status: 'processing'
+            });
+        }
+
+        // ✅ FIXED: Posted statusni tekshirish
+        if (object.elon_status === 'posted') {
+            return res.json({
+                success: true,
+                message: 'Elon allaqachon berilgan',
+                status: 'posted',
+                elonDate: object.elon_date
+            });
+        }
 
         // Navbatga qo'shish
-        global.adQueue = global.adQueue || [];
         global.adQueue.push(objectId);
 
-        console.log(`📤 Elon navbatga qo'shildi: ${objectId}`);
+        console.log(`📤 Navbatga qo'shildi: ${objectId}`);
         console.log(`   Navbat uzunligi: ${global.adQueue.length}`);
 
         // Response yuborish
@@ -119,17 +141,16 @@ exports.postAd = async (req, res) => {
             success: true,
             message: 'Elon navbatga qo\'shildi',
             queuePosition: global.adQueue.length,
-            status: 'processing'
+            status: 'waiting'
         });
 
         // Background'da elon berish
-        if (global.adQueue.length === 1) {
+        if (!global.isQueueProcessing) {
             processAdQueue();
         }
 
     } catch (error) {
-        console.error('❌ Elon berishda xato:', error);
-        console.error('   Error stack:', error.stack);
+        console.error('❌ Post Ad xato:', error);
         res.status(500).json({
             success: false,
             error: error.message
@@ -138,14 +159,21 @@ exports.postAd = async (req, res) => {
 };
 
 /**
- * ✅ FIXED: Navbatni qayta ishlash (faqat elon_status)
+ * ✅ FIXED: Process queue with proper error handling
  */
 async function processAdQueue() {
-    if (!global.adQueue || global.adQueue.length === 0) {
-        console.log('✅ Elon navbati bo\'sh');
+    if (global.isQueueProcessing) {
+        console.log('ℹ️ Navbat allaqachon qayta ishlanmoqda');
         return;
     }
 
+    if (!global.adQueue || global.adQueue.length === 0) {
+        console.log('✅ Elon navbati bo\'sh');
+        global.isQueueProcessing = false;
+        return;
+    }
+
+    global.isQueueProcessing = true;
     const objectId = global.adQueue[0];
 
     try {
@@ -156,29 +184,21 @@ async function processAdQueue() {
         const object = await PropertyObject.getById(objectId);
 
         if (!object) {
-            throw new Error('Obyekt topilmadi');
+            console.error('❌ Obyekt topilmadi:', objectId);
+            global.adQueue.shift();
+            global.isQueueProcessing = false;
+            processAdQueue();
+            return;
         }
 
         console.log(`   Kvartil: ${object.kvartil}`);
         console.log(`   XET: ${object.xet}`);
-        console.log(`   Narx: ${object.narx}`);
-        console.log(`   M²: ${object.m2}`);
 
-        // ✅ OLX.uz ga elon berish
+        // ✅ OLX ga elon berish
         const result = await postToOLX(object);
 
         console.log(`✅ Elon muvaffaqiyatli berildi: ${objectId}`);
         console.log(`   OLX URL: ${result.adUrl || 'N/A'}`);
-
-        // ✅ Status yangilash - faqat elon_status va elon_date
-        await PropertyObject.update(objectId, {
-            elon_status: 'posted',
-            elon_date: new Date()
-        });
-
-        console.log(`✅ Database yangilandi:`);
-        console.log(`   elon_status: posted`);
-        console.log(`   elon_date: ${new Date().toLocaleString('uz-UZ')}`);
 
         // Navbatdan o'chirish
         global.adQueue.shift();
@@ -187,29 +207,17 @@ async function processAdQueue() {
         if (global.adQueue.length > 0) {
             console.log(`⏳ 10 soniya kutish... (Navbatda: ${global.adQueue.length})`);
             setTimeout(() => {
+                global.isQueueProcessing = false;
                 processAdQueue();
             }, 10000);
         } else {
             console.log('🎉 Navbat bo\'sh - barcha elonlar berildi!');
+            global.isQueueProcessing = false;
         }
 
     } catch (error) {
         console.error(`❌ Elon berishda xato: ${objectId}`);
-        console.error(`   Error message: ${error.message}`);
-        console.error(`   Error stack:`, error.stack);
-
-        try {
-            // ✅ Xato statusini yangilash - faqat elon_status
-            await PropertyObject.update(objectId, {
-                elon_status: 'error'
-            });
-
-            console.log(`✅ Database yangilandi:`);
-            console.log(`   elon_status: error`);
-
-        } catch (updateError) {
-            console.error(`❌ Status yangilashda xato:`, updateError.message);
-        }
+        console.error(`   Error: ${error.message}`);
 
         // Navbatdan o'chirish
         global.adQueue.shift();
@@ -218,15 +226,17 @@ async function processAdQueue() {
         if (global.adQueue.length > 0) {
             console.log(`⏭️ Keyingi elonga o'tilmoqda... (Navbatda: ${global.adQueue.length})`);
             setTimeout(() => {
+                global.isQueueProcessing = false;
                 processAdQueue();
             }, 10000);
+        } else {
+            global.isQueueProcessing = false;
         }
     }
 }
 
 /**
- * Navbat statusini olish
- * GET /api/excel/queue-status
+ * Get queue status
  */
 exports.getQueueStatus = async (req, res) => {
     try {
@@ -242,14 +252,14 @@ exports.getQueueStatus = async (req, res) => {
 
         res.json({
             success: true,
-            queue: queue,                                    // ✅ ID array
-            queueDetails: queueDetails,                      // ✅ Full objects
+            queue: queue,
+            queueDetails: queueDetails,
             queueLength: queue.length,
-            isProcessing: queue.length > 0,
-            currentlyProcessing: queue.length > 0 ? queueDetails[0] : null
+            isProcessing: global.isQueueProcessing,
+            currentlyProcessing: queue.length > 0 && global.isQueueProcessing ? queueDetails[0] : null
         });
     } catch (error) {
-        console.error('❌ Navbat statusini olishda xato:', error);
+        console.error('❌ Queue status xato:', error);
         res.status(500).json({
             success: false,
             error: error.message
@@ -258,8 +268,7 @@ exports.getQueueStatus = async (req, res) => {
 };
 
 /**
- * Statistika olish
- * GET /api/excel/stats
+ * Get statistics
  */
 exports.getStats = async (req, res) => {
     try {
@@ -270,7 +279,11 @@ exports.getStats = async (req, res) => {
             success: true,
             stats: {
                 ...stats,
-                byKvartil
+                byKvartil,
+                queue: {
+                    length: global.adQueue?.length || 0,
+                    isProcessing: global.isQueueProcessing || false
+                }
             }
         });
     } catch (error) {
@@ -283,8 +296,7 @@ exports.getStats = async (req, res) => {
 };
 
 /**
- * Qidiruv
- * GET /api/excel/search?q=...
+ * Search
  */
 exports.search = async (req, res) => {
     try {
@@ -316,8 +328,7 @@ exports.search = async (req, res) => {
 };
 
 /**
- * Obyektni o'chirish
- * DELETE /api/excel/objects/:id
+ * Delete object
  */
 exports.deleteObject = async (req, res) => {
     try {
@@ -338,6 +349,13 @@ exports.deleteObject = async (req, res) => {
                 success: false,
                 error: 'Obyekt topilmadi'
             });
+        }
+
+        // ✅ FIXED: Navbatdan ham o'chirish
+        const queueIndex = global.adQueue.indexOf(id);
+        if (queueIndex !== -1) {
+            global.adQueue.splice(queueIndex, 1);
+            console.log(`🗑️ Navbatdan o'chirildi: ${id}`);
         }
 
         await PropertyObject.delete(id);
