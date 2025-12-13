@@ -94,9 +94,11 @@ function translateProperty(obj, lang = 'uz') {
     // ✅ Parse price correctly - handle string with spaces
     let price = 0;
     if (obj.narx) {
-        const priceStr = String(obj.narx).replace(/\s/g, '');
+        const priceStr = String(obj.narx).replace(/\s/g, '').replace(/\$/g, '');
         price = parseInt(priceStr, 10) || 0;
     }
+
+    console.log(`💰 Price parsing: ${obj.narx} -> ${price}`);
 
     // Parse XET (xona/etaj/etajnost)
     const xetParts = (obj.xet || '').split('/');
@@ -112,7 +114,6 @@ function translateProperty(obj, lang = 'uz') {
     // ✅ Get main image (for cards)
     let mainImage = null;
     if (imagesUrl) {
-        // Extract folder path from URL
         const baseUrl = process.env.API_URL || 'http://194.163.140.30:5000';
         mainImage = imagesUrl; // Rasmlar papkasining o'zi
     }
@@ -136,7 +137,7 @@ function translateProperty(obj, lang = 'uz') {
         mainImage: mainImage,
         createdAt: obj.sana || new Date().toISOString(),
         phone: obj.tell || '',
-        realtor: obj.rieltor || ''
+        realtor: obj.rieltor || 'Maskan Lux Agent' // ✅ Default value
     };
 }
 
