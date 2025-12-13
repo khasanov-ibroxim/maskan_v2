@@ -378,4 +378,96 @@ function mapRenovation(xolati) {
     return 'euro';
 }
 
+/**
+ * GET /api/public/images
+ * Get all images in a folder
+ * Query: ?path=Yunusobod-13/4%20xona/...
+ */
+router.get('/images', async (req, res) => {
+    try {
+        const { path: folderPath } = req.query;
+
+        if (!folderPath || typeof folderPath !== 'string') {
+            return res.status(400).json({
+                success: false,
+                error: 'Path parameter kerak'
+            });
+        }
+
+        console.log('📷 Images so\'ralmoqda:', folderPath);
+
+        const fs = require('fs');
+        const pathModule = require('path');
+        const { UPLOADS_DIR } = require('../config/constants');
+
+        // Decode path
+        const decodedPath = decodeURIComponent(folderPath);
+        const fullPath = pathModule.join(UPLOADS_DIR, decodedPath);
+
+        console.log('  Full path:', fullPath);
+
+        // Security check
+        const baseDir = pathModule.resolve(UPLOADS_DIR);
+        const resolvedPath = pathModule.resolve(fullPath);
+
+        if (!resolvedPath.startsWith(baseDir)) {
+            return res.status(403).json({
+                success: false,
+                error: 'Access denied'
+            });
+        }
+
+        // Check if exists
+        if (!fs.existsSync(fullPath)) {
+            return res.status(404).json({
+                success: false,
+                error: 'Folder topilmadi'
+            });
+        }
+
+        // Read directory
+        const files = fs.readdirSync(fullPath);
+
+        // Filter only images
+        const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+        const imageFiles = files.filter(file => {
+            const ext = pathModule.extname(file).toLowerCase();
+            return imageExtensions.includes(ext);
+        });
+
+        // Sort images (photo_1.jpg, photo_2.jpg, etc.)
+        imageFiles.sort((a, b) => {
+            const numA = parseInt(a.match(/\d+/)?.[0] || '0');
+            const numB = parseInt(b.match(/\d+/)?.[0] || '0');
+            return numA - numB;
+        });
+
+        // Create full URLs
+        const protocol = req.protocol;
+        const host = req.get('host');
+        const baseUrl = process.env.BASE_URL || `${protocol}://${host}`;
+
+        const imageUrls = imageFiles.map(filename => {
+            const relativePath = pathModule.join(decodedPath, filename).replace(/\\/g, '/');
+            const encodedPath = relativePath.split('/').map(segment => encodeURIComponent(segment)).join('/');
+            return `${baseUrl}/browse/${encodedPath}`;
+        });
+
+        console.log(`  ✅ Topildi: ${imageUrls.length} ta rasm`);
+
+        res.json({
+            success: true,
+            count: imageUrls.length,
+            data: imageUrls
+        });
+
+    } catch (error) {
+        console.error('❌ Images endpoint xato:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
 module.exports = router;
