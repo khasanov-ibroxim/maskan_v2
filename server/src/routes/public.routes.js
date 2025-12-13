@@ -133,18 +133,19 @@ async function getImagesFromFolder(rasmlarPath) {
     if (!rasmlarPath || rasmlarPath === "Yo'q") return [];
 
     try {
-        // Serverdagi uploads papka
         const UPLOADS_ROOT = path.join(__dirname, '../../uploads');
-
-        // DB pathni tozalash
         const decoded = decodeURIComponent(rasmlarPath).replace(/^\/+/, '');
         const folderPath = path.join(UPLOADS_ROOT, decoded);
 
-        if (!fs.existsSync(folderPath)) return [];
+        // Asinxron tekshirish
+        try {
+            await fs.access(folderPath);
+        } catch {
+            return [];
+        }
 
-        // Faqat rasm fayllari
         const IMAGE_EXT = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
-        const files = await fs.promises.readdir(folderPath);
+        const files = await fs.readdir(folderPath);
 
         const images = files
             .filter(f => IMAGE_EXT.includes(path.extname(f).toLowerCase()))
@@ -154,10 +155,8 @@ async function getImagesFromFolder(rasmlarPath) {
                 return na - nb;
             });
 
-        // Base URL
         const baseUrl = process.env.API_URL || 'http://194.163.140.30:5000';
 
-        // ✅ Array sifatida to‘liq URL qaytarish
         return images.map(file => {
             const relativePath = `${decoded}/${file}`
                 .split('/')
