@@ -161,8 +161,8 @@ async function transformProperty(obj, lang = 'uz') {
         totalFloors: parseInt(etajnost) || 1,
 
         district: obj.kvartil || '',
-        type: obj.sheet_type,
-        typeRaw:translateSheetType(obj.sheet_type, lang),
+        type: translateSheetType(obj.sheet_type, lang),
+
 
         // ✅ Images array (all photos)
         images: images,
