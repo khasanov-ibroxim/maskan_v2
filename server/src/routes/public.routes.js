@@ -70,13 +70,29 @@ async function getImagesFromFolder(rasmlarPath) {
  * ✅ Transform to frontend format
  */
 async function transformProperty(obj, lang = 'uz') {
-    // Get all images
+    console.log('\n📦 Transform Property:');
+    console.log('  ID:', obj.id);
+    console.log('  Narx (raw):', obj.narx, typeof obj.narx);
+    console.log('  Rieltor (raw):', obj.rieltor);
+    console.log('  Rasmlar:', obj.rasmlar);
+
+    // ✅ Get all images
     const images = await getImagesFromFolder(obj.rasmlar);
+    console.log('  Images found:', images.length);
 
     // Parse XET
     const xonaSoni = obj.xet ? obj.xet.split('/')[0] : '1';
     const etaj = obj.xet ? obj.xet.split('/')[1] : '1';
     const etajnost = obj.xet ? obj.xet.split('/')[2] : '1';
+
+    // ✅ CRITICAL: Parse price properly
+    let price = 0;
+    if (obj.narx) {
+        // Remove spaces and parse
+        const cleanPrice = String(obj.narx).replace(/\s/g, '');
+        price = parseFloat(cleanPrice) || 0;
+    }
+    console.log('  Price (parsed):', price);
 
     // Create title
     const title = `${obj.sheet_type === 'Sotuv' ? 'Sotiladi' : 'Ijaraga'} - ${obj.kvartil || ''}, ${xonaSoni} xona`;
@@ -84,13 +100,13 @@ async function transformProperty(obj, lang = 'uz') {
     // Create description
     const description = obj.opisaniya || `${xonaSoni} xonali kvartira, ${obj.m2 || ''} m², ${obj.kvartil || ''}`;
 
-    return {
+    const result = {
         id: obj.id,
         title: title,
         description: description,
 
-        // ✅ ONLY price (no min/max)
-        price: parseFloat(obj.narx) || 0,
+        // ✅ Price (properly parsed)
+        price: price,
 
         rooms: parseInt(xonaSoni) || 1,
         area: parseFloat(obj.m2) || 0,
@@ -100,12 +116,12 @@ async function transformProperty(obj, lang = 'uz') {
         district: obj.kvartil || '',
         type: obj.sheet_type || 'Sotuv',
 
-        // ✅ ONLY images array (no mainImage)
+        // ✅ Images array
         images: images,
 
         // ✅ Contact info
         phone: obj.tell || '+998970850604',
-        rieltor: obj.rieltor?.trim() || 'Maskan Lux Agent', // ✅ CRITICAL: rieltor name
+        rieltor: obj.rieltor?.trim() || 'Maskan Lux Agent',
 
         createdAt: obj.sana || obj.created_at || new Date().toISOString(),
 
@@ -116,6 +132,13 @@ async function transformProperty(obj, lang = 'uz') {
         parking: obj.torets || "Yo'q",
         layout: obj.planirovka || null,
     };
+
+    console.log('  ✅ Transform complete:');
+    console.log('    Price:', result.price);
+    console.log('    Rieltor:', result.rieltor);
+    console.log('    Images:', result.images.length);
+
+    return result;
 }
 
 // ============================================
