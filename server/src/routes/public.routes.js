@@ -218,6 +218,44 @@ router.get('/stats', async (req, res) => {
 // ============================================
 // HELPER FUNCTIONS
 // ============================================
+function getImagesFromFolder(rasmlarUrl) {
+    if (!rasmlarUrl || rasmlarUrl === "Yo'q") return [];
+
+    try {
+        const fs = require('fs');
+        const path = require('path');
+        const { UPLOADS_DIR } = require('../config/constants');
+
+        const urlParts = rasmlarUrl.split('/browse/');
+        if (urlParts.length < 2) return [];
+
+        const relativePath = decodeURIComponent(urlParts[1]);
+        const folderPath = path.join(UPLOADS_DIR, relativePath);
+
+        if (!fs.existsSync(folderPath)) return [];
+
+        const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
+        const files = fs.readdirSync(folderPath)
+            .filter(f => imageExtensions.includes(path.extname(f).toLowerCase()))
+            .sort((a, b) => {
+                const na = parseInt(a.match(/\d+/)?.[0] || '999');
+                const nb = parseInt(b.match(/\d+/)?.[0] || '999');
+                return na - nb;
+            });
+
+        const baseUrl = process.env.BASE_URL || 'http://194.163.140.30:5000';
+
+        return files.map(file => {
+            const p = path.join(relativePath, file).replace(/\\/g, '/');
+            const encoded = p.split('/').map(encodeURIComponent).join('/');
+            return `${baseUrl}/browse/${encoded}`;
+        });
+
+    } catch (e) {
+        console.error('❌ getImagesFromFolder:', e.message);
+        return [];
+    }
+}
 
 /**
  * Transform database property to frontend format
@@ -228,7 +266,7 @@ function transformProperty(dbProperty, lang = 'uz') {
     const etajnost = dbProperty.xet ? dbProperty.xet.split('/')[2] : '1';
 
     // ✅ CRITICAL FIX: Get first image directly from folder
-    const mainImage = getMainImageFromFolder(dbProperty.rasmlar);
+    const mainImage = getImagesFromFolder(dbProperty.rasmlar);
 
     // Create translations
     const translations = createTranslations(dbProperty, lang);
