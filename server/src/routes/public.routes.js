@@ -20,11 +20,11 @@ const PropertyObject = require('../models/Object.pg');
  */
 router.get('/properties', async (req, res) => {
     try {
-        const { lang = 'uz', rooms, location, price, type } = req.query;
+        const { lang = 'uz', rooms, location, type } = req.query;
 
         console.log('🌐 PUBLIC API: Properties so\'ralmoqda');
         console.log('  Lang:', lang);
-        console.log('  Filters:', { rooms, location, min, max, type });
+        console.log('  Filters:', { rooms, location, type });
 
         // 1. Filterlar yaratish
         const filters = {};
@@ -183,12 +183,8 @@ router.get('/stats', async (req, res) => {
         res.json({
             success: true,
             data: {
-                totalProperties: properties.length, // Rasmlari bor uylar
+                totalProperties: stats.total || 0, // Rasmlari bor uylar
                 availableRooms: ['1', '2', '3', '4+'],
-                priceRange: {
-                    min: 0,
-                    max: 200000
-                }
             }
         });
 
@@ -252,7 +248,7 @@ function transformProperty(dbProperty, lang = 'uz') {
     const etajnost = dbProperty.xet ? dbProperty.xet.split('/')[2] : '1';
 
     // ✅ CRITICAL FIX: Get first image directly from folder
-    const mainImage = getImagesFromFolder(dbProperty.rasmlar);
+    const images  = getImagesFromFolder(dbProperty.rasmlar);
 
     // Create translations
     const translations = createTranslations(dbProperty, lang);
@@ -261,7 +257,6 @@ function transformProperty(dbProperty, lang = 'uz') {
         id: dbProperty.id,
 
         // Basic info
-        price: parseFloat(dbProperty.narx) || 0,
         rooms: parseInt(xonaSoni) || 1,
         area: parseFloat(dbProperty.m2) || 0,
         floor: parseInt(etaj) || 1,
@@ -276,10 +271,10 @@ function transformProperty(dbProperty, lang = 'uz') {
         renovation: mapRenovation(dbProperty.xolati),
         layout: dbProperty.planirovka || null,
         balcony: dbProperty.balkon || null,
-
+        price: Number(dbProperty.narx) || 0,
         // Images
         images: [dbProperty.rasmlar], // Folder URL for fetching all images
-        mainImage: mainImage, // ✅ Direct first image URL
+        mainImage: images[0]|| '/placeholder.jpg', // ✅ Direct first image URL
 
         // Meta
         createdAt: dbProperty.created_at || new Date().toISOString(),
