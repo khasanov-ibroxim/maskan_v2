@@ -150,11 +150,12 @@ async function transformProperty(obj, lang = 'uz') {
 
     // Create description
     const description = obj.opisaniya || `${xonaSoni} xonali kvartira, ${obj.m2 || ''} m², ${obj.kvartil || ''}`;
+    const translations = createTranslations(obj, lang);
 
     const result = {
         id: obj.id,
-        title: title,
-        description: description,
+        title: translations.title,
+        description: translations.description,
 
         // ✅ Price (properly parsed)
         price: price,
@@ -187,13 +188,85 @@ async function transformProperty(obj, lang = 'uz') {
         layout: obj.planirovka || null,
     };
 
-    console.log('  ✅ Transform complete:');
-    console.log('    Price:', result.price);
-    console.log('    Images:', result.images.length);
-    console.log('    Main Image:', result.mainImage ? '✅' : '❌');
-    console.log('    Rieltor:', result.rieltor);
-
     return result;
+}
+
+function createTranslations(dbProperty, lang) {
+    const xonaSoni = dbProperty.xet ? dbProperty.xet.split('/')[0] : '1';
+    const location = dbProperty.kvartil || 'Yunusobod';
+    const type = dbProperty.sheet_type || 'Sotuv';
+
+    const titles = {
+        uz: `${type === 'Sotuv' ? 'Sotiladi' : 'Ijaraga'} ${xonaSoni}-xonali kvartira ${location}`,
+        ru: `${type === 'Sotuv' ? 'Продается' : 'Сдается'} ${xonaSoni}-комнатная квартира ${location}`,
+        en: `${type === 'Sotuv' ? 'For Sale' : 'For Rent'} ${xonaSoni}-room apartment ${location}`
+    };
+
+    const descriptions = {
+        uz: createDescription(dbProperty, 'uz'),
+        ru: createDescription(dbProperty, 'ru'),
+        en: createDescription(dbProperty, 'en')
+    };
+
+    return {
+        title: titles[lang] || titles.uz,
+        description: descriptions[lang] || descriptions.uz
+    };
+}
+
+/**
+ * Create description in specific language
+ */
+function createDescription(property, lang) {
+    const { kvartil, xet, m2, xolati, uy_turi, planirovka, balkon } = property;
+    const xonaSoni = xet ? xet.split('/')[0] : '1';
+    const etajInfo = xet ? `${xet.split('/')[1]}/${xet.split('/')[2]}` : '1/1';
+
+    if (lang === 'ru') {
+        let desc = `${xonaSoni}-комнатная квартира в ${kvartil}\n\n`;
+        desc += `• Площадь: ${m2} м²\n`;
+        desc += `• Этаж: ${etajInfo}\n`;
+        if (uy_turi) desc += `• Тип дома: ${uy_turi}\n`;
+        if (xolati) desc += `• Состояние: ${xolati}\n`;
+        if (planirovka) desc += `• Планировка: ${planirovka}\n`;
+        if (balkon) desc += `• Балкон: ${balkon}\n`;
+        return desc;
+    }
+
+    if (lang === 'en') {
+        let desc = `${xonaSoni}-room apartment in ${kvartil}\n\n`;
+        desc += `• Area: ${m2} m²\n`;
+        desc += `• Floor: ${etajInfo}\n`;
+        if (uy_turi) desc += `• Building type: ${uy_turi}\n`;
+        if (xolati) desc += `• Condition: ${xolati}\n`;
+        if (planirovka) desc += `• Layout: ${planirovka}\n`;
+        if (balkon) desc += `• Balcony: ${balkon}\n`;
+        return desc;
+    }
+
+    // Uzbek (default)
+    let desc = `${kvartil}da ${xonaSoni}-xonali kvartira\n\n`;
+    desc += `• Maydon: ${m2} m²\n`;
+    desc += `• Qavat: ${etajInfo}\n`;
+    if (uy_turi) desc += `• Uy turi: ${uy_turi}\n`;
+    if (xolati) desc += `• Ta'mir: ${xolati}\n`;
+    if (planirovka) desc += `• Planirovka: ${planirovka}\n`;
+    if (balkon) desc += `• Balkon: ${balkon}\n`;
+    return desc;
+}
+
+/**
+ * Map xolati to renovation enum
+ */
+function mapRenovation(xolati) {
+    if (!xolati) return 'euro';
+
+    const lower = xolati.toLowerCase();
+    if (lower.includes('евро') || lower.includes('euro')) return 'euro';
+    if (lower.includes('средн') || lower.includes('oddiy')) return 'standard';
+    if (lower.includes('треб') || lower.includes('tamir')) return 'needs';
+
+    return 'euro';
 }
 
 // ============================================
