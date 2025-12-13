@@ -1,4 +1,4 @@
-// server/src/routes/public.routes.js - FINAL VERSION
+// server/src/routes/public.routes.js - FINAL FIXED VERSION
 const express = require('express');
 const router = express.Router();
 const PropertyObject = require('../models/Object.pg');
@@ -6,32 +6,54 @@ const path = require('path');
 const fs = require('fs').promises;
 
 /**
- * ✅ Get images array from folder
+ * ✅ CRITICAL FIX: Get images array from folder link
  */
-async function getImagesFromFolder(rasmlarPath) {
-    if (!rasmlarPath || rasmlarPath === "Yo'q") {
+async function getImagesFromFolder(folderLink) {
+    if (!folderLink || folderLink === "Yo'q") {
+        console.log('⚠️ Folder link yo\'q');
         return [];
     }
 
     try {
-        const UPLOADS_ROOT = path.join(__dirname, '../../uploads');
-        const decoded = decodeURIComponent(rasmlarPath).replace(/^\/+/, '');
-        const folderPath = path.join(UPLOADS_ROOT, decoded);
+        console.log('\n📂 RASMLARNI OLISH:');
+        console.log('  Folder Link:', folderLink);
 
-        console.log('📂 Reading folder:', folderPath);
+        // ✅ Parse folder path from browse URL
+        // Example: http://194.163.140.30:5000/browse/Yunusobod%20-%2011/3%20xona/...
+        const urlParts = folderLink.split('/browse/');
 
-        // Check if folder exists
-        try {
-            await fs.access(folderPath);
-        } catch {
-            console.log('⚠️ Folder not found:', folderPath);
+        if (urlParts.length < 2) {
+            console.log('  ❌ Browse URL noto\'g\'ri format');
             return [];
         }
 
-        // Read directory
-        const files = await fs.readdir(folderPath);
+        const baseUrl = urlParts[0]; // http://194.163.140.30:5000
+        const encodedPath = urlParts[1]; // Yunusobod%20-%2011/3%20xona/...
+        const decodedPath = decodeURIComponent(encodedPath); // Yunusobod - 11/3 xona/...
 
-        // Filter only images
+        console.log('  Base URL:', baseUrl);
+        console.log('  Decoded Path:', decodedPath);
+
+        // ✅ Create local file system path
+        const UPLOADS_ROOT = path.join(__dirname, '../../uploads');
+        const folderPath = path.join(UPLOADS_ROOT, decodedPath);
+
+        console.log('  Local Path:', folderPath);
+
+        // ✅ Check if folder exists
+        try {
+            await fs.access(folderPath);
+            console.log('  ✅ Folder mavjud');
+        } catch {
+            console.log('  ❌ Folder topilmadi');
+            return [];
+        }
+
+        // ✅ Read directory
+        const files = await fs.readdir(folderPath);
+        console.log('  📊 Fayllar soni:', files.length);
+
+        // ✅ Filter only images and sort
         const IMAGE_EXT = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
         const imageFiles = files
             .filter(file => {
@@ -39,83 +61,89 @@ async function getImagesFromFolder(rasmlarPath) {
                 return IMAGE_EXT.includes(ext);
             })
             .sort((a, b) => {
-                // Sort by number (photo_1.jpg, photo_2.jpg, etc.)
+                // Sort by number: photo_1.jpg, photo_2.jpg, ...
                 const numA = parseInt(a.match(/\d+/)?.[0] || '999');
                 const numB = parseInt(b.match(/\d+/)?.[0] || '999');
                 return numA - numB;
             });
 
-        // Create full URLs
-        const baseUrl = process.env.BASE_URL || 'http://194.163.140.30:5000';
+        console.log('  📷 Rasmlar:', imageFiles.length);
 
+        if (imageFiles.length === 0) {
+            console.log('  ⚠️ Rasmlar topilmadi');
+            return [];
+        }
+
+        // ✅ Create full URLs for each image
         const imageUrls = imageFiles.map(file => {
-            const relativePath = `${decoded}/${file}`
+            // Create encoded path: Yunusobod%20-%2011/3%20xona/.../photo_1.jpg
+            const imagePath = `${decodedPath}/${file}`
                 .split('/')
-                .map(encodeURIComponent)
+                .map(segment => encodeURIComponent(segment))
                 .join('/');
 
-            return `${baseUrl}/browse/${relativePath}`;
+            return `${baseUrl}/browse/${imagePath}`;
         });
 
-        console.log(`✅ Found ${imageUrls.length} images`);
+        console.log(`  ✅ ${imageUrls.length} ta rasm URL yaratildi`);
+        imageUrls.forEach((url, i) => {
+            console.log(`    ${i + 1}. ${path.basename(url)}`);
+        });
+
         return imageUrls;
 
     } catch (error) {
-        console.error('❌ getImagesFromFolder error:', error.message);
-        return [];
-    }
-}
-
-function parseImages(rasmlarUrl) {
-    if (!rasmlarUrl || rasmlarUrl === "Yo'q") {
-        return [];
-    }
-
-    // Extract folder path from browse URL
-    // Example: http://194.163.140.30:5000/browse/Yunusobod-1/1%20xona/...
-    try {
-        const urlObj = new URL(rasmlarUrl);
-        const pathname = urlObj.pathname; // /browse/Yunusobod-1/1 xona/...
-
-        // For now, return the browse URL
-        // Frontend will need to fetch and parse the directory listing
-        return [rasmlarUrl];
-
-        // TODO: Implement image listing endpoint
-        // GET /api/public/images?folder=xxx
-
-    } catch (error) {
+        console.error('  ❌ getImagesFromFolder error:', error.message);
         return [];
     }
 }
 
 /**
- * ✅ Transform to frontend format
+ * ✅ CRITICAL FIX: Parse price correctly (55 000 -> 55000)
+ */
+function parsePrice(priceValue) {
+    if (!priceValue) return 0;
+
+    // Convert to string and remove all non-numeric characters except dots
+    const cleanPrice = String(priceValue)
+        .replace(/\s/g, '')        // Remove spaces
+        .replace(/\$/g, '')        // Remove $
+        .replace(/у\.е\./g, '')    // Remove у.е.
+        .replace(/[^\d.]/g, '');   // Keep only digits and dots
+
+    const parsed = parseFloat(cleanPrice) || 0;
+
+    console.log('  💰 Price parsing:');
+    console.log('    Raw:', priceValue);
+    console.log('    Clean:', cleanPrice);
+    console.log('    Parsed:', parsed);
+
+    return parsed;
+}
+
+/**
+ * ✅ Transform to frontend format with FIXED images and price
  */
 async function transformProperty(obj, lang = 'uz') {
-    console.log('\n📦 Transform Property:');
+    console.log('\n📦 TRANSFORM PROPERTY:');
     console.log('  ID:', obj.id);
-    console.log('  Narx (raw):', obj.narx, typeof obj.narx);
-    console.log('  Rieltor (raw):', obj.rieltor);
-    console.log('  Rasmlar:', obj.rasmlar);
+    console.log('  Rasmlar URL:', obj.rasmlar);
 
-    // ✅ Get all images
-    console.log('  Images found:', images.length);
+    // ✅ Get all images from folder
+    const images = await getImagesFromFolder(obj.rasmlar);
+    console.log('  📊 Images found:', images.length);
+
+    // ✅ Main image - first one
+    const mainImage = images.length > 0 ? images[0] : null;
+    console.log('  🖼️ Main image:', mainImage ? path.basename(mainImage) : 'None');
 
     // Parse XET
     const xonaSoni = obj.xet ? obj.xet.split('/')[0] : '1';
     const etaj = obj.xet ? obj.xet.split('/')[1] : '1';
     const etajnost = obj.xet ? obj.xet.split('/')[2] : '1';
-    const images = parseImages(obj.rasmlar);
 
-    // ✅ CRITICAL: Parse price properly
-    let price = 0;
-    if (obj.narx) {
-        // Remove spaces and parse
-        const cleanPrice = String(obj.narx).replace(/\s/g, '');
-        price = parseFloat(cleanPrice) || 0;
-    }
-    console.log('  Price (parsed):', price);
+    // ✅ CRITICAL: Parse price correctly
+    const price = parsePrice(obj.narx);
 
     // Create title
     const title = `${obj.sheet_type === 'Sotuv' ? 'Sotiladi' : 'Ijaraga'} - ${obj.kvartil || ''}, ${xonaSoni} xona`;
@@ -139,8 +167,11 @@ async function transformProperty(obj, lang = 'uz') {
         district: obj.kvartil || '',
         type: obj.sheet_type || 'Sotuv',
 
-        // ✅ Images array
+        // ✅ Images array (all photos)
         images: images,
+
+        // ✅ Main image (first photo)
+        mainImage: mainImage,
 
         // ✅ Contact info
         phone: obj.tell || '+998970850604',
@@ -158,8 +189,9 @@ async function transformProperty(obj, lang = 'uz') {
 
     console.log('  ✅ Transform complete:');
     console.log('    Price:', result.price);
-    console.log('    Rieltor:', result.rieltor);
     console.log('    Images:', result.images.length);
+    console.log('    Main Image:', result.mainImage ? '✅' : '❌');
+    console.log('    Rieltor:', result.rieltor);
 
     return result;
 }
@@ -175,7 +207,7 @@ router.get('/properties', async (req, res) => {
     try {
         const { lang = 'uz', rooms, location, type } = req.query;
 
-        console.log('📥 GET /properties', { lang, rooms, location, type });
+        console.log('\n📥 GET /properties', { lang, rooms, location, type });
 
         // Build filters
         const filters = {};
@@ -234,7 +266,7 @@ router.get('/properties/:id', async (req, res) => {
         const { id } = req.params;
         const { lang = 'uz' } = req.query;
 
-        console.log(`📥 GET /properties/${id}`);
+        console.log(`\n📥 GET /properties/${id}`);
 
         const obj = await PropertyObject.getById(id);
 
@@ -256,8 +288,10 @@ router.get('/properties/:id', async (req, res) => {
         const property = await transformProperty(obj, lang);
 
         console.log('✅ Property found:', property.id);
-        console.log('  Rieltor:', property.rieltor); // ✅ Log rieltor
+        console.log('  Price:', property.price);
         console.log('  Images:', property.images.length);
+        console.log('  Main Image:', property.mainImage ? '✅' : '❌');
+        console.log('  Rieltor:', property.rieltor);
 
         res.json({
             success: true,
