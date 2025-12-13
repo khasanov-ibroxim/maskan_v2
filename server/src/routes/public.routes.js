@@ -93,6 +93,7 @@ async function translateProperty(obj, lang = 'uz') {
     const images = await getImagesFromFolder(obj.rasmlar);
     const mainImage = images[0] || '/placeholder.jpg';
 
+
     return {
         id: obj.id,
         title: t.title(obj),
@@ -108,9 +109,9 @@ async function translateProperty(obj, lang = 'uz') {
         district: obj.kvartil || '',
         type: obj.sheet_type || 'Sotuv',
 
-        // ✅ FIXED: To'g'ridan-to'g'ri rasmlar array
-        images,          // ✅ Array<string> - barcha rasmlar URL'lari
-        mainImage,       // ✅ Birinchi rasm
+        // ✅ images - bu papka path (string), rasmlar uchun emas
+        images: obj.rasmlar || "Yo'q",  // Faqat folder info
+        mainImage,  // Birinchi rasmning to'g'ridan-to'g'ri URL'i
 
         phone: obj.tell || '',
         rieltor: obj.rieltor?.trim() || 'Maskan Lux Agent',
@@ -273,9 +274,9 @@ router.get('/properties/:id/images', async (req, res) => {
  */
 router.get('/properties', async (req, res) => {
     try {
-        const { lang = 'uz', rooms, location, type } = req.query;
+        const { lang = 'uz', rooms, location, type, min, max } = req.query;
 
-        console.log('📥 GET /api/public/properties', { lang, rooms, location, type});
+        console.log('📥 GET /api/public/properties', { lang, rooms, location, type, min, max });
 
         // ✅ Get from PostgreSQL
         const filters = {};
@@ -300,6 +301,16 @@ router.get('/properties', async (req, res) => {
                 const xetParts = (obj.xet || '').split('/');
                 const objRooms = parseInt(xetParts[0]) || 0;
                 return targetRooms >= 5 ? objRooms >= 5 : objRooms === targetRooms;
+            });
+        }
+
+        if (min || max) {
+            filtered = filtered.filter(obj => {
+                const priceStr = String(obj.narx || '0').replace(/\s/g, '');
+                const objPrice = parseInt(priceStr, 10) || 0;
+                const minPrice = min ? parseInt(min) : 0;
+                const maxPrice = max ? parseInt(max) : Infinity;
+                return objPrice >= minPrice && objPrice <= maxPrice;
             });
         }
 
@@ -337,6 +348,7 @@ router.get('/properties/:id', async (req, res) => {
 
         console.log(`📥 GET /api/public/properties/${id}`, { lang });
 
+        // ✅ Get from PostgreSQL
         const obj = await PropertyObject.getById(id);
 
         if (!obj) {
@@ -347,11 +359,9 @@ router.get('/properties/:id', async (req, res) => {
             });
         }
 
-        // ✅ Translate with images
-        const property = await translateProperty(obj, lang);
+        const property = translateProperty(obj, lang);
 
         console.log('✅ Property topildi:', property.id);
-        console.log(`   Rasmlar: ${property.images.length} ta`);
 
         res.json({
             success: true,
@@ -366,6 +376,7 @@ router.get('/properties/:id', async (req, res) => {
         });
     }
 });
+
 /**
  * ✅ GET /api/public/locations
  * Barcha lokatsiyalar va ularning countini olish
