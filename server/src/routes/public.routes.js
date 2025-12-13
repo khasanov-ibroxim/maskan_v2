@@ -87,12 +87,20 @@ const translations = {
     }
 };
 
-// ✅ Helper function to translate property
+
 async function translateProperty(obj, lang = 'uz') {
     const t = translations[lang] || translations.uz;
 
-    const images = await getImagesFromFolder(obj.rasmlar);
-    const mainImage = images[0] || '/placeholder.jpg';
+    // ✅ Main image URL
+    let mainImage = '/placeholder.jpg';
+    if (obj.rasmlar && obj.rasmlar !== "Yo'q") {
+        const baseUrl = process.env.API_URL || 'http://194.163.140.30:5000';
+        const encodedPath = obj.rasmlar
+            .split('/')
+            .map(encodeURIComponent)
+            .join('/');
+        mainImage = `${baseUrl}/browse/${encodedPath}/photo_1.jpg`;
+    }
 
     return {
         id: obj.id,
@@ -109,15 +117,20 @@ async function translateProperty(obj, lang = 'uz') {
         district: obj.kvartil || '',
         type: obj.sheet_type || 'Sotuv',
 
-        images,          // ✅ FAQAT RASMLAR
-        mainImage,       // ✅ BIRINCHI RASM
+        // ✅ images - bu papka path (string), rasmlar uchun emas
+        images: obj.rasmlar || "Yo'q",  // Faqat folder info
+        mainImage,  // Birinchi rasmning to'g'ridan-to'g'ri URL'i
 
         phone: obj.tell || '',
         rieltor: obj.rieltor?.trim() || 'Maskan Lux Agent',
-        createdAt: obj.sana || new Date().toISOString()
+        createdAt: obj.sana || new Date().toISOString(),
+
+        renovation: t.renovation(obj),
+        buildingType: t.buildingType(obj),
+        balcony: t.balcony(obj),
+        parking: t.parking(obj),
     };
 }
-
 
 const IMAGE_EXT = ['.jpg', '.jpeg', '.png', '.webp'];
 
@@ -163,7 +176,95 @@ async function getImagesFromFolder(rasmlarPath) {
 // ============================================
 // PUBLIC API ENDPOINTS
 // ============================================
+// server/src/routes/public.routes.js - YANGI ENDPOINT QO'SHISH
 
+/**
+ * ✅ GET /api/public/properties/:id/images
+ * Faqat rasmlar URL'larini qaytarish
+ */
+router.get('/properties/:id/images', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        console.log('📸 Rasmlar so\'ralmoqda:', id);
+
+        // 1. Obyektni topish
+        const obj = await PropertyObject.getById(id);
+
+        if (!obj) {
+            return res.status(404).json({
+                success: false,
+                error: 'Obyekt topilmadi'
+            });
+        }
+
+        // 2. Rasmlar papkasini tekshirish
+        if (!obj.rasmlar || obj.rasmlar === "Yo'q") {
+            return res.json({
+                success: true,
+                data: [],
+                count: 0
+            });
+        }
+
+        // 3. Rasmlar papkasini ochish
+        const BROWSE_ROOT = '/var/www/html/browse'; // ✅ Contabo path
+        const decoded = decodeURIComponent(obj.rasmlar).replace(/^\/+/, '');
+        const folderPath = path.join(BROWSE_ROOT, decoded);
+
+        if (!fs.existsSync(folderPath)) {
+            console.log('⚠️ Papka topilmadi:', folderPath);
+            return res.json({
+                success: true,
+                data: [],
+                count: 0
+            });
+        }
+
+        // 4. ✅ FAQAT RASMLARNI OLISH (olx.txt, telegram.txt IGNORE)
+        const IMAGE_EXT = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+        const files = await fs.promises.readdir(folderPath);
+
+        const images = files
+            .filter(f => {
+                const ext = path.extname(f).toLowerCase();
+                return IMAGE_EXT.includes(ext);
+            })
+            .sort((a, b) => {
+                // photo_1.jpg, photo_2.jpg format bo'yicha saralash
+                const na = parseInt(a.match(/\d+/)?.[0] || '999');
+                const nb = parseInt(b.match(/\d+/)?.[0] || '999');
+                return na - nb;
+            });
+
+        // 5. ✅ To'liq URL yaratish
+        const baseUrl = process.env.API_URL || 'http://194.163.140.30:5000';
+
+        const imageUrls = images.map(file => {
+            const relativePath = `${decoded}/${file}`
+                .split('/')
+                .map(encodeURIComponent)
+                .join('/');
+
+            return `${baseUrl}/browse/${relativePath}`;
+        });
+
+        console.log(`✅ ${imageUrls.length} ta rasm topildi`);
+
+        res.json({
+            success: true,
+            data: imageUrls,
+            count: imageUrls.length
+        });
+
+    } catch (error) {
+        console.error('❌ Rasmlar olishda xato:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Server xatosi'
+        });
+    }
+});
 /**
  * ✅ GET /api/public/properties
  * PostgreSQL'dan barcha obyektlarni olish
