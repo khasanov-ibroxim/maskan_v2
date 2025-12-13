@@ -129,21 +129,24 @@ async function translateProperty(obj, lang = 'uz') {
     };
 }
 
+const fsSync = require('fs'); // Sinxron tekshirish uchun alohida import
+
 async function getImagesFromFolder(rasmlarPath) {
     if (!rasmlarPath || rasmlarPath === "Yo'q") return [];
 
     try {
+        // Papka yo‘li
         const UPLOADS_ROOT = path.join(__dirname, '../../uploads');
         const decoded = decodeURIComponent(rasmlarPath).replace(/^\/+/, '');
         const folderPath = path.join(UPLOADS_ROOT, decoded);
 
-        // Asinxron tekshirish
-        try {
-            await fs.access(folderPath);
-        } catch {
+        // ✅ Sinxron tekshirish
+        if (!fsSync.existsSync(folderPath)) {
+            console.log('⚠️ Papka topilmadi:', folderPath);
             return [];
         }
 
+        // Faqat rasm fayllari
         const IMAGE_EXT = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
         const files = await fs.readdir(folderPath);
 
@@ -155,8 +158,10 @@ async function getImagesFromFolder(rasmlarPath) {
                 return na - nb;
             });
 
+        // Base URL
         const baseUrl = process.env.API_URL || 'http://194.163.140.30:5000';
 
+        // To‘liq URL array
         return images.map(file => {
             const relativePath = `${decoded}/${file}`
                 .split('/')
