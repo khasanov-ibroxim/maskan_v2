@@ -2,7 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 
 // Initialize Gemini Client
 // CRITICAL: process.env.API_KEY is handled by the environment
-const ai = new GoogleGenAI({ apiKey: "AIzaSyCV92wriNsJrDj4KvlOwUaywC4PolB6G7I" });
+const ai = new GoogleGenAI({ apiKey: "AIzaSyBYDizkF9RK3n_nFcV5i1fC58_tFdAxEwY" });
 
 // @ts-ignore
 export const sendMessageToGemini = async (
@@ -14,6 +14,7 @@ export const sendMessageToGemini = async (
 
     // Simplify context data to save tokens and improve focus
     const simplifiedContext = contextData.map(obj => ({
+      id:obj.id,
       location: obj.kvartil,
       narx: obj.narx,
       rooms: obj.xet,
@@ -90,9 +91,8 @@ barchasida ham toliq malumot bolmasligi mumkun agar bosh bolsa 0 ball berasa
    - Optimal (2–3 xona, etaj 2–8) → 2
 
 4) Rasmlar (rasmlar) — 0–2 ball
-   - 0–2 ta rasm → 0
-   - 3–4 ta rasm → 1
-   - 5+ rasm → 2
+   - rasimlar da agar "yoq" degan yozuv bolsa yoki bo'sh bolsa - 0 ball 
+   - rasimlar da agar malumot url bolsa - 2 ball
 
 5) Balkon / Torets — 0–1 ball
    - torets = ha → 0
@@ -111,10 +111,8 @@ barchasida ham toliq malumot bolmasligi mumkun agar bosh bolsa 0 ball berasa
 Obyektni quydagicha formatda bahola:
 
 {
-  "narx_m2": X "m2",
-  "holati": X "holati",
-  "etaj_xona": X "xona/etaj/etajnist",
-  "rasmlar": X "rasmlar",
+  "id" : X || "narx_m2": X "m2", || "holati": X "holati",
+  "etaj_xona": X "xona/etaj/etajnist", ||"rasmlar": X "rasmlar",
   "balkon_torets": X "balkon_torets",
   "jami_ball": X ,
   "xulosa": "..."

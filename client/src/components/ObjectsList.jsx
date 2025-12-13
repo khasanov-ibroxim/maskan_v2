@@ -74,6 +74,7 @@ const ObjectsList = () => {
         if (filters.searchText) {
             const searchLower = filters.searchText.toLowerCase();
             filtered = filtered.filter(obj =>
+                obj.id?.toLowerCase().includes(searchLower) ||
                 obj.kvartil?.toLowerCase().includes(searchLower) ||
                 obj.xet?.toLowerCase().includes(searchLower) ||
                 obj.tell?.toLowerCase().includes(searchLower) ||
@@ -82,6 +83,10 @@ const ObjectsList = () => {
             );
         }
 
+        // ID filter
+        if (filters.id) {
+            filtered = filtered.filter(obj => obj.id === filters.id);
+        }
         // Kvartil filter
         if (filters.kvartil) {
             filtered = filtered.filter(obj => obj.kvartil === filters.kvartil);
@@ -373,7 +378,13 @@ const ObjectsList = () => {
                             style={{ width: 300 }}
                             prefix={<SearchOutlined />}
                         />
-
+                        <Input
+                            placeholder="ID"
+                            type="text"
+                            value={filters.id}
+                            onChange={(e) => setFilters(prev => ({ ...prev, id: e.target.value ? e.target.value : null }))}
+                            style={{ width: 120 }}
+                        />
                         {/* Kvartil filter */}
                         <Select
                             placeholder="Kvartil"

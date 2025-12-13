@@ -82,6 +82,7 @@ const ObjectsList: React.FC = () => {
 
     const [filters, setFilters] = useState({
         searchText: '',
+        id: null as string | null,
         kvartil: null as string | null,
         rieltor: null as string | null,
         status: null as string | null,
@@ -130,6 +131,7 @@ const ObjectsList: React.FC = () => {
         if (filters.searchText) {
             const searchLower = filters.searchText.toLowerCase();
             filtered = filtered.filter(obj =>
+                obj.id?.toLowerCase().includes(searchLower) ||
                 obj.kvartil?.toLowerCase().includes(searchLower) ||
                 obj.xet?.toLowerCase().includes(searchLower) ||
                 obj.tell?.toLowerCase().includes(searchLower) ||
@@ -138,6 +140,9 @@ const ObjectsList: React.FC = () => {
             );
         }
 
+        if (filters.id) {
+            filtered = filtered.filter(obj => obj.id === filters.id);
+        }
         if (filters.kvartil) {
             filtered = filtered.filter(obj => obj.kvartil === filters.kvartil);
         }
@@ -312,6 +317,7 @@ const ObjectsList: React.FC = () => {
 
     const clearFilters = () => {
         setFilters({
+            id:"",
             searchText: '',
             kvartil: null,
             rieltor: null,
@@ -408,6 +414,12 @@ const ObjectsList: React.FC = () => {
             render: (_: any, __: any, index: number) => {
                 return (tableParams.pagination.current - 1) * tableParams.pagination.pageSize + index + 1;
             }
+        },
+        {
+            title: '№',
+            key: 'id',
+            dataIndex: "id",
+            width: 60,
         },
         {
             title: 'Kvartil',
@@ -530,7 +542,14 @@ const ObjectsList: React.FC = () => {
                             className="w-[300px]"
                             prefix={<SearchOutlined />}
                         />
-
+                        <Input
+                            placeholder="ID"
+                            type="text"
+                            value={filters.id ?? ''}
+                            onChange={(e) => setFilters(prev => ({ ...prev, id: e.target.value ? e.target.value : null }))}
+                            className="w-[120px]"
+                            prefix="$"
+                        />
                         <Select
                             placeholder="Kvartil"
                             allowClear
