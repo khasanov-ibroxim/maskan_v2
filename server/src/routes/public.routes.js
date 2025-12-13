@@ -66,6 +66,29 @@ async function getImagesFromFolder(rasmlarPath) {
     }
 }
 
+function parseImages(rasmlarUrl) {
+    if (!rasmlarUrl || rasmlarUrl === "Yo'q") {
+        return [];
+    }
+
+    // Extract folder path from browse URL
+    // Example: http://194.163.140.30:5000/browse/Yunusobod-1/1%20xona/...
+    try {
+        const urlObj = new URL(rasmlarUrl);
+        const pathname = urlObj.pathname; // /browse/Yunusobod-1/1 xona/...
+
+        // For now, return the browse URL
+        // Frontend will need to fetch and parse the directory listing
+        return [rasmlarUrl];
+
+        // TODO: Implement image listing endpoint
+        // GET /api/public/images?folder=xxx
+
+    } catch (error) {
+        return [];
+    }
+}
+
 /**
  * ✅ Transform to frontend format
  */
@@ -77,13 +100,13 @@ async function transformProperty(obj, lang = 'uz') {
     console.log('  Rasmlar:', obj.rasmlar);
 
     // ✅ Get all images
-    const images = await getImagesFromFolder(obj.rasmlar);
     console.log('  Images found:', images.length);
 
     // Parse XET
     const xonaSoni = obj.xet ? obj.xet.split('/')[0] : '1';
     const etaj = obj.xet ? obj.xet.split('/')[1] : '1';
     const etajnost = obj.xet ? obj.xet.split('/')[2] : '1';
+    const images = parseImages(obj.rasmlar);
 
     // ✅ CRITICAL: Parse price properly
     let price = 0;
