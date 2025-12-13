@@ -271,27 +271,29 @@ router.get('/properties/:id/images', async (req, res) => {
  * ✅ GET /api/public/properties
  * PostgreSQL'dan barcha obyektlarni olish
  */
-/**
- * ✅ GET /api/public/properties
- * Min/Max filter o'chirildi - DB'dagi narx aynan ko'rsatiladi
- */
 router.get('/properties', async (req, res) => {
     try {
         const { lang = 'uz', rooms, location, type } = req.query;
 
-        console.log('📥 GET /api/public/properties', { lang, rooms, location, type });
+        console.log('📥 GET /api/public/properties', { lang, rooms, location, type});
 
-        // ✅ Database filters
+        // ✅ Get from PostgreSQL
         const filters = {};
-        if (location) filters.kvartil = location;
-        if (type) filters.sheetType = type;
+
+        if (location) {
+            filters.kvartil = location;
+        }
+
+        if (type) {
+            filters.sheetType = type;
+        }
 
         const allObjects = await PropertyObject.getAll(filters);
         console.log(`📊 PostgreSQL'dan ${allObjects.length} ta obyekt olindi`);
 
+        // ✅ Additional filters (rooms, price)
         let filtered = allObjects;
 
-        // ✅ Faqat rooms filter
         if (rooms) {
             const targetRooms = parseInt(rooms);
             filtered = filtered.filter(obj => {
@@ -301,12 +303,11 @@ router.get('/properties', async (req, res) => {
             });
         }
 
-        // ✅ REMOVED: min/max price filter - DB'dagi narx aynan ko'rsatiladi
-
-        // ✅ Translate with images
+        // ✅ Translate
         const properties = await Promise.all(
             filtered.map(obj => translateProperty(obj, lang))
         );
+
 
         console.log(`✅ Qaytarilmoqda: ${properties.length} ta property`);
 
@@ -324,6 +325,7 @@ router.get('/properties', async (req, res) => {
         });
     }
 });
+
 /**
  * ✅ GET /api/public/properties/:id
  * Bitta obyektni olish
