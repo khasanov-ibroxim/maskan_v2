@@ -88,107 +88,54 @@ const translations = {
 };
 
 // ✅ Helper function to translate property
-async function  translateProperty (obj, lang = 'uz') {
+async function translateProperty(obj, lang = 'uz') {
     const t = translations[lang] || translations.uz;
 
-    // ✅ CRITICAL FIX: Parse price - PostgreSQL returns integer or string
-    let price = 0;
-    if (obj.narx !== undefined && obj.narx !== null && obj.narx !== '') {
-        if (typeof obj.narx === 'number') {
-            price = obj.narx;
-        } else {
-            const priceStr = String(obj.narx).replace(/\s/g, '').replace(/\$/g, '');
-            price = parseInt(priceStr, 10) || 0;
-        }
-    }
-
-    // Parse XET (xona/etaj/etajnost)
-    const xetParts = (obj.xet || '').split('/');
-    const rooms = parseInt(xetParts[0]) || 1;
-    const floor = parseInt(xetParts[1]) || 1;
-    const totalFloors = parseInt(xetParts[2]) || 1;
-
-    // ✅ CRITICAL FIX: Images URL construction
-    const baseUrl = process.env.API_URL || 'http://194.163.140.30:5000';
-    const imagesArray = await getImagesFromFolder(obj.rasmlar);
-    const mainImage = imagesArray[0] || '/placeholder.jpg';
-
-    if (obj.rasmlar && obj.rasmlar !== "Yo'q") {
-        // If rasmlar is already a full URL
-        if (obj.rasmlar.startsWith('http')) {
-            mainImage = obj.rasmlar;
-            imagesArray = [obj.rasmlar];
-        }
-        // If rasmlar is a path like "/browse/..."
-        else if (obj.rasmlar.startsWith('/browse/')) {
-            mainImage = `${baseUrl}${obj.rasmlar}`;
-            imagesArray = [mainImage];
-        }
-        // If rasmlar is just a folder name
-        else {
-            // Try to construct browse URL
-            const folderPath = obj.rasmlar.replace(/^\/+/, '');
-            mainImage = `${baseUrl}/browse/${encodeURIComponent(folderPath)}`;
-            imagesArray = [mainImage];
-        }
-    }
-
-    console.log(`🖼️ Images:`, {
-        raw: obj.rasmlar,
-        mainImage,
-        imagesArray
-    });
-
-    // ✅ CRITICAL FIX: rieltor field name
-    const rieltorName = obj.rieltor || obj.rieltor || 'Maskan Lux Agent';
-
-    console.log(`👤 rieltor:`, {
-        rieltor: obj.rieltor,
-        used: rieltorName
-    });
+    const images = await getImagesFromFolder(obj.rasmlar);
+    const mainImage = images[0] || '/placeholder.jpg';
 
     return {
         id: obj.id,
         title: t.title(obj),
         description: t.description(obj),
 
-        price,
-        rooms,
+        price: Number(obj.narx) || 0,
+        rooms: parseInt(obj.xet?.split('/')[0]) || 1,
         area: parseInt(obj.m2) || 0,
-        floor,
-        totalFloors,
+
+        floor: parseInt(obj.xet?.split('/')[1]) || 1,
+        totalFloors: parseInt(obj.xet?.split('/')[2]) || 1,
 
         district: obj.kvartil || '',
         type: obj.sheet_type || 'Sotuv',
 
-        renovation: t.renovation(obj),
-        buildingType: t.buildingType(obj),
-        balcony: t.balcony(obj),
-        parking: t.parking(obj),
-
-        images: imagesArray,        // ✅ FAQAT RASMLAR
-        mainImage,                  // ✅ BIRINCHI RASM
-
-        createdAt: obj.sana || new Date().toISOString(),
+        images,          // ✅ FAQAT RASMLAR
+        mainImage,       // ✅ BIRINCHI RASM
 
         phone: obj.tell || '',
-        rieltor: obj.rieltor || 'Maskan Lux'
+        rieltor: obj.rieltor?.trim() || 'Maskan Lux Agent',
+        createdAt: obj.sana || new Date().toISOString()
     };
-
 }
+
+
+const IMAGE_EXT = ['.jpg', '.jpeg', '.png', '.webp'];
+
 async function getImagesFromFolder(rasmlarPath) {
     if (!rasmlarPath || rasmlarPath === "Yo'q") return [];
 
     try {
-        const UPLOADS_DIR = path.resolve('uploads'); // ⚠️ kerak bo‘lsa to‘g‘rila
-        const decodedPath = decodeURIComponent(rasmlarPath);
-        const folderPath = path.join(UPLOADS_DIR, decodedPath);
+        // 📌 CONTABO'DAGI REAL PAPKA
+        const BROWSE_ROOT = '/var/www/html/browse';
+
+        // DB dagi path: Yunusobod - 13/4 xona/...
+        const decoded = decodeURIComponent(rasmlarPath).replace(/^\/+/, '');
+        const folderPath = path.join(BROWSE_ROOT, decoded);
 
         const files = await fs.readdir(folderPath);
 
-        const imageExt = ['.jpg', '.jpeg', '.png', '.webp'];
         const images = files
-            .filter(f => imageExt.includes(path.extname(f).toLowerCase()))
+            .filter(f => IMAGE_EXT.includes(path.extname(f).toLowerCase()))
             .sort((a, b) => {
                 const na = parseInt(a.match(/\d+/)?.[0] || '999');
                 const nb = parseInt(b.match(/\d+/)?.[0] || '999');
@@ -198,9 +145,12 @@ async function getImagesFromFolder(rasmlarPath) {
         const baseUrl = process.env.API_URL || 'http://194.163.140.30:5000';
 
         return images.map(file => {
-            const rel = path.join(decodedPath, file).replace(/\\/g, '/');
-            const encoded = rel.split('/').map(encodeURIComponent).join('/');
-            return `${baseUrl}/browse/${encoded}`;
+            const rel = `${decoded}/${file}`
+                .split('/')
+                .map(encodeURIComponent)
+                .join('/');
+
+            return `${baseUrl}/browse/${rel}`;
         });
 
     } catch (err) {
@@ -208,6 +158,7 @@ async function getImagesFromFolder(rasmlarPath) {
         return [];
     }
 }
+
 
 // ============================================
 // PUBLIC API ENDPOINTS
