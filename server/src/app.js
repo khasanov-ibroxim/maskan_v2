@@ -16,7 +16,7 @@ const fileRoutes = require('./routes/file.routes');
 const simpleAuthRoutes = require('./routes/simpleAuth.routes');
 const simpleUserRoutes = require('./routes/simpleUser.routes');
 const excelRoutes = require('./routes/excel.routes');
-
+const publicRoutes = require('./routes/public.routes');
 // Utils
 const RequestQueue = require('./utils/queue');
 
@@ -96,6 +96,14 @@ app.use((req, res, next) => {
 // ✅ CRITICAL FIX: filterIgnoredPaths to'g'ri ishlatish
 app.use('/browse', filterIgnoredPaths);  // ✅ Browse'da uploads/storage bloklash
 app.use('/download-zip', filterIgnoredPaths);  // ✅ Download'da ham bloklash
+
+
+// ============================================
+// PUBLIC ROUTES (AUTH KERAK EMAS!)
+// ============================================
+
+app.use('/api/public', publicRoutes);
+console.log('✅ Public API routes yuklandi');
 
 // ============================================
 // 9. BROWSE ROUTE (PREFIX YO'Q!)
