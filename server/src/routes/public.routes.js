@@ -227,8 +227,8 @@ function transformProperty(dbProperty, lang = 'uz') {
     const etaj = dbProperty.xet ? dbProperty.xet.split('/')[1] : '1';
     const etajnost = dbProperty.xet ? dbProperty.xet.split('/')[2] : '1';
 
-    // Parse images from rasmlar URL
-    const images = parseImages(dbProperty.rasmlar);
+    // ✅ CRITICAL FIX: Get first image directly from folder
+    const mainImage = getMainImageFromFolder(dbProperty.rasmlar);
 
     // Create translations
     const translations = createTranslations(dbProperty, lang);
@@ -254,8 +254,8 @@ function transformProperty(dbProperty, lang = 'uz') {
         balcony: dbProperty.balkon || null,
 
         // Images
-        images: images,
-        mainImage: images[0] || '/placeholder.jpg',
+        images: [dbProperty.rasmlar], // Folder URL for fetching all images
+        mainImage: mainImage, // ✅ Direct first image URL
 
         // Meta
         createdAt: dbProperty.created_at || new Date().toISOString(),
@@ -269,6 +269,72 @@ function transformProperty(dbProperty, lang = 'uz') {
         agent: dbProperty.rieltor || 'Maskan Lux',
         phone: '+998970850604'
     };
+}
+
+/**
+ * ✅ NEW: Get main (first) image URL directly
+ */
+function getMainImageFromFolder(rasmlarUrl) {
+    if (!rasmlarUrl || rasmlarUrl === "Yo'q") {
+        return '/placeholder.jpg';
+    }
+
+    try {
+        const path = require('path');
+        const fs = require('fs');
+        const { UPLOADS_DIR } = require('../config/constants');
+
+        // Extract folder path from URL
+        // Example: http://.../browse/Yunusobod-1/2%20xona/...
+        const urlParts = rasmlarUrl.split('/browse/');
+        if (urlParts.length < 2) return rasmlarUrl;
+
+        const relativePath = decodeURIComponent(urlParts[1]);
+        const folderPath = path.join(UPLOADS_DIR, relativePath);
+
+        // Check if folder exists
+        if (!fs.existsSync(folderPath)) {
+            console.log(`⚠️ Folder not found: ${folderPath}`);
+            return rasmlarUrl; // Return folder URL as fallback
+        }
+
+        // Read directory
+        const files = fs.readdirSync(folderPath);
+
+        // Find first image (photo_1.jpg, etc.)
+        const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+        const imageFiles = files
+            .filter(file => {
+                const ext = path.extname(file).toLowerCase();
+                return imageExtensions.includes(ext);
+            })
+            .sort((a, b) => {
+                const numA = parseInt(a.match(/\d+/)?.[0] || '999');
+                const numB = parseInt(b.match(/\d+/)?.[0] || '999');
+                return numA - numB;
+            });
+
+        if (imageFiles.length === 0) {
+            console.log(`⚠️ No images in folder: ${folderPath}`);
+            return rasmlarUrl;
+        }
+
+        // Construct first image URL
+        const firstImage = imageFiles[0];
+        const imageRelativePath = path.join(relativePath, firstImage).replace(/\\/g, '/');
+        const encodedPath = imageRelativePath.split('/').map(segment => encodeURIComponent(segment)).join('/');
+
+        // Use environment variable or construct URL
+        const baseUrl = process.env.BASE_URL || 'http://194.163.140.30:5000';
+        const imageUrl = `${baseUrl}/browse/${encodedPath}`;
+
+        console.log(`✅ Main image: ${imageUrl}`);
+        return imageUrl;
+
+    } catch (error) {
+        console.error('❌ getMainImageFromFolder error:', error.message);
+        return rasmlarUrl; // Fallback to folder URL
+    }
 }
 
 /**
