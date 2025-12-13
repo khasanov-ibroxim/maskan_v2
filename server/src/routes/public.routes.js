@@ -1,6 +1,11 @@
+// ============================================
+// server/src/routes/public.routes.js
+// ✅ PostgreSQL INTEGRATION - Excel emas!
+// ============================================
+
 const express = require('express');
 const router = express.Router();
-const { getObjectsFromExcel } = require('../services/localExcelService');
+const PropertyObject = require('../models/Object.pg');
 const path = require('path');
 const fs = require('fs').promises;
 
@@ -15,7 +20,7 @@ const translations = {
         parking: (obj) => obj.torets || 'Yo\'q'
     },
     ru: {
-        title: (obj) => `${obj.sheet_type || 'Квартира'} - ${obj.kvartil || ''}`,
+        title: (obj) => `${obj.sheet_type === 'Sotuv' ? 'Продается' : 'Аренда'} - ${obj.kvartil || ''}`,
         description: (obj) => obj.opisaniya || `${obj.xet || ''} комнатная квартира, ${obj.m2 || ''} m², ${obj.kvartil || ''}`,
         renovation: (obj) => {
             const map = {
@@ -89,7 +94,6 @@ function translateProperty(obj, lang = 'uz') {
     // ✅ Parse price correctly - handle string with spaces
     let price = 0;
     if (obj.narx) {
-        // Remove all spaces and parse
         const priceStr = String(obj.narx).replace(/\s/g, '');
         price = parseInt(priceStr, 10) || 0;
     }
@@ -106,15 +110,18 @@ function translateProperty(obj, lang = 'uz') {
         : null;
 
     // ✅ Get main image (for cards)
-    const mainImage = imagesUrl
-        ? `${process.env.API_URL || 'http://194.163.140.30:5000'}/browse/${encodeURIComponent(obj.kvartil || 'default')}`
-        : null;
+    let mainImage = null;
+    if (imagesUrl) {
+        // Extract folder path from URL
+        const baseUrl = process.env.API_URL || 'http://194.163.140.30:5000';
+        mainImage = imagesUrl; // Rasmlar papkasining o'zi
+    }
 
     return {
         id: obj.id,
         title: t.title(obj),
         description: t.description(obj),
-        price: price, // ✅ Now correctly parsed
+        price: price,
         rooms: rooms,
         area: parseInt(obj.m2) || 0,
         floor: floor,
@@ -133,18 +140,35 @@ function translateProperty(obj, lang = 'uz') {
     };
 }
 
-// ✅ GET /api/public/properties
+// ============================================
+// PUBLIC API ENDPOINTS
+// ============================================
+
+/**
+ * ✅ GET /api/public/properties
+ * PostgreSQL'dan barcha obyektlarni olish
+ */
 router.get('/properties', async (req, res) => {
     try {
         const { lang = 'uz', rooms, location, type, min, max } = req.query;
 
         console.log('📥 GET /api/public/properties', { lang, rooms, location, type, min, max });
 
-        // Get all objects from Excel
-        const allObjects = await getObjectsFromExcel();
-        console.log(`📊 Total objects from Excel: ${allObjects.length}`);
+        // ✅ Get from PostgreSQL
+        const filters = {};
 
-        // Filter
+        if (location) {
+            filters.kvartil = location;
+        }
+
+        if (type) {
+            filters.sheetType = type;
+        }
+
+        const allObjects = await PropertyObject.getAll(filters);
+        console.log(`📊 PostgreSQL'dan ${allObjects.length} ta obyekt olindi`);
+
+        // ✅ Additional filters (rooms, price)
         let filtered = allObjects;
 
         if (rooms) {
@@ -154,16 +178,6 @@ router.get('/properties', async (req, res) => {
                 const objRooms = parseInt(xetParts[0]) || 0;
                 return targetRooms >= 5 ? objRooms >= 5 : objRooms === targetRooms;
             });
-        }
-
-        if (location) {
-            filtered = filtered.filter(obj =>
-                (obj.kvartil || '').toLowerCase().includes(location.toLowerCase())
-            );
-        }
-
-        if (type) {
-            filtered = filtered.filter(obj => obj.sheet_type === type);
         }
 
         if (min || max) {
@@ -176,10 +190,10 @@ router.get('/properties', async (req, res) => {
             });
         }
 
-        // Translate
+        // ✅ Translate
         const properties = filtered.map(obj => translateProperty(obj, lang));
 
-        console.log(`✅ Returning ${properties.length} properties`);
+        console.log(`✅ Qaytarilmoqda: ${properties.length} ta property`);
 
         res.json({
             success: true,
@@ -188,7 +202,7 @@ router.get('/properties', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error fetching properties:', error);
+        console.error('❌ GET /properties xato:', error);
         res.status(500).json({
             success: false,
             error: 'Server xatosi'
@@ -196,7 +210,10 @@ router.get('/properties', async (req, res) => {
     }
 });
 
-// ✅ GET /api/public/properties/:id
+/**
+ * ✅ GET /api/public/properties/:id
+ * Bitta obyektni olish
+ */
 router.get('/properties/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -204,11 +221,11 @@ router.get('/properties/:id', async (req, res) => {
 
         console.log(`📥 GET /api/public/properties/${id}`, { lang });
 
-        const allObjects = await getObjectsFromExcel();
-        const obj = allObjects.find(o => String(o.id) === String(id));
+        // ✅ Get from PostgreSQL
+        const obj = await PropertyObject.getById(id);
 
         if (!obj) {
-            console.log('❌ Property not found:', id);
+            console.log('❌ Property topilmadi:', id);
             return res.status(404).json({
                 success: false,
                 error: 'Obyekt topilmadi'
@@ -217,7 +234,7 @@ router.get('/properties/:id', async (req, res) => {
 
         const property = translateProperty(obj, lang);
 
-        console.log('✅ Property found:', property.id);
+        console.log('✅ Property topildi:', property.id);
 
         res.json({
             success: true,
@@ -225,7 +242,7 @@ router.get('/properties/:id', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error fetching property:', error);
+        console.error('❌ GET /properties/:id xato:', error);
         res.status(500).json({
             success: false,
             error: 'Server xatosi'
@@ -233,10 +250,13 @@ router.get('/properties/:id', async (req, res) => {
     }
 });
 
-// ✅ GET /api/public/locations
+/**
+ * ✅ GET /api/public/locations
+ * Barcha lokatsiyalar va ularning countini olish
+ */
 router.get('/locations', async (req, res) => {
     try {
-        const allObjects = await getObjectsFromExcel();
+        const allObjects = await PropertyObject.getAll();
 
         // Count by location
         const locationCounts = {};
@@ -255,7 +275,7 @@ router.get('/locations', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error fetching locations:', error);
+        console.error('❌ GET /locations xato:', error);
         res.status(500).json({
             success: false,
             error: 'Server xatosi'
@@ -263,13 +283,18 @@ router.get('/locations', async (req, res) => {
     }
 });
 
-// ✅ GET /api/public/stats
+/**
+ * ✅ GET /api/public/stats
+ * Statistika
+ */
 router.get('/stats', async (req, res) => {
     try {
-        const allObjects = await getObjectsFromExcel();
+        const stats = await PropertyObject.getStats();
 
-        // Get available rooms
+        // Available rooms
+        const allObjects = await PropertyObject.getAll();
         const roomsSet = new Set();
+
         allObjects.forEach(obj => {
             const xetParts = (obj.xet || '').split('/');
             const rooms = parseInt(xetParts[0]) || 0;
@@ -283,91 +308,17 @@ router.get('/stats', async (req, res) => {
         res.json({
             success: true,
             data: {
-                totalProperties: allObjects.length,
+                totalProperties: parseInt(stats.total) || 0,
                 availableRooms
             }
         });
 
     } catch (error) {
-        console.error('❌ Error fetching stats:', error);
+        console.error('❌ GET /stats xato:', error);
         res.status(500).json({
             success: false,
             error: 'Server xatosi'
         });
-    }
-});
-
-// ✅ GET /browse/:folder - Serve images from uploads folder
-router.get('/browse/:folder', async (req, res) => {
-    try {
-        const { folder } = req.params;
-        const folderPath = path.join(__dirname, '../../uploads', decodeURIComponent(folder));
-
-        console.log('📂 Browse folder:', folderPath);
-
-        // Check if folder exists
-        const stats = await fs.stat(folderPath);
-        if (!stats.isDirectory()) {
-            return res.status(404).send('Folder not found');
-        }
-
-        // Read directory
-        const files = await fs.readdir(folderPath);
-        const imageFiles = files.filter(f =>
-            /\.(jpg|jpeg|png|webp|gif)$/i.test(f)
-        );
-
-        // Generate HTML with image list
-        const imagesHtml = imageFiles.map(file => {
-            const imageUrl = `/browse/${encodeURIComponent(folder)}/${encodeURIComponent(file)}`;
-            return `<img src="${imageUrl}" alt="${file}" />`;
-        }).join('\n');
-
-        const html = `
-<!DOCTYPE html>
-<html>
-<head>
-    <title>${folder}</title>
-    <style>
-        body { font-family: Arial; padding: 20px; }
-        img { max-width: 300px; margin: 10px; border: 1px solid #ddd; }
-    </style>
-</head>
-<body>
-    <h1>Images in ${folder}</h1>
-    ${imagesHtml}
-</body>
-</html>
-        `;
-
-        res.setHeader('Content-Type', 'text/html');
-        res.send(html);
-
-    } catch (error) {
-        console.error('❌ Error browsing folder:', error);
-        res.status(404).send('Folder not found');
-    }
-});
-
-// ✅ GET /browse/:folder/:image - Serve individual image
-router.get('/browse/:folder/:image', async (req, res) => {
-    try {
-        const { folder, image } = req.params;
-        const imagePath = path.join(
-            __dirname,
-            '../../uploads',
-            decodeURIComponent(folder),
-            decodeURIComponent(image)
-        );
-
-        console.log('🖼️ Serving image:', imagePath);
-
-        // Send file
-        res.sendFile(imagePath);
-
-    } catch (error) {
-        console.error('❌ Error serving image:', error);
-        res.status(404).send('Image not found');
     }
 });
 
