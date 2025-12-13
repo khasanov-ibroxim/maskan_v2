@@ -94,21 +94,13 @@ function translateProperty(obj, lang = 'uz') {
     // ✅ CRITICAL FIX: Parse price - PostgreSQL returns integer or string
     let price = 0;
     if (obj.narx !== undefined && obj.narx !== null && obj.narx !== '') {
-        // If it's already a number
         if (typeof obj.narx === 'number') {
             price = obj.narx;
         } else {
-            // If it's a string, parse it
             const priceStr = String(obj.narx).replace(/\s/g, '').replace(/\$/g, '');
             price = parseInt(priceStr, 10) || 0;
         }
     }
-
-    console.log(`💰 Price parsing:`, {
-        raw: obj.narx,
-        type: typeof obj.narx,
-        parsed: price
-    });
 
     // Parse XET (xona/etaj/etajnost)
     const xetParts = (obj.xet || '').split('/');
@@ -116,17 +108,36 @@ function translateProperty(obj, lang = 'uz') {
     const floor = parseInt(xetParts[1]) || 1;
     const totalFloors = parseInt(xetParts[2]) || 1;
 
-    // ✅ Construct images URL
-    const imagesUrl = obj.rasmlar && obj.rasmlar !== "Yo'q"
-        ? obj.rasmlar
-        : null;
-
-    // ✅ Get main image (for cards)
+    // ✅ CRITICAL FIX: Images URL construction
+    const baseUrl = process.env.API_URL || 'http://194.163.140.30:5000';
     let mainImage = null;
-    if (imagesUrl) {
-        const baseUrl = process.env.API_URL || 'http://194.163.140.30:5000';
-        mainImage = imagesUrl;
+    let imagesArray = [];
+
+    if (obj.rasmlar && obj.rasmlar !== "Yo'q") {
+        // If rasmlar is already a full URL
+        if (obj.rasmlar.startsWith('http')) {
+            mainImage = obj.rasmlar;
+            imagesArray = [obj.rasmlar];
+        }
+        // If rasmlar is a path like "/browse/..."
+        else if (obj.rasmlar.startsWith('/browse/')) {
+            mainImage = `${baseUrl}${obj.rasmlar}`;
+            imagesArray = [mainImage];
+        }
+        // If rasmlar is just a folder name
+        else {
+            // Try to construct browse URL
+            const folderPath = obj.rasmlar.replace(/^\/+/, '');
+            mainImage = `${baseUrl}/browse/${encodeURIComponent(folderPath)}`;
+            imagesArray = [mainImage];
+        }
     }
+
+    console.log(`🖼️ Images:`, {
+        raw: obj.rasmlar,
+        mainImage,
+        imagesArray
+    });
 
     // ✅ CRITICAL FIX: Realtor field name
     const realtorName = obj.rieltor || obj.realtor || 'Maskan Lux Agent';
@@ -152,7 +163,7 @@ function translateProperty(obj, lang = 'uz') {
         buildingType: t.buildingType(obj),
         balcony: t.balcony(obj),
         parking: t.parking(obj),
-        images: imagesUrl ? [imagesUrl] : [],
+        images: imagesArray,
         mainImage: mainImage,
         createdAt: obj.sana || new Date().toISOString(),
         phone: obj.tell || '',
