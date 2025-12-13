@@ -88,24 +88,17 @@ const translations = {
 };
 
 
-/**
- * ✅ translateProperty - DB'dagi narxni aynan ko'rsatish
- */
 async function translateProperty(obj, lang = 'uz') {
     const t = translations[lang] || translations.uz;
-
-    // ✅ Rasmlarni olish
     const images = await getImagesFromFolder(obj.rasmlar);
-    const mainImage = images[0];
+    const mainImage = images[0] || '/placeholder.jpg';
 
     return {
         id: obj.id,
         title: t.title(obj),
         description: t.description(obj),
 
-        // ✅ CRITICAL: DB'dagi narxni aynan ko'rsatish (hech qanday filter yo'q)
-        price: Number(obj.narx) || 0,  // ✅ To'g'ridan-to'g'ri DB'dan
-
+        price: Number(obj.narx) || 0,
         rooms: parseInt(obj.xet?.split('/')[0]) || 1,
         area: parseInt(obj.m2) || 0,
 
@@ -115,8 +108,9 @@ async function translateProperty(obj, lang = 'uz') {
         district: obj.kvartil || '',
         type: obj.sheet_type || 'Sotuv',
 
-        images,
-        mainImage,
+        // ✅ FIXED: To'g'ridan-to'g'ri rasmlar array
+        images,          // ✅ Array<string> - barcha rasmlar URL'lari
+        mainImage,       // ✅ Birinchi rasm
 
         phone: obj.tell || '',
         rieltor: obj.rieltor?.trim() || 'Maskan Lux Agent',
@@ -129,44 +123,49 @@ async function translateProperty(obj, lang = 'uz') {
     };
 }
 
-const fsSync = require('fs'); // Sinxron tekshirish uchun alohida import
 
 async function getImagesFromFolder(rasmlarPath) {
     if (!rasmlarPath || rasmlarPath === "Yo'q") return [];
 
     try {
-        // Papka yo‘li
-        const UPLOADS_ROOT = path.join(__dirname, '../../uploads');
+        // 📌 CONTABO'DAGI REAL PAPKA
+        const UPLOADS_ROOT = path.join(__dirname, '../../uploads'); // ✅ Server'dagi uploads papka
+
+        // DB dagi path: "Yunusobod - 13/4 xona/Yunusobod - 13_2_4_9_..."
         const decoded = decodeURIComponent(rasmlarPath).replace(/^\/+/, '');
         const folderPath = path.join(UPLOADS_ROOT, decoded);
 
-        // ✅ Sinxron tekshirish
-        if (!fsSync.existsSync(folderPath)) {
-            console.log('⚠️ Papka topilmadi:', folderPath);
+        console.log('📂 Folder path:', folderPath);
+
+        if (!fs.existsSync(folderPath)) {
+            console.log('⚠️ Papka topilmadi');
             return [];
         }
 
-        // Faqat rasm fayllari
+        // ✅ Faqat rasm fayllarini olish
         const IMAGE_EXT = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
-        const files = await fs.readdir(folderPath);
+        const files = await fs.promises.readdir(folderPath);
 
         const images = files
-            .filter(f => IMAGE_EXT.includes(path.extname(f).toLowerCase()))
+            .filter(f => {
+                const ext = path.extname(f).toLowerCase();
+                return IMAGE_EXT.includes(ext);
+            })
             .sort((a, b) => {
                 const na = parseInt(a.match(/\d+/)?.[0] || '999');
                 const nb = parseInt(b.match(/\d+/)?.[0] || '999');
                 return na - nb;
             });
 
-        // Base URL
+        // ✅ To'liq URL yaratish
         const baseUrl = process.env.API_URL || 'http://194.163.140.30:5000';
 
-        // To‘liq URL array
         return images.map(file => {
             const relativePath = `${decoded}/${file}`
                 .split('/')
                 .map(encodeURIComponent)
                 .join('/');
+
             return `${baseUrl}/browse/${relativePath}`;
         });
 
@@ -175,6 +174,7 @@ async function getImagesFromFolder(rasmlarPath) {
         return [];
     }
 }
+
 // ============================================
 // PUBLIC API ENDPOINTS
 // ============================================
@@ -270,6 +270,10 @@ router.get('/properties/:id/images', async (req, res) => {
 /**
  * ✅ GET /api/public/properties
  * PostgreSQL'dan barcha obyektlarni olish
+ */
+/**
+ * ✅ GET /api/public/properties
+ * Min/Max filter o'chirildi - DB'dagi narx aynan ko'rsatiladi
  */
 router.get('/properties', async (req, res) => {
     try {
