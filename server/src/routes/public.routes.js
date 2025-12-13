@@ -91,14 +91,24 @@ const translations = {
 function translateProperty(obj, lang = 'uz') {
     const t = translations[lang] || translations.uz;
 
-    // ✅ Parse price correctly - handle string with spaces
+    // ✅ CRITICAL FIX: Parse price - PostgreSQL returns integer or string
     let price = 0;
-    if (obj.narx) {
-        const priceStr = String(obj.narx).replace(/\s/g, '').replace(/\$/g, '');
-        price = parseInt(priceStr, 10) || 0;
+    if (obj.narx !== undefined && obj.narx !== null && obj.narx !== '') {
+        // If it's already a number
+        if (typeof obj.narx === 'number') {
+            price = obj.narx;
+        } else {
+            // If it's a string, parse it
+            const priceStr = String(obj.narx).replace(/\s/g, '').replace(/\$/g, '');
+            price = parseInt(priceStr, 10) || 0;
+        }
     }
 
-    console.log(`💰 Price parsing: ${obj.narx} -> ${price}`);
+    console.log(`💰 Price parsing:`, {
+        raw: obj.narx,
+        type: typeof obj.narx,
+        parsed: price
+    });
 
     // Parse XET (xona/etaj/etajnost)
     const xetParts = (obj.xet || '').split('/');
@@ -115,8 +125,17 @@ function translateProperty(obj, lang = 'uz') {
     let mainImage = null;
     if (imagesUrl) {
         const baseUrl = process.env.API_URL || 'http://194.163.140.30:5000';
-        mainImage = imagesUrl; // Rasmlar papkasining o'zi
+        mainImage = imagesUrl;
     }
+
+    // ✅ CRITICAL FIX: Realtor field name
+    const realtorName = obj.rieltor || obj.realtor || 'Maskan Lux Agent';
+
+    console.log(`👤 Realtor:`, {
+        rieltor: obj.rieltor,
+        realtor: obj.realtor,
+        used: realtorName
+    });
 
     return {
         id: obj.id,
@@ -137,7 +156,7 @@ function translateProperty(obj, lang = 'uz') {
         mainImage: mainImage,
         createdAt: obj.sana || new Date().toISOString(),
         phone: obj.tell || '',
-        realtor: obj.rieltor || 'Maskan Lux Agent' // ✅ Default value
+        realtor: realtorName
     };
 }
 
@@ -319,6 +338,53 @@ router.get('/stats', async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Server xatosi'
+        });
+    }
+});
+
+/**
+ * ✅ DEBUG ENDPOINT - Database raw data
+ * GET /api/public/debug/:id
+ */
+router.get('/debug/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        console.log('🔍 DEBUG REQUEST for:', id);
+
+        const obj = await PropertyObject.getById(id);
+
+        if (!obj) {
+            return res.json({
+                success: false,
+                error: 'Obyekt topilmadi'
+            });
+        }
+
+        // Return raw database object
+        res.json({
+            success: true,
+            raw: obj,
+            fields: {
+                narx: {
+                    value: obj.narx,
+                    type: typeof obj.narx,
+                    empty: !obj.narx,
+                    zero: obj.narx === 0
+                },
+                rieltor: {
+                    value: obj.rieltor,
+                    type: typeof obj.rieltor,
+                    empty: !obj.rieltor
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ DEBUG xato:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
         });
     }
 });
