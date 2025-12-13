@@ -20,7 +20,7 @@ const PropertyObject = require('../models/Object.pg');
  */
 router.get('/properties', async (req, res) => {
     try {
-        const { lang = 'uz', rooms, location, min, max, type } = req.query;
+        const { lang = 'uz', rooms, location, price, type } = req.query;
 
         console.log('🌐 PUBLIC API: Properties so\'ralmoqda');
         console.log('  Lang:', lang);
@@ -67,20 +67,6 @@ router.get('/properties', async (req, res) => {
             });
         }
 
-        // 4. Price range filter
-        if (min) {
-            properties = properties.filter(p => {
-                const price = parseFloat(p.narx);
-                return !isNaN(price) && price >= parseFloat(min);
-            });
-        }
-
-        if (max) {
-            properties = properties.filter(p => {
-                const price = parseFloat(p.narx);
-                return !isNaN(price) && price <= parseFloat(max);
-            });
-        }
 
         // 5. Transform to frontend format
         const transformedProperties = properties.map(p => transformProperty(p, lang));
