@@ -88,7 +88,7 @@ const translations = {
 };
 
 // ✅ Helper function to translate property
-function translateProperty(obj, lang = 'uz') {
+async function  translateProperty (obj, lang = 'uz') {
     const t = translations[lang] || translations.uz;
 
     // ✅ CRITICAL FIX: Parse price - PostgreSQL returns integer or string
@@ -110,8 +110,8 @@ function translateProperty(obj, lang = 'uz') {
 
     // ✅ CRITICAL FIX: Images URL construction
     const baseUrl = process.env.API_URL || 'http://194.163.140.30:5000';
-    let mainImage = null;
-    let imagesArray = [];
+    const imagesArray = await getImagesFromFolder(obj.rasmlar);
+    const mainImage = imagesArray[0] || '/placeholder.jpg';
 
     if (obj.rasmlar && obj.rasmlar !== "Yo'q") {
         // If rasmlar is already a full URL
@@ -139,36 +139,74 @@ function translateProperty(obj, lang = 'uz') {
         imagesArray
     });
 
-    // ✅ CRITICAL FIX: Realtor field name
-    const realtorName = obj.rieltor || obj.realtor || 'Maskan Lux Agent';
+    // ✅ CRITICAL FIX: rieltor field name
+    const rieltorName = obj.rieltor || obj.rieltor || 'Maskan Lux Agent';
 
-    console.log(`👤 Realtor:`, {
+    console.log(`👤 rieltor:`, {
         rieltor: obj.rieltor,
-        realtor: obj.realtor,
-        used: realtorName
+        used: rieltorName
     });
 
     return {
         id: obj.id,
         title: t.title(obj),
         description: t.description(obj),
-        price: price,
-        rooms: rooms,
+
+        price,
+        rooms,
         area: parseInt(obj.m2) || 0,
-        floor: floor,
-        totalFloors: totalFloors,
+        floor,
+        totalFloors,
+
         district: obj.kvartil || '',
         type: obj.sheet_type || 'Sotuv',
+
         renovation: t.renovation(obj),
         buildingType: t.buildingType(obj),
         balcony: t.balcony(obj),
         parking: t.parking(obj),
-        images: imagesArray,
-        mainImage: mainImage,
+
+        images: imagesArray,        // ✅ FAQAT RASMLAR
+        mainImage,                  // ✅ BIRINCHI RASM
+
         createdAt: obj.sana || new Date().toISOString(),
+
         phone: obj.tell || '',
-        realtor: realtorName
+        rieltor: obj.rieltor || 'Maskan Lux'
     };
+
+}
+async function getImagesFromFolder(rasmlarPath) {
+    if (!rasmlarPath || rasmlarPath === "Yo'q") return [];
+
+    try {
+        const UPLOADS_DIR = path.resolve('uploads'); // ⚠️ kerak bo‘lsa to‘g‘rila
+        const decodedPath = decodeURIComponent(rasmlarPath);
+        const folderPath = path.join(UPLOADS_DIR, decodedPath);
+
+        const files = await fs.readdir(folderPath);
+
+        const imageExt = ['.jpg', '.jpeg', '.png', '.webp'];
+        const images = files
+            .filter(f => imageExt.includes(path.extname(f).toLowerCase()))
+            .sort((a, b) => {
+                const na = parseInt(a.match(/\d+/)?.[0] || '999');
+                const nb = parseInt(b.match(/\d+/)?.[0] || '999');
+                return na - nb;
+            });
+
+        const baseUrl = process.env.API_URL || 'http://194.163.140.30:5000';
+
+        return images.map(file => {
+            const rel = path.join(decodedPath, file).replace(/\\/g, '/');
+            const encoded = rel.split('/').map(encodeURIComponent).join('/');
+            return `${baseUrl}/browse/${encoded}`;
+        });
+
+    } catch (err) {
+        console.error('❌ Image folder error:', err.message);
+        return [];
+    }
 }
 
 // ============================================
@@ -222,7 +260,10 @@ router.get('/properties', async (req, res) => {
         }
 
         // ✅ Translate
-        const properties = filtered.map(obj => translateProperty(obj, lang));
+        const properties = await Promise.all(
+            filtered.map(obj => translateProperty(obj, lang))
+        );
+
 
         console.log(`✅ Qaytarilmoqda: ${properties.length} ta property`);
 
