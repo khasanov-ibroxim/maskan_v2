@@ -145,11 +145,6 @@ async function transformProperty(obj, lang = 'uz') {
     // ✅ CRITICAL: Parse price correctly
     const price = parsePrice(obj.narx);
 
-    // Create title
-    const title = `${obj.sheet_type === 'Sotuv' ? 'Sotiladi' : 'Ijaraga'} - ${obj.kvartil || ''}, ${xonaSoni} xona`;
-
-    // Create description
-    const description = obj.opisaniya || `${xonaSoni} xonali kvartira, ${obj.m2 || ''} m², ${obj.kvartil || ''}`;
     const translations = createTranslations(obj, lang);
 
     const result = {
@@ -166,7 +161,8 @@ async function transformProperty(obj, lang = 'uz') {
         totalFloors: parseInt(etajnost) || 1,
 
         district: obj.kvartil || '',
-        type: obj.sheet_type || 'Sotuv',
+        type: obj.sheet_type,
+        typeRaw:translateSheetType(obj.sheet_type, lang),
 
         // ✅ Images array (all photos)
         images: images,
@@ -189,6 +185,29 @@ async function transformProperty(obj, lang = 'uz') {
     };
 
     return result;
+}
+const SHEET_TYPE_TRANSLATIONS = {
+    Sotuv: {
+        uz: 'Sotiladi',
+        'uz-cy': 'Сотилади',
+        ru: 'Продажа',
+        en: 'For Sale'
+    },
+    Arenda: {
+        uz: 'Ijaraga beriladi',
+        'uz-cy': 'Ижарага берилади',
+        ru: 'Аренда',
+        en: 'For Rent'
+    }
+};
+function translateSheetType(sheetType, lang = 'uz') {
+    if (!sheetType) return '';
+
+    return (
+        SHEET_TYPE_TRANSLATIONS[sheetType]?.[lang] ||
+        SHEET_TYPE_TRANSLATIONS[sheetType]?.uz ||
+        sheetType
+    );
 }
 
 function createTranslations(dbProperty, lang) {
