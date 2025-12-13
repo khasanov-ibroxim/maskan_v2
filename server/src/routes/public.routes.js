@@ -96,7 +96,7 @@ async function translateProperty(obj, lang = 'uz') {
 
     // ✅ Rasmlarni olish
     const images = await getImagesFromFolder(obj.rasmlar);
-    const mainImage = images[0] || '/placeholder.jpg';
+    const mainImage = images.length ? images[0] : '/placeholder.jpg';
 
     return {
         id: obj.id,
@@ -133,44 +133,31 @@ async function getImagesFromFolder(rasmlarPath) {
     if (!rasmlarPath || rasmlarPath === "Yo'q") return [];
 
     try {
-        // 📌 CONTABO'DAGI REAL PAPKA
-        const UPLOADS_ROOT = path.join(__dirname, '../../uploads'); // ✅ Server'dagi uploads papka
-
-        // DB dagi path: "Yunusobod - 13/4 xona/Yunusobod - 13_2_4_9_..."
+        const UPLOADS_ROOT = path.join(__dirname, '../../uploads');
         const decoded = decodeURIComponent(rasmlarPath).replace(/^\/+/, '');
         const folderPath = path.join(UPLOADS_ROOT, decoded);
 
-        console.log('📂 Folder path:', folderPath);
+        if (!fs.existsSync(folderPath)) return [];
 
-        if (!fs.existsSync(folderPath)) {
-            console.log('⚠️ Papka topilmadi');
-            return [];
-        }
-
-        // ✅ Faqat rasm fayllarini olish
         const IMAGE_EXT = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
-        const files = await fs.promises.readdir(folderPath);
+        const files = await fs.readdir(folderPath);
 
         const images = files
-            .filter(f => {
-                const ext = path.extname(f).toLowerCase();
-                return IMAGE_EXT.includes(ext);
-            })
+            .filter(f => IMAGE_EXT.includes(path.extname(f).toLowerCase()))
             .sort((a, b) => {
                 const na = parseInt(a.match(/\d+/)?.[0] || '999');
                 const nb = parseInt(b.match(/\d+/)?.[0] || '999');
                 return na - nb;
             });
 
-        // ✅ To'liq URL yaratish
         const baseUrl = process.env.API_URL || 'http://194.163.140.30:5000';
 
+        // ✅ Har bir rasmning to‘liq URL'si
         return images.map(file => {
             const relativePath = `${decoded}/${file}`
                 .split('/')
                 .map(encodeURIComponent)
                 .join('/');
-
             return `${baseUrl}/browse/${relativePath}`;
         });
 
