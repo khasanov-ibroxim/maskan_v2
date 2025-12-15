@@ -280,7 +280,36 @@ const ObjectsList: React.FC = () => {
             setEditLoading(false);
         }
     };
+    const handleEditDelete = async () => {
+        if (!editingObject) return;
 
+        Modal.confirm({
+            title: 'Obyektni o\'chirish',
+            content: `${editingObject.kvartil} - ${editingObject.xet} obyektini o'chirmoqchimisiz?`,
+            okText: 'Ha, o\'chirish',
+            okType: 'danger',
+            cancelText: 'Yo\'q',
+            onOk: async () => {
+                try {
+                    setEditLoading(true);
+                    const response = await api.delete(`/api/excel/objects/${editingObject.id}`);
+
+                    if (response.data.success) {
+                        message.success('✅ Obyekt muvaffaqiyatli o\'chirildi!');
+                        setEditModalVisible(false);
+                        setEditingObject(null);
+                        editForm.resetFields();
+                        await loadObjects();
+                    }
+                } catch (error: any) {
+                    console.error('O\'chirishda xato:', error);
+                    message.error(error.response?.data?.error || 'O\'chirishda xato yuz berdi');
+                } finally {
+                    setEditLoading(false);
+                }
+            }
+        });
+    };
     // ✅ EDIT CANCEL
     const handleEditCancel = () => {
         setEditModalVisible(false);
@@ -699,6 +728,15 @@ const ObjectsList: React.FC = () => {
                         onClick={handleEditSave}
                     >
                         Saqlash
+                    </Button>,
+                    <Button
+                        key="delete"
+                        type="default"
+                        icon={<SaveOutlined />}
+                        loading={editLoading}
+                        onClick={handleEditDelete}
+                    >
+                        Delete
                     </Button>
                 ]}
             >

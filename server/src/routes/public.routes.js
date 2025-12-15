@@ -177,7 +177,7 @@ async function transformProperty(obj, lang = 'uz') {
         createdAt: obj.sana || obj.created_at || new Date().toISOString(),
 
         // Additional details
-        renovation: mapRenovation(obj.xolati) || 'Yaxshi',
+        renovation: obj.xolati || 'Yaxshi',
         buildingType: obj.uy_turi || 'Panel',
         balcony: obj.balkon || "Yo'q",
         parking: obj.torets || "Yo'q",

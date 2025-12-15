@@ -1,4 +1,4 @@
-// client/src/components/ObjectsList.jsx
+// client/src/components/ObjectsList.tsx
 import React, { useEffect, useState } from 'react';
 import { Table, Button, Space, Tag, message, Tooltip, Input, Select } from 'antd';
 import {
