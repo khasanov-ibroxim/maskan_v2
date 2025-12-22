@@ -1,4 +1,4 @@
-// server/src/controllers/dataController.js - FULLY FIXED VERSION
+// server/src/controllers/dataController.js - FULLY FIXED WITH UNIQUE_ID
 const { sendToTelegram } = require('../services/telegramService');
 const { sendToAppScriptWithRetry } = require('../services/appScriptService');
 const { saveFiles } = require('../services/fileService');
@@ -125,60 +125,11 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                 results.telegram = { success: false, error: error.message };
             }
 
-            // ✅ 5.2 GLAVNIY EXCEL'GA YUBORISH
-            try {
-                if (HERO_APP_SCRIPT) {
-                    console.log("\n📊 GLAVNIY EXCEL'GA YUBORISH:");
-                    console.log("  URL:", HERO_APP_SCRIPT.substring(0, 50) + "...");
-
-                    const glavniyData = {
-                        ...data,
-                        folderLink: folderLink || "Yo'q"
-                    };
-                    await sendToAppScriptWithRetry(HERO_APP_SCRIPT, glavniyData);
-                    results.glavniy = { success: true };
-                    console.log("  ✅ GLAVNIY EXCEL'GA YUBORILDI");
-                } else {
-                    console.log("  ⚠️ HERO_APP_SCRIPT yo'q");
-                }
-            } catch (error) {
-                console.error("  ❌ GLAVNIY EXCEL XATO:", error.message);
-                results.glavniy = { success: false, error: error.message };
-            }
-
-            // ✅ 5.3 RIELTER EXCEL'GA YUBORISH
-            if (rielterInfo?.app_script_url) {
-                try {
-                    console.log("\n👨‍💼 RIELTER EXCEL'GA YUBORISH:");
-                    console.log("  Rieltor:", rielterInfo.username);
-                    console.log("  URL:", rielterInfo.app_script_url.substring(0, 50) + "...");
-
-                    const rielterData = {
-                        ...data,
-                        folderLink: folderLink || "Yo'q"
-                    };
-
-                    await sendToAppScriptWithRetry(
-                        rielterInfo.app_script_url,
-                        rielterData,
-                        rielterInfo.id
-                    );
-
-                    results.rielter = { success: true };
-                    console.log("  ✅ RIELTER EXCEL'GA YUBORILDI");
-                } catch (error) {
-                    console.error("  ❌ RIELTER EXCEL XATO:", error.message);
-                    results.rielter = { success: false, error: error.message };
-                }
-            } else {
-                console.log("\n  ⚠️ RIELTER APP SCRIPT URL YO'Q");
-                console.log(`    Rieltor: ${rielterInfo?.username || "Topilmadi"}`);
-            }
-
-            // ✅ 5.4 POSTGRESQL GA SAQLASH
+            // ✅ 5.2 POSTGRESQL GA SAQLASH (BU YERDA UNIQUE_ID YARATILADI!)
+            let savedObject = null;
             try {
                 console.log("\n💾 PostgreSQL ga saqlash...");
-                const savedObject = await PropertyObject.save({
+                savedObject = await PropertyObject.save({
                     kvartil: data.kvartil,
                     xet: data.xet,
                     tell: data.tell,
@@ -212,6 +163,81 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
             } catch (error) {
                 console.error("  ❌ POSTGRESQL XATO:", error.message);
                 results.postgres = { success: false, error: error.message };
+            }
+
+            // ✅ CRITICAL FIX: Agar PostgreSQL'ga saqlanmagan bo'lsa, to'xtatish
+            if (!savedObject) {
+                console.error("❌ Unique ID yo'q - Google Sheets'ga yuborilmaydi!");
+                return results;
+            }
+
+            // ✅ 5.3 GLAVNIY EXCEL'GA YUBORISH (UNIQUE_ID bilan!)
+            try {
+                if (HERO_APP_SCRIPT) {
+                    console.log("\n📊 GLAVNIY EXCEL'GA YUBORISH:");
+                    console.log("  URL:", HERO_APP_SCRIPT.substring(0, 50) + "...");
+                    console.log("  Unique ID:", savedObject.unique_id);
+
+                    // ✅ CRITICAL: unique_id va id ni qo'shish
+                    const glavniyData = {
+                        ...data,
+                        id: savedObject.unique_id,        // ✅ Google Sheets uchun
+                        unique_id: savedObject.unique_id, // ✅ Backup
+                        folderLink: folderLink || "Yo'q"
+                    };
+
+                    console.log("  📝 Yuborilayotgan ma'lumotlar:");
+                    console.log("    id:", glavniyData.id);
+                    console.log("    unique_id:", glavniyData.unique_id);
+                    console.log("    folderLink:", glavniyData.folderLink);
+
+                    await sendToAppScriptWithRetry(HERO_APP_SCRIPT, glavniyData);
+                    results.glavniy = { success: true };
+                    console.log("  ✅ GLAVNIY EXCEL'GA YUBORILDI");
+                } else {
+                    console.log("  ⚠️ HERO_APP_SCRIPT yo'q");
+                }
+            } catch (error) {
+                console.error("  ❌ GLAVNIY EXCEL XATO:", error.message);
+                results.glavniy = { success: false, error: error.message };
+            }
+
+            // ✅ 5.4 RIELTER EXCEL'GA YUBORISH (UNIQUE_ID bilan!)
+            if (rielterInfo?.app_script_url) {
+                try {
+                    console.log("\n👨‍💼 RIELTER EXCEL'GA YUBORISH:");
+                    console.log("  Rieltor:", rielterInfo.username);
+                    console.log("  URL:", rielterInfo.app_script_url.substring(0, 50) + "...");
+                    console.log("  Unique ID:", savedObject.unique_id);
+
+                    // ✅ CRITICAL: unique_id va id ni qo'shish
+                    const rielterData = {
+                        ...data,
+                        id: savedObject.unique_id,        // ✅ Google Sheets uchun
+                        unique_id: savedObject.unique_id, // ✅ Backup
+                        folderLink: folderLink || "Yo'q"
+                    };
+
+                    console.log("  📝 Yuborilayotgan ma'lumotlar:");
+                    console.log("    id:", rielterData.id);
+                    console.log("    unique_id:", rielterData.unique_id);
+                    console.log("    folderLink:", rielterData.folderLink);
+
+                    await sendToAppScriptWithRetry(
+                        rielterInfo.app_script_url,
+                        rielterData,
+                        rielterInfo.id
+                    );
+
+                    results.rielter = { success: true };
+                    console.log("  ✅ RIELTER EXCEL'GA YUBORILDI");
+                } catch (error) {
+                    console.error("  ❌ RIELTER EXCEL XATO:", error.message);
+                    results.rielter = { success: false, error: error.message };
+                }
+            } else {
+                console.log("\n  ⚠️ RIELTER APP SCRIPT URL YO'Q");
+                console.log(`    Rieltor: ${rielterInfo?.username || "Topilmadi"}`);
             }
 
             console.log("\n📊 NATIJALAR:");
