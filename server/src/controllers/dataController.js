@@ -1,10 +1,10 @@
-// server/src/controllers/dataController.js - FIXED VERSION
+// server/src/controllers/dataController.js - FULLY FIXED VERSION
 const { sendToTelegram } = require('../services/telegramService');
 const { sendToAppScriptWithRetry } = require('../services/appScriptService');
 const { saveFiles } = require('../services/fileService');
 const { HERO_APP_SCRIPT } = require('../config/env');
-const PropertyObject = require('../models/Object.pg'); // ✅ PostgreSQL model
-const User = require('../models/User.pg'); // ✅ PostgreSQL model
+const PropertyObject = require('../models/Object.pg');
+const User = require('../models/User.pg');
 
 async function sendData(req, res, appScriptQueue) {
     try {
@@ -38,41 +38,31 @@ async function sendData(req, res, appScriptQueue) {
         }
 
         // ✅ 2. RIELTOR MA'LUMOTLARINI TOPISH (PostgreSQL)
-        // server/src/controllers/dataController.js - RIELTOR TOPISH QISMI
-// Faqat o'zgartirilgan qismlar:
-
-// ✅ 2. RIELTOR MA'LUMOTLARINI TOPISH (PostgreSQL)
         let rielterInfo = null;
         try {
-            // ✅ FIXED: To'g'ri method
-            const realtors = await User.getRealtors(); // Bu method mavjud
+            console.log("\n👨‍💼 RIELTOR QIDIRISH:");
+            console.log("  Username:", data.rieltor);
+
+            const realtors = await User.getRealtors();
+            console.log(`  📊 Jami rieltor'lar: ${realtors.length}`);
+
+            realtors.forEach(r => {
+                console.log(`    - ${r.username} (${r.app_script_url ? '✅ URL bor' : '❌ URL yo\'q'})`);
+            });
 
             rielterInfo = realtors.find(u => u.username === data.rieltor);
 
             if (!rielterInfo) {
-                console.log("⚠️ Rieltor topilmadi:", data.rieltor);
+                console.log("  ⚠️ Rieltor topilmadi:", data.rieltor);
             } else {
-                console.log("✅ Rieltor topildi:", rielterInfo.username);
+                console.log("  ✅ Rieltor topildi:");
+                console.log("    ID:", rielterInfo.id);
+                console.log("    Username:", rielterInfo.username);
+                console.log("    App Script URL:", rielterInfo.app_script_url || "YO'Q");
+                console.log("    Telegram Theme ID:", rielterInfo.telegram_theme_id || "YO'Q");
             }
         } catch (error) {
             console.error("❌ Rieltor qidirishda xato:", error.message);
-        }
-        if (rielterInfo?.app_script_url) { // ✅ snake_case
-            try {
-                const rielterData = {
-                    ...data,
-                    folderLink: folderLink || "Yo'q"
-                };
-                await sendToAppScriptWithRetry(
-                    rielterInfo.app_script_url, // ✅ snake_case
-                    rielterData,
-                    rielterInfo.id
-                );
-                results.rielter = { success: true };
-                console.log("✅ RIELTER EXCEL'GA YUBORILDI");
-            } catch (error) {
-                console.error("❌ RIELTER EXCEL XATO:", error.message);
-            }
         }
 
         // ✅ 3. TELEGRAM XABAR TAYYORLASH
@@ -110,6 +100,11 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
 
             // ✅ 5.1 TELEGRAM'GA YUBORISH
             try {
+                console.log("\n📱 TELEGRAM'GA YUBORISH:");
+                console.log("  Chat ID:", TELEGRAM_CHAT_ID);
+                console.log("  Theme ID:", rielterInfo?.telegram_theme_id || "YO'Q");
+                console.log("  Rasmlar:", data.rasmlar?.length || 0);
+
                 const themeId = rielterInfo?.telegram_theme_id || null;
                 const telegramResult = await sendToTelegram(
                     TELEGRAM_CHAT_ID,
@@ -117,47 +112,70 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                     data.rasmlar || [],
                     themeId
                 );
-                results.telegram = { success: telegramResult.success };
-                console.log("✅ TELEGRAM'GA YUBORILDI");
+
+                if (telegramResult.success) {
+                    results.telegram = { success: true };
+                    console.log("  ✅ TELEGRAM'GA YUBORILDI");
+                } else {
+                    console.error("  ❌ TELEGRAM XATO:", telegramResult.error);
+                    results.telegram = { success: false, error: telegramResult.error };
+                }
             } catch (error) {
-                console.error("❌ TELEGRAM XATO:", error.message);
+                console.error("  ❌ TELEGRAM XATO:", error.message);
+                results.telegram = { success: false, error: error.message };
             }
 
             // ✅ 5.2 GLAVNIY EXCEL'GA YUBORISH
             try {
                 if (HERO_APP_SCRIPT) {
+                    console.log("\n📊 GLAVNIY EXCEL'GA YUBORISH:");
+                    console.log("  URL:", HERO_APP_SCRIPT.substring(0, 50) + "...");
+
                     const glavniyData = {
                         ...data,
                         folderLink: folderLink || "Yo'q"
                     };
                     await sendToAppScriptWithRetry(HERO_APP_SCRIPT, glavniyData);
                     results.glavniy = { success: true };
-                    console.log("✅ GLAVNIY EXCEL'GA YUBORILDI");
+                    console.log("  ✅ GLAVNIY EXCEL'GA YUBORILDI");
+                } else {
+                    console.log("  ⚠️ HERO_APP_SCRIPT yo'q");
                 }
             } catch (error) {
-                console.error("❌ GLAVNIY EXCEL XATO:", error.message);
+                console.error("  ❌ GLAVNIY EXCEL XATO:", error.message);
+                results.glavniy = { success: false, error: error.message };
             }
 
             // ✅ 5.3 RIELTER EXCEL'GA YUBORISH
             if (rielterInfo?.app_script_url) {
                 try {
+                    console.log("\n👨‍💼 RIELTER EXCEL'GA YUBORISH:");
+                    console.log("  Rieltor:", rielterInfo.username);
+                    console.log("  URL:", rielterInfo.app_script_url.substring(0, 50) + "...");
+
                     const rielterData = {
                         ...data,
                         folderLink: folderLink || "Yo'q"
                     };
+
                     await sendToAppScriptWithRetry(
                         rielterInfo.app_script_url,
                         rielterData,
                         rielterInfo.id
                     );
+
                     results.rielter = { success: true };
-                    console.log("✅ RIELTER EXCEL'GA YUBORILDI");
+                    console.log("  ✅ RIELTER EXCEL'GA YUBORILDI");
                 } catch (error) {
-                    console.error("❌ RIELTER EXCEL XATO:", error.message);
+                    console.error("  ❌ RIELTER EXCEL XATO:", error.message);
+                    results.rielter = { success: false, error: error.message };
                 }
+            } else {
+                console.log("\n  ⚠️ RIELTER APP SCRIPT URL YO'Q");
+                console.log(`    Rieltor: ${rielterInfo?.username || "Topilmadi"}`);
             }
 
-            // ✅ 5.4 POSTGRESQL GA SAQLASH (YANGI - FIXED!)
+            // ✅ 5.4 POSTGRESQL GA SAQLASH
             try {
                 console.log("\n💾 PostgreSQL ga saqlash...");
                 const savedObject = await PropertyObject.save({
@@ -185,26 +203,22 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
 
                 if (savedObject) {
                     results.postgres = { success: true, id: savedObject.id };
-                    console.log("✅ POSTGRESQL GA SAQLANDI, ID:", savedObject.id);
-                    console.log("   Unique ID:", savedObject.unique_id);
+                    console.log("  ✅ POSTGRESQL GA SAQLANDI");
+                    console.log("    ID:", savedObject.id);
+                    console.log("    Unique ID:", savedObject.unique_id);
                 } else {
                     throw new Error('Obyekt saqlanmadi');
                 }
             } catch (error) {
-                console.error("❌ POSTGRESQL XATO:", error.message);
-                console.error("   Stack:", error.stack);
+                console.error("  ❌ POSTGRESQL XATO:", error.message);
                 results.postgres = { success: false, error: error.message };
             }
 
             console.log("\n📊 NATIJALAR:");
-            console.log("  Telegram:", results.telegram.success ? "✅" : "❌");
-            console.log("  GLAVNIY:", results.glavniy.success ? "✅" : "❌");
-            console.log("  Rielter:", results.rielter.success ? "✅" : "❌");
-            console.log("  PostgreSQL:", results.postgres.success ? "✅" : "❌");
-
-            if (results.postgres.success) {
-                console.log("  Postgres ID:", results.postgres.id);
-            }
+            console.log("  Telegram:", results.telegram.success ? "✅" : `❌ ${results.telegram.error || ''}`);
+            console.log("  GLAVNIY:", results.glavniy.success ? "✅" : `❌ ${results.glavniy.error || ''}`);
+            console.log("  Rielter:", results.rielter.success ? "✅" : `❌ ${results.rielter.error || ''}`);
+            console.log("  PostgreSQL:", results.postgres.success ? "✅" : `❌ ${results.postgres.error || ''}`);
 
             return results;
         });
