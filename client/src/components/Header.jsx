@@ -92,9 +92,9 @@ const Header = () => {
             top: 0,
             zIndex: 100
         }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent:"space-between", gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent:"space-between",flexDirection:"column", gap: 16 }}>
 
-                {userData.role === 'admin' && <Space size={8}>
+                {userData.role === 'admin' && <Space size={8} style={{flexDirection:"column" , justifyContent:"flex-start", alignItems:"start"}}>
                     <Button
                         type={location.pathname === '/' ? 'primary' : 'default'}
                         icon={<HomeOutlined />}
@@ -116,7 +116,7 @@ const Header = () => {
 
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent:"space-between", width:"100%", gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent:"flex-end", width:"100%", gap: 12 }}>
                 <Dropdown menu={{ items: menuItems }} placement="bottomRight">
                     <Space style={{ cursor: 'pointer' }}>
                         <Avatar
@@ -139,16 +139,6 @@ const Header = () => {
                         </div>
                     </Space>
                 </Dropdown>
-
-                <Button
-                    type="primary"
-                    danger
-                    icon={<LogoutOutlined />}
-                    loading={loading}
-                    onClick={handleLogout}
-                >
-                    Chiqish
-                </Button>
             </div>
         </div>
     );
