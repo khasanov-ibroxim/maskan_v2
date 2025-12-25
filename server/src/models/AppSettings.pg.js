@@ -104,6 +104,41 @@ class AppSettings {
     }
 
     /**
+     * Get global config (telegram_bot_token, glavniy_app_script_url, company_phone)
+     */
+    static async getGlobalConfig() {
+        const result = await query(
+            `SELECT value FROM app_settings 
+         WHERE category = 'global_config' AND is_active = true
+         ORDER BY display_order ASC`
+        );
+
+        const config = {};
+        result.rows.forEach(row => {
+            // Parse "key:value" format
+            const [key, ...valueParts] = row.value.split(':');
+            config[key] = valueParts.join(':'); // Handle URLs with ":"
+        });
+
+        return config;
+    }
+
+    /**
+     * Update global config item
+     */
+    static async updateGlobalConfig(key, value) {
+        const result = await query(
+            `UPDATE app_settings 
+         SET value = $1
+         WHERE category = 'global_config' 
+         AND value LIKE $2
+         RETURNING *`,
+            [`${key}:${value}`, `${key}:%`]
+        );
+        return result.rows[0];
+    }
+
+    /**
      * Reorder settings in category
      */
     static async reorder(category, orderedIds) {

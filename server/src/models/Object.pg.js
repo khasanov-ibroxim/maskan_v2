@@ -70,11 +70,11 @@ class PropertyObject {
                     unique_id, sana, kvartil, xet, tell, m2, narx, fio, 
                     uy_turi, xolati, planirovka, balkon, torets, dom, 
                     kvartira, osmotir, opisaniya, rieltor, xodim, 
-                    sheet_type, rasmlar, elon_status
+                    sheet_type, rasmlar,elon_status,phone_for_ad
                  )
                  VALUES (
                     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 
-                    $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, 'waiting'
+                    $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21,$22, 'waiting'
                  )
                  RETURNING *`,
                 [
@@ -83,7 +83,7 @@ class PropertyObject {
                     objectData.uy_turi, objectData.xolati, objectData.planirovka,
                     objectData.balkon, objectData.torets, objectData.dom, objectData.kvartira,
                     objectData.osmotir, objectData.opisaniya, objectData.rieltor,
-                    objectData.xodim, objectData.sheetType || 'Sotuv', objectData.rasmlar
+                    objectData.xodim, objectData.sheetType || 'Sotuv', objectData.rasmlar , objectData.phoneForAd
                 ]
             );
 

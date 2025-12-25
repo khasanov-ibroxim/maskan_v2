@@ -171,4 +171,62 @@ router.post('/:category/reorder', protect, authorize('admin'), async (req, res) 
     }
 });
 
+
+// server/src/routes/settings.routes.js - QO'SHISH
+
+/**
+ * Get global config
+ * GET /api/settings/global-config
+ */
+router.get('/global-config', async (req, res) => {
+    try {
+        const config = await AppSettings.getGlobalConfig();
+        res.json({
+            success: true,
+            data: config
+        });
+    } catch (error) {
+        console.error('❌ Get global config error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+/**
+ * Update global config
+ * PUT /api/settings/global-config
+ * Body: { telegram_bot_token, glavniy_app_script_url, company_phone }
+ */
+router.put('/global-config', protect, authorize('admin'), async (req, res) => {
+    try {
+        const { telegram_bot_token, glavniy_app_script_url, company_phone } = req.body;
+
+        // Validation
+        if (!telegram_bot_token || !glavniy_app_script_url || !company_phone) {
+            return res.status(400).json({
+                success: false,
+                error: 'Barcha maydonlar to\'ldirilishi kerak'
+            });
+        }
+
+        // Update each
+        await AppSettings.updateGlobalConfig('telegram_bot_token', telegram_bot_token);
+        await AppSettings.updateGlobalConfig('glavniy_app_script_url', glavniy_app_script_url);
+        await AppSettings.updateGlobalConfig('company_phone', company_phone);
+
+        res.json({
+            success: true,
+            message: 'Global sozlamalar yangilandi'
+        });
+    } catch (error) {
+        console.error('❌ Update global config error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
 module.exports = router;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Tabs, Table, Button, Modal, Form, Input, message, Space, Popconfirm, InputNumber } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SettingOutlined } from '@ant-design/icons';
+import { Card, Tabs, Table, Button, Modal, Form, Input, message, Space, Popconfirm, InputNumber, Divider, Tag } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, SettingOutlined, SaveOutlined } from '@ant-design/icons';
 import api from '../../utils/api';
 
 const { TabPane } = Tabs;
@@ -16,14 +16,17 @@ const categories = [
 
 const SettingsTab = () => {
     const [settings, setSettings] = useState({});
+    const [globalConfig, setGlobalConfig] = useState({});
     const [loading, setLoading] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
     const [currentCategory, setCurrentCategory] = useState('kvartil');
     const [form] = Form.useForm();
+    const [globalForm] = Form.useForm();
 
     useEffect(() => {
         loadSettings();
+        loadGlobalConfig();
     }, []);
 
     const loadSettings = async () => {
@@ -38,6 +41,31 @@ const SettingsTab = () => {
             console.error(error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadGlobalConfig = async () => {
+        try {
+            const response = await api.get('/api/settings/global-config');
+            if (response.data.success) {
+                setGlobalConfig(response.data.data);
+                globalForm.setFieldsValue(response.data.data);
+            }
+        } catch (error) {
+            console.error('Global config yuklashda xato:', error);
+        }
+    };
+
+    const handleGlobalConfigSave = async (values) => {
+        try {
+            const response = await api.put('/api/settings/global-config', values);
+            if (response.data.success) {
+                message.success('Global sozlamalar saqlandi!');
+                loadGlobalConfig();
+            }
+        } catch (error) {
+            message.error('Saqlashda xato');
+            console.error(error);
         }
     };
 
@@ -139,10 +167,99 @@ const SettingsTab = () => {
             <div style={{ marginBottom: 20 }}>
                 <h2 style={{ margin: 0 }}>⚙️ Sozlamalar</h2>
                 <p style={{ color: '#666', marginTop: 8 }}>
-                    Form'dagi barcha tanlov qiymatlarini boshqaring
+                    Tizim sozlamalari va form tanlovlari
                 </p>
             </div>
 
+            {/* ✅ GLOBAL CONFIG SECTION */}
+            <Card
+                style={{ marginBottom: 24, background: '#f6f8fa' }}
+                title={
+                    <span>
+                        <SettingOutlined /> Global Sozlamalar
+                    </span>
+                }
+            >
+                <Form
+                    form={globalForm}
+                    layout="vertical"
+                    onFinish={handleGlobalConfigSave}
+                >
+                    <Form.Item
+                        name="telegram_bot_token"
+                        label="🤖 Telegram Bot Token"
+                        rules={[
+                            { required: true, message: 'Token kiriting!' }
+                        ]}
+                    >
+                        <Input.Password
+                            placeholder="1234567890:ABCdefGHIjklMNOpqrsTUVwxyz"
+                            style={{ fontFamily: 'monospace' }}
+                        />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="glavniy_app_script_url"
+                        label="📊 Glavniy App Script URL"
+                        rules={[
+                            { required: true, message: 'URL kiriting!' },
+                            { type: 'url', message: 'To\'g\'ri URL kiriting!' }
+                        ]}
+                    >
+                        <Input
+                            placeholder="https://script.google.com/macros/s/YOUR_SCRIPT/exec"
+                            style={{ fontFamily: 'monospace' }}
+                        />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="company_phone"
+                        label="📱 Kompaniya Telefon Raqami"
+                        rules={[
+                            { required: true, message: 'Telefon kiriting!' },
+                            {
+                                pattern: /^\+998\d{9}$/,
+                                message: '+998XXXXXXXXX formatida kiriting'
+                            }
+                        ]}
+                    >
+                        <Input
+                            placeholder="+998970850604"
+                            maxLength={13}
+                            onChange={(e) => {
+                                let input = e.target.value.replace(/\D/g, '');
+                                if (!input.startsWith('998')) input = '998' + input;
+                                let formatted = '+' + input.substring(0, 12);
+                                globalForm.setFieldsValue({ company_phone: formatted });
+                            }}
+                        />
+                    </Form.Item>
+
+                    <Form.Item>
+                        <Button
+                            type="primary"
+                            htmlType="submit"
+                            icon={<SaveOutlined />}
+                            size="large"
+                        >
+                            Global Sozlamalarni Saqlash
+                        </Button>
+                    </Form.Item>
+                </Form>
+
+                <Divider />
+
+                <div style={{ background: '#fff', padding: 16, borderRadius: 8 }}>
+                    <h4 style={{ marginTop: 0 }}>💡 Ma'lumot:</h4>
+                    <ul style={{ paddingLeft: 20, marginBottom: 0 }}>
+                        <li><strong>Telegram Bot Token:</strong> Telegram xabarlari uchun bot tokeni</li>
+                        <li><strong>Glavniy App Script URL:</strong> Asosiy Google Sheets uchun script URL</li>
+                        <li><strong>Kompaniya Telefon:</strong> Oddiy rieltor uchun ishlatiladi (individual rieltor o'z telefonini ishlatadi)</li>
+                    </ul>
+                </div>
+            </Card>
+
+            {/* ✅ EXISTING CATEGORY SETTINGS */}
             <Tabs defaultActiveKey="kvartil">
                 {categories.map(cat => (
                     <TabPane tab={cat.label} key={cat.key}>
