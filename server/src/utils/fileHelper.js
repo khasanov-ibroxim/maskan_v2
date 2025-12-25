@@ -1,3 +1,5 @@
+// server/src/utils/fileHelper.js - ✅ FIXED: Individual Rieltor Phone
+
 const fs = require('fs');
 const path = require('path');
 
@@ -42,12 +44,26 @@ function saveTextFile(fileName, content, folderPath) {
     }
 }
 
+/**
+ * ✅ CRITICAL FIX: Use phone_for_ad (individual rieltor phone if available)
+ */
 function createAdTexts(data) {
-    const { kvartil, xet, m2, xolati, uy_turi, balkon, narx, planirovka, sheetType, rieltor } = data;
+    const {
+        kvartil, xet, m2, xolati, uy_turi, balkon, narx,
+        planirovka, sheetType, rieltor, phone_for_ad
+    } = data;
+
     const xonaSoni = xet.split("/")[0] || "1";
     const parts = xet.split("/");
     const etajInfo = `${parts[1] || "1"}/${parts[2] || "1"}`;
     const formattedNarx = String(narx).replace(/\s/g, " ");
+
+    // ✅ CRITICAL: Use phone_for_ad (individual rieltor or company phone)
+    const phoneNumber = phone_for_ad || '+998970850604';
+
+    console.log('📱 TXT FAYLLAR UCHUN TELEFON:');
+    console.log('  Rieltor:', rieltor);
+    console.log('  Phone for Ad:', phoneNumber);
 
     const olxText = `${sheetType === "Sotuv" ? "Sotuvda" : "Ijaraga beriladi"} — ${kvartil}, ${xonaSoni} хона
 
@@ -56,7 +72,7 @@ function createAdTexts(data) {
 - Remont: ${xolati || "—"}
 - Uy turi: ${uy_turi || "—"}
 ${planirovka ? `• Planirovka: ${planirovka}\n` : ""}${balkon ? `• Balkon: ${balkon}\n` : ""}• Narxi: ${formattedNarx} $
-- Aloqa uchun: +998 97 085 06 04
+- Aloqa uchun: ${phoneNumber}
 
 #realestate #${kvartil.replace(/\s+/g, "")} #${xonaSoni}xona #Tashkent #Yunusobod #RTD #${rieltor}`;
 
@@ -67,7 +83,7 @@ ${planirovka ? `• Planirovka: ${planirovka}\n` : ""}${balkon ? `• Balkon: ${
 🧱 Remont: ${xolati || "—"}
 🏢 Uy turi: ${uy_turi || "—"}
 ${planirovka ? `📋 Planirovka: ${planirovka}\n` : ""}${balkon ? `🏗 Balkon: ${balkon}\n` : ""}💰 Narxi: ${formattedNarx} $
-📞 Aloqa uchun: +998 97 085 06 04
+📞 Aloqa uchun: ${phoneNumber}
 
 Rieltor: #${rieltor}`;
 

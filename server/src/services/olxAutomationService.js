@@ -18,7 +18,7 @@ const CHROME_USER_DATA = path.join(__dirname, '../../chrome-data');
 // Ensure directories
 [TEMP_IMAGES_DIR, LOGS_DIR, CHROME_USER_DATA].forEach(dir => {
     if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
+        fs.mkdirSync(dir, {recursive: true});
     }
 });
 
@@ -35,7 +35,7 @@ const randomDelay = (min = 500, max = 2000) => {
 
 async function scrollToElement(page, element) {
     await page.evaluate(el => {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.scrollIntoView({behavior: 'smooth', block: 'center'});
     }, element);
     await sleep(500);
 }
@@ -168,8 +168,14 @@ function cleanTempImages() {
 /**
  * Create description
  */
+
+// ✅ CRITICAL FIX: Phone number in OLX form (PARTIAL - only phone section)
+
+/**
+ * Create description - with correct phone
+ */
 function createDescription(data) {
-    const { kvartil, xet, m2, xolati, uy_turi, narx, rieltor, planirovka, balkon , sheet_type } = data;
+    const {kvartil, xet, m2, xolati, uy_turi, narx, rieltor, planirovka, balkon, sheet_type, phone_for_ad} = data;
     const xonaSoni = xet.split("/")[0];
     const etaj = xet.split("/")[1];
     const etajnost = xet.split("/")[2];
@@ -177,23 +183,29 @@ function createDescription(data) {
     const location = kvartil || 'Yunusobod';
     const formattedPrice = narx.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 
-    let description = `${sheet_type === "Sotuv"?"SOTILADI" :"ARENDA"} - ${location.toUpperCase()}\n${xonaSoni}-xonali kvartira\n\n`;
+    // ✅ Use phone_for_ad
+    const contactPhone = phone_for_ad || '+998970850604';
+
+    console.log('📱 OLX DESCRIPTION TELEFON:', contactPhone);
+
+    let description = `${sheet_type === "Sotuv" ? "SOTILADI" : "ARENDA"} - ${location.toUpperCase()}\n${xonaSoni}-xonali kvartira\n\n`;
     description += `ASOSIY MA'LUMOTLAR:\n---\n• Joylashuv: ${location}\n• Xonalar: ${xonaSoni}\n`;
     description += `• Maydon: ${m2} m²\n• Qavat: ${etajInfo}\n`;
     if (uy_turi) description += `• Uy turi: ${uy_turi}\n`;
     if (xolati) description += `• Ta'mir: ${xolati}\n`;
     if (planirovka) description += `• Planirovka: ${planirovka}\n`;
     if (balkon) description += `• Balkon: ${balkon}\n`;
-    description += `\nNARX: ${formattedPrice} y.e. (Kelishiladi)\n\n`;
+    description += `\nNARX: ${formattedPrice} y.e. (Kelishiladi)\n`;
 
-    description += `${sheet_type === "Sotuv"?"ПРОДАЕТСЯ" :"АРЕНДА"} - ${location.toUpperCase()}\n${xonaSoni}-комнатная квартира\n\n`;
+
+    description += `${sheet_type === "Sotuv" ? "ПРОДАЕТСЯ" : "АРЕНДА"} - ${location.toUpperCase()}\n${xonaSoni}-комнатная квартира\n\n`;
     description += `ОСНОВНАЯ ИНФОРМАЦИЯ:\n---\n• Расположение: ${location}\n• Комнат: ${xonaSoni}\n`;
     description += `• Площадь: ${m2} м²\n• Этаж: ${etajInfo}\n`;
     if (uy_turi) description += `• Тип дома: ${uy_turi}\n`;
     if (xolati) description += `• Состояние: ${xolati}\n`;
     if (planirovka) description += `• Планировка: ${planirovka}\n`;
     if (balkon) description += `• Балкон: ${balkon}\n`;
-    description += `\nЦЕНА: ${formattedPrice} у.е. (Договорная)\n\n`;
+    description += `\nЦЕНА: ${formattedPrice} у.е. (Договорная)\n`;
     description += `${rieltor}`;
 
     return description;
@@ -205,7 +217,7 @@ function createDescription(data) {
 async function takeScreenshot(page, name) {
     try {
         const screenshotPath = path.join(LOGS_DIR, `${name}-${Date.now()}.png`);
-        await page.screenshot({ path: screenshotPath, fullPage: true });
+        await page.screenshot({path: screenshotPath, fullPage: true});
         console.log(`📷 Screenshot: ${screenshotPath}`);
         return screenshotPath;
     } catch (error) {
@@ -237,7 +249,6 @@ async function checkAndHandleLogin(page) {
         console.log('  2. Email va parolni kiriting');
         console.log('  3. Login tugmasini bosing');
         console.log('  4. Login bo\'lguncha kuting...\n');
-
 
 
         let loginSuccess = false;
@@ -346,10 +357,10 @@ async function fillOLXForm(page, objectData, imageFiles) {
 
         // 1. TITLE
         console.log('\n1️⃣ Sarlavha...');
-        const title = `${objectData.sheet_type === "Sotuv"?"SOTILADI" :"ARENDA"} ${objectData.kvartil} ${xonaSoni}-xona`;
+        const title = `${objectData.sheet_type === "Sotuv" ? "SOTILADI" : "ARENDA"} ${objectData.kvartil} ${xonaSoni}-xona`;
         try {
-            await page.waitForSelector('[data-testid="posting-title"]', { timeout: 10000 });
-            await page.type('[data-testid="posting-title"]', title, { delay: 50 });
+            await page.waitForSelector('[data-testid="posting-title"]', {timeout: 10000});
+            await page.type('[data-testid="posting-title"]', title, {delay: 50});
             console.log('   ✅ Yozildi');
         } catch (e) {
             console.log('   ⚠️ Xato:', e.message);
@@ -415,8 +426,8 @@ async function fillOLXForm(page, objectData, imageFiles) {
         console.log('\n3️⃣ Tavsif...');
         const description = createDescription(objectData);
         try {
-            await page.waitForSelector('[data-testid="posting-description-text-area"]', { timeout: 10000 });
-            await page.type('[data-testid="posting-description-text-area"]', description, { delay: 20 });
+            await page.waitForSelector('[data-testid="posting-description-text-area"]', {timeout: 10000});
+            await page.type('[data-testid="posting-description-text-area"]', description, {delay: 20});
             console.log('   ✅ Yozildi');
         } catch (e) {
             console.log('   ⚠️ Xato:', e.message);
@@ -427,9 +438,9 @@ async function fillOLXForm(page, objectData, imageFiles) {
         console.log('\n4️⃣ Narx...');
         const price = objectData.narx.toString().replace(/\s/g, '').replace(/\$/g, '');
         try {
-            await page.waitForSelector('[data-testid="price-input"]', { timeout: 10000 });
-            await page.click('[data-testid="price-input"]', { clickCount: 3 });
-            await page.type('[data-testid="price-input"]', price, { delay: 50 });
+            await page.waitForSelector('[data-testid="price-input"]', {timeout: 10000});
+            await page.click('[data-testid="price-input"]', {clickCount: 3});
+            await page.type('[data-testid="price-input"]', price, {delay: 50});
             console.log(`   ✅ ${price}`);
         } catch (e) {
             console.log('   ⚠️ Xato:', e.message);
@@ -532,9 +543,9 @@ async function fillOLXForm(page, objectData, imageFiles) {
             const roomsInput = await page.$('input[data-testid="parameters.number_of_rooms"]');
             if (roomsInput) {
                 await scrollToElement(page, roomsInput);
-                await roomsInput.click({ clickCount: 3 });
+                await roomsInput.click({clickCount: 3});
                 await sleep(200);
-                await roomsInput.type(xonaSoni, { delay: 50 });
+                await roomsInput.type(xonaSoni, {delay: 50});
                 console.log(`   ✅ ${xonaSoni} xona`);
             }
         } catch (e) {
@@ -548,9 +559,9 @@ async function fillOLXForm(page, objectData, imageFiles) {
             const areaInput = await page.$('input[data-testid="parameters.total_area"]');
             if (areaInput) {
                 await scrollToElement(page, areaInput);
-                await areaInput.click({ clickCount: 3 });
+                await areaInput.click({clickCount: 3});
                 await sleep(200);
-                await areaInput.type(objectData.m2.toString(), { delay: 50 });
+                await areaInput.type(objectData.m2.toString(), {delay: 50});
                 console.log(`   ✅ ${objectData.m2} m²`);
             }
         } catch (e) {
@@ -564,9 +575,9 @@ async function fillOLXForm(page, objectData, imageFiles) {
             const floorInput = await page.$('input[data-testid="parameters.floor"]');
             if (floorInput) {
                 await scrollToElement(page, floorInput);
-                await floorInput.click({ clickCount: 3 });
+                await floorInput.click({clickCount: 3});
                 await sleep(200);
-                await floorInput.type(etaj, { delay: 50 });
+                await floorInput.type(etaj, {delay: 50});
                 console.log(`   ✅ ${etaj}-etaj`);
             }
         } catch (e) {
@@ -580,9 +591,9 @@ async function fillOLXForm(page, objectData, imageFiles) {
             const floorsInput = await page.$('input[data-testid="parameters.total_floors"]');
             if (floorsInput) {
                 await scrollToElement(page, floorsInput);
-                await floorsInput.click({ clickCount: 3 });
+                await floorsInput.click({clickCount: 3});
                 await sleep(200);
-                await floorsInput.type(etajnost, { delay: 50 });
+                await floorsInput.type(etajnost, {delay: 50});
                 console.log(`   ✅ ${etajnost}-qavatli`);
             }
         } catch (e) {
@@ -632,7 +643,7 @@ async function fillOLXForm(page, objectData, imageFiles) {
                 await scrollToElement(page, locationInput);
                 await locationInput.click();
                 await sleep(500);
-                await locationInput.type('Yunusobod', { delay: 100 });
+                await locationInput.type('Yunusobod', {delay: 100});
                 console.log('   ✅ "Yunusobod" yozildi');
                 await sleep(2000);
                 const locationOption = await page.waitForSelector('button[data-testid="location-list-item"]', {
@@ -654,18 +665,26 @@ async function fillOLXForm(page, objectData, imageFiles) {
             const phoneInput = await page.$('input[data-testid="phone"]');
             if (phoneInput) {
                 await scrollToElement(page, phoneInput);
-                await phoneInput.click({ clickCount: 3 });
+                await phoneInput.click({clickCount: 3});
                 await sleep(300);
                 await phoneInput.press('Backspace');
                 await sleep(500);
-                const phoneNumber = '998970850604';
-                await phoneInput.type(phoneNumber, { delay: 80 });
+
+                // ✅ CRITICAL FIX: Use phone_for_ad
+                const phoneForAd = objectData.phone_for_ad || '+998970850604';
+                const phoneNumber = phoneForAd.replace(/\D/g, ''); // Remove non-digits
+
+                console.log('   📱 Ishlatilayotgan telefon:', phoneForAd);
+                console.log('   📱 Raqamlar:', phoneNumber);
+
+                await phoneInput.type(phoneNumber, {delay: 80});
                 console.log(`   ✅ +${phoneNumber}`);
             }
         } catch (e) {
             console.log('   ⚠️ Xato:', e.message);
         }
         await sleep(1000);
+
 
         console.log('\n✅ FORMA TO\'LDIRILDI');
         console.log('='.repeat(60) + '\n');
@@ -835,10 +854,10 @@ async function postToOLXLocal(objectData) {
         console.log('✅ Browser ochildi\n');
 
         await page.evaluateOnNewDocument(() => {
-            Object.defineProperty(navigator, 'webdriver', { get: () => false });
-            Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
-            Object.defineProperty(navigator, 'languages', { get: () => ['ru-RU', 'ru', 'uz'] });
-            window.chrome = { runtime: {} };
+            Object.defineProperty(navigator, 'webdriver', {get: () => false});
+            Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
+            Object.defineProperty(navigator, 'languages', {get: () => ['ru-RU', 'ru', 'uz']});
+            window.chrome = {runtime: {}};
         });
 
         console.log('📝 /adding sahifasiga o\'tish...');
@@ -882,9 +901,12 @@ async function postToOLXLocal(objectData) {
 
         try {
             cleanTempImages();
-            if (page) await page.close().catch(() => {});
-            if (browser) await browser.close().catch(() => {});
-        } catch (e) {}
+            if (page) await page.close().catch(() => {
+            });
+            if (browser) await browser.close().catch(() => {
+            });
+        } catch (e) {
+        }
 
         await PropertyObject.setError(objectData.id, error.message).catch(err => {
             console.error('❌ Status error ga o\'zgarmadi:', err.message);
