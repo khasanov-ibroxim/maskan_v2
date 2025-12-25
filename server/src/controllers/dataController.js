@@ -1,18 +1,22 @@
-// server/src/controllers/dataController.js - FULLY FIXED WITH UNIQUE_ID
+// server/src/controllers/dataController.js - FIXED: Moved getGlobalConfig inside async function
 const { sendToTelegram } = require('../services/telegramService');
 const { sendToAppScriptWithRetry } = require('../services/appScriptService');
 const { saveFiles } = require('../services/fileService');
 const { HERO_APP_SCRIPT } = require('../config/env');
 const PropertyObject = require('../models/Object.pg');
 const User = require('../models/User.pg');
-const globalConfig = await require('../models/AppSettings.pg').getGlobalConfig();
-const COMPANY_PHONE = globalConfig.company_phone || '+998970850604';
+const AppSettings = require('../models/AppSettings.pg'); // ✅ Import the model, not the result
 
 async function sendData(req, res, appScriptQueue) {
     try {
         console.log("\n" + "=".repeat(60));
         console.log("🔥 YANGI SO'ROV");
         console.log("=".repeat(60));
+
+        // ✅ FIXED: Get global config inside the async function
+        const globalConfig = await AppSettings.getGlobalConfig();
+        const COMPANY_PHONE = globalConfig.company_phone || '+998970850604';
+
         let phoneForAd = COMPANY_PHONE;
 
         let data = typeof req.body.data === 'string' ? JSON.parse(req.body.data) : req.body.data;
@@ -67,12 +71,14 @@ async function sendData(req, res, appScriptQueue) {
         } catch (error) {
             console.error("❌ Rieltor qidirishda xato:", error.message);
         }
+
         if (rielterInfo && rielterInfo.role === 'individual_rieltor' && rielterInfo.phone) {
             phoneForAd = rielterInfo.phone;
             console.log('  📱 Individual rieltor telefoni ishlatiladi:', phoneForAd);
         } else {
             console.log('  📱 Kompaniya telefoni ishlatiladi:', phoneForAd);
         }
+
         // ✅ 3. TELEGRAM XABAR TAYYORLASH
         const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '-1003298985470';
         const telegramMessage = `
@@ -187,11 +193,10 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                     console.log("  URL:", HERO_APP_SCRIPT.substring(0, 50) + "...");
                     console.log("  Unique ID:", savedObject.unique_id);
 
-                    // ✅ CRITICAL: unique_id va id ni qo'shish
                     const glavniyData = {
                         ...data,
-                        id: savedObject.unique_id,        // ✅ Google Sheets uchun
-                        unique_id: savedObject.unique_id, // ✅ Backup
+                        id: savedObject.unique_id,
+                        unique_id: savedObject.unique_id,
                         folderLink: folderLink || "Yo'q"
                     };
 
@@ -219,11 +224,10 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                     console.log("  URL:", rielterInfo.app_script_url.substring(0, 50) + "...");
                     console.log("  Unique ID:", savedObject.unique_id);
 
-                    // ✅ CRITICAL: unique_id va id ni qo'shish
                     const rielterData = {
                         ...data,
-                        id: savedObject.unique_id,        // ✅ Google Sheets uchun
-                        unique_id: savedObject.unique_id, // ✅ Backup
+                        id: savedObject.unique_id,
+                        unique_id: savedObject.unique_id,
                         folderLink: folderLink || "Yo'q"
                     };
 

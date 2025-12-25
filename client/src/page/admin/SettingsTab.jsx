@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Tabs, Table, Button, Modal, Form, Input, message, Space, Popconfirm, InputNumber, Divider, Tag } from 'antd';
+import { Card, Tabs, Table, Button, Modal, Form, Input, message, Space, Popconfirm, InputNumber, Divider } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SettingOutlined, SaveOutlined } from '@ant-design/icons';
 import api from '../../utils/api';
 
@@ -16,13 +16,16 @@ const categories = [
 
 const SettingsTab = () => {
     const [settings, setSettings] = useState({});
-    const [globalConfig, setGlobalConfig] = useState({});
+    const [globalConfig, setGlobalConfig] = useState({
+        telegram_bot_token: '',
+        glavniy_app_script_url: '',
+        company_phone: ''
+    });
     const [loading, setLoading] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
     const [currentCategory, setCurrentCategory] = useState('kvartil');
     const [form] = Form.useForm();
-    const [globalForm] = Form.useForm();
 
     useEffect(() => {
         loadSettings();
@@ -48,17 +51,58 @@ const SettingsTab = () => {
         try {
             const response = await api.get('/api/settings/global-config');
             if (response.data.success) {
-                setGlobalConfig(response.data.data);
-                globalForm.setFieldsValue(response.data.data);
+                setGlobalConfig({
+                    telegram_bot_token: response.data.data.telegram_bot_token || '',
+                    glavniy_app_script_url: response.data.data.glavniy_app_script_url || '',
+                    company_phone: response.data.data.company_phone || ''
+                });
             }
         } catch (error) {
             console.error('Global config yuklashda xato:', error);
         }
     };
 
-    const handleGlobalConfigSave = async (values) => {
+    const handleGlobalConfigChange = (field, value) => {
+        setGlobalConfig(prev => ({
+            ...prev,
+            [field]: value
+        }));
+    };
+
+    const handlePhoneChange = (e) => {
+        let input = e.target.value.replace(/\D/g, '');
+
+        if (!input.startsWith('998')) {
+            if (input.length > 0) {
+                input = '998' + input;
+            } else {
+                input = '998';
+            }
+        }
+
+        input = input.substring(0, 12);
+        const formatted = input.length > 0 ? '+' + input : '';
+
+        handleGlobalConfigChange('company_phone', formatted);
+    };
+
+    const handleGlobalConfigSave = async () => {
+        // Validatsiya
+        if (!globalConfig.telegram_bot_token) {
+            message.error('Telegram Bot Token kiriting!');
+            return;
+        }
+        if (!globalConfig.glavniy_app_script_url) {
+            message.error('Glavniy App Script URL kiriting!');
+            return;
+        }
+        if (!globalConfig.company_phone || !/^\+998\d{9}$/.test(globalConfig.company_phone)) {
+            message.error('Telefon raqamini to\'g\'ri formatda kiriting (+998XXXXXXXXX)');
+            return;
+        }
+
         try {
-            const response = await api.put('/api/settings/global-config', values);
+            const response = await api.put('/api/settings/global-config', globalConfig);
             if (response.data.success) {
                 message.success('Global sozlamalar saqlandi!');
                 loadGlobalConfig();
@@ -180,72 +224,53 @@ const SettingsTab = () => {
                     </span>
                 }
             >
-                <Form
-                    form={globalForm}
-                    layout="vertical"
-                    onFinish={handleGlobalConfigSave}
+                <div style={{ marginBottom: 16 }}>
+                    <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>
+                        🤖 Telegram Bot Token
+                    </label>
+                    <Input.Password
+                        value={globalConfig.telegram_bot_token}
+                        onChange={(e) => handleGlobalConfigChange('telegram_bot_token', e.target.value)}
+                        placeholder="1234567890:ABCdefGHIjklMNOpqrsTUVwxyz"
+                        style={{ fontFamily: 'monospace' }}
+                        autoComplete="off"
+                    />
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                    <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>
+                        📊 Glavniy App Script URL
+                    </label>
+                    <Input
+                        value={globalConfig.glavniy_app_script_url}
+                        onChange={(e) => handleGlobalConfigChange('glavniy_app_script_url', e.target.value)}
+                        placeholder="https://script.google.com/macros/s/YOUR_SCRIPT/exec"
+                        style={{ fontFamily: 'monospace' }}
+                        autoComplete="off"
+                    />
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                    <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>
+                        📱 Kompaniya Telefon Raqami
+                    </label>
+                    <Input
+                        value={globalConfig.company_phone}
+                        onChange={handlePhoneChange}
+                        placeholder="+998970850604"
+                        maxLength={13}
+                        autoComplete="off"
+                    />
+                </div>
+
+                <Button
+                    type="primary"
+                    icon={<SaveOutlined />}
+                    size="large"
+                    onClick={handleGlobalConfigSave}
                 >
-                    <Form.Item
-                        name="telegram_bot_token"
-                        label="🤖 Telegram Bot Token"
-                        rules={[
-                            { required: true, message: 'Token kiriting!' }
-                        ]}
-                    >
-                        <Input.Password
-                            placeholder="1234567890:ABCdefGHIjklMNOpqrsTUVwxyz"
-                            style={{ fontFamily: 'monospace' }}
-                        />
-                    </Form.Item>
-
-                    <Form.Item
-                        name="glavniy_app_script_url"
-                        label="📊 Glavniy App Script URL"
-                        rules={[
-                            { required: true, message: 'URL kiriting!' },
-                            { type: 'url', message: 'To\'g\'ri URL kiriting!' }
-                        ]}
-                    >
-                        <Input
-                            placeholder="https://script.google.com/macros/s/YOUR_SCRIPT/exec"
-                            style={{ fontFamily: 'monospace' }}
-                        />
-                    </Form.Item>
-
-                    <Form.Item
-                        name="company_phone"
-                        label="📱 Kompaniya Telefon Raqami"
-                        rules={[
-                            { required: true, message: 'Telefon kiriting!' },
-                            {
-                                pattern: /^\+998\d{9}$/,
-                                message: '+998XXXXXXXXX formatida kiriting'
-                            }
-                        ]}
-                    >
-                        <Input
-                            placeholder="+998970850604"
-                            maxLength={13}
-                            onChange={(e) => {
-                                let input = e.target.value.replace(/\D/g, '');
-                                if (!input.startsWith('998')) input = '998' + input;
-                                let formatted = '+' + input.substring(0, 12);
-                                globalForm.setFieldsValue({ company_phone: formatted });
-                            }}
-                        />
-                    </Form.Item>
-
-                    <Form.Item>
-                        <Button
-                            type="primary"
-                            htmlType="submit"
-                            icon={<SaveOutlined />}
-                            size="large"
-                        >
-                            Global Sozlamalarni Saqlash
-                        </Button>
-                    </Form.Item>
-                </Form>
+                    Global Sozlamalarni Saqlash
+                </Button>
 
                 <Divider />
 
