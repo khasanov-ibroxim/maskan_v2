@@ -5,9 +5,11 @@ class PropertyObject {
     /**
      * ✅ FIXED: Save obyekt (unique_id konfliktini hal qilish)
      */
+    // server/src/models/Object.pg.js - CRITICAL FIX for save method
+
     static async save(objectData) {
         try {
-            // ✅ CRITICAL FIX: Timestamp qo'shish unique_id ga
+            // ✅ Timestamp for unique_id
             const timestamp = Date.now();
             const uniqueId = `${objectData.kvartil}_${objectData.xet}_${objectData.tell}_${timestamp}`.replace(/\s+/g, '');
 
@@ -17,17 +19,17 @@ class PropertyObject {
             console.log('  XET:', objectData.xet);
             console.log('  Telefon:', objectData.tell);
 
-            // ✅ Check: Bunday unique_id mavjudmi?
+            // ✅ Check if exists
             const existing = await query(
                 'SELECT id, elon_status FROM objects WHERE unique_id = $1',
                 [uniqueId]
             );
 
             if (existing.rows.length > 0) {
-                console.log('⚠️ Bunday unique_id allaqachon mavjud (bu juda kamdan-kam holat)');
+                console.log('⚠️ Bunday unique_id allaqachon mavjud');
                 console.log('   Mavjud ID:', existing.rows[0].id);
 
-                // Update qilish (agar kerak bo'lsa)
+                // Update existing
                 const result = await query(
                     `UPDATE objects
                      SET sana       = $1,
@@ -47,8 +49,9 @@ class PropertyObject {
                          xodim      = $15,
                          sheet_type = $16,
                          rasmlar    = $17,
+                         phone_for_ad = $18,
                          updated_at = CURRENT_TIMESTAMP
-                     WHERE unique_id = $18
+                     WHERE unique_id = $19
                      RETURNING *`,
                     [
                         objectData.sana, objectData.m2, objectData.narx, objectData.fio,
@@ -56,6 +59,7 @@ class PropertyObject {
                         objectData.balkon, objectData.torets, objectData.dom, objectData.kvartira,
                         objectData.osmotir, objectData.opisaniya, objectData.rieltor,
                         objectData.xodim, objectData.sheetType || 'Sotuv', objectData.rasmlar,
+                        objectData.phoneForAd,
                         uniqueId
                     ]
                 );
@@ -64,26 +68,43 @@ class PropertyObject {
                 return result.rows[0];
             }
 
-            // ✅ INSERT yangi obyekt
+            // ✅ CRITICAL FIX: Correct column order and values
             const result = await query(
                 `INSERT INTO objects (
-                    unique_id, sana, kvartil, xet, tell, m2, narx, fio, 
-                    uy_turi, xolati, planirovka, balkon, torets, dom, 
-                    kvartira, osmotir, opisaniya, rieltor, xodim, 
-                    sheet_type, rasmlar,elon_status,phone_for_ad
-                 )
+                    unique_id, sana, kvartil, xet, tell, m2, narx, fio,
+                    uy_turi, xolati, planirovka, balkon, torets, dom,
+                    kvartira, osmotir, opisaniya, rieltor, xodim,
+                    sheet_type, rasmlar, phone_for_ad, elon_status
+                )
                  VALUES (
-                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 
-                    $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21,$22, 'waiting'
-                 )
+                            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+                            $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23
+                        )
                  RETURNING *`,
                 [
-                    uniqueId, objectData.sana, objectData.kvartil, objectData.xet,
-                    objectData.tell, objectData.m2, objectData.narx, objectData.fio,
-                    objectData.uy_turi, objectData.xolati, objectData.planirovka,
-                    objectData.balkon, objectData.torets, objectData.dom, objectData.kvartira,
-                    objectData.osmotir, objectData.opisaniya, objectData.rieltor,
-                    objectData.xodim, objectData.sheetType || 'Sotuv', objectData.rasmlar , objectData.phoneForAd
+                    uniqueId,                           // $1
+                    objectData.sana,                    // $2
+                    objectData.kvartil,                 // $3
+                    objectData.xet,                     // $4
+                    objectData.tell,                    // $5
+                    objectData.m2,                      // $6
+                    objectData.narx,                    // $7
+                    objectData.fio,                     // $8
+                    objectData.uy_turi,                 // $9
+                    objectData.xolati,                  // $10
+                    objectData.planirovka,              // $11
+                    objectData.balkon,                  // $12
+                    objectData.torets,                  // $13
+                    objectData.dom,                     // $14
+                    objectData.kvartira,                // $15
+                    objectData.osmotir,                 // $16
+                    objectData.opisaniya,               // $17
+                    objectData.rieltor,                 // $18
+                    objectData.xodim,                   // $19
+                    objectData.sheetType || 'Sotuv',    // $20
+                    objectData.rasmlar,                 // $21
+                    objectData.phoneForAd,              // $22
+                    'waiting'                           // $23 - elon_status
                 ]
             );
 
