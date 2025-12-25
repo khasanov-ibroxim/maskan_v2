@@ -101,15 +101,11 @@ const FormMaskan = () => {
     const [loading, setLoading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [fileList, setFileList] = useState([]);
-
-    // ✅ Realtor list state
     const [realtors, setRealtors] = useState([]);
     const [loadingRealtors, setLoadingRealtors] = useState(false);
+    const [settings, setSettings] = useState({});
+    const [loadingSettings, setLoadingSettings] = useState(false);
 
-    // Internet tezligi state
-    const [internetSpeed, setInternetSpeed] = useState(null);
-    const [isCheckingSpeed, setIsCheckingSpeed] = useState(false);
-    const [speedCheckCount, setSpeedCheckCount] = useState(0);
 
     useEffect(() => {
         const userData =
@@ -119,10 +115,25 @@ const FormMaskan = () => {
             window.location.href = "/login";
         }
 
-        // ✅ Realtor'larni yuklash
         loadRealtors();
+        loadSettings();
     }, []);
 
+    const loadSettings = async () => {
+        setLoadingSettings(true);
+        try {
+            const response = await api.get('/api/settings');
+            if (response.data.success) {
+                setSettings(response.data.data);
+                console.log('✅ Settings yuklandi:', response.data.data);
+            }
+        } catch (error) {
+            console.error('❌ Settings yuklashda xato:', error);
+            message.error('Sozlamalarni yuklashda xato');
+        } finally {
+            setLoadingSettings(false);
+        }
+    };
     // ✅ Realtor'larni serverdan yuklash
     const loadRealtors = async () => {
         setLoadingRealtors(true);
@@ -150,9 +161,6 @@ const FormMaskan = () => {
             setLoadingRealtors(false);
         }
     };
-
-
-
 
 
     useEffect(() => {
@@ -370,19 +378,16 @@ const FormMaskan = () => {
                         name="kvartil"
                         rules={[{required: true, message: "Kvartilni tanlang!"}]}
                     >
-                        <Select placeholder="Kvartilni tanlang">
-                            {[...Array(20)].map((_, i) => (
-                                <Option key={i} value={`Yunusobod - ${i}`}>
-                                    Yunusobod - {i}
+                        <Select
+                            placeholder="Kvartilni tanlang"
+                            loading={loadingSettings}
+                            showSearch
+                        >
+                            {(settings.kvartil || []).map(item => (
+                                <Option key={item.id} value={item.value}>
+                                    {item.value}
                                 </Option>
                             ))}
-                            {[...Array(5)].map((_, i) => (
-                                <Option key={`c${i}`} value={`Ц - ${i + 1}`}>
-                                    Ц - {i + 1}
-                                </Option>
-                            ))}
-                            <Option value={`Bodomzor`}>Bodomzor</Option>
-                            <Option value={`Minor`}>Minor</Option>
                         </Select>
                     </Form.Item>
 
@@ -566,61 +571,52 @@ const FormMaskan = () => {
                     </Form.Item>
 
                     <Form.Item label="Uy turi" name="uy_turi">
-                        <Select placeholder="Uy turi">
-                            <Option value="Kirpich">Kirpich</Option>
-                            <Option value="Panel">Panel</Option>
-                            <Option value="Beton">Beton</Option>
-                            <Option value="Monolitniy/B">Monolitniy/B</Option>
-                            <Option value="Gaza/b">Gaza/b</Option>
-                            <Option value="Pena/b">Pena/b</Option>
-                            <Option value="Boshqa">Boshqa</Option>
+                        <Select placeholder="Uy turi" loading={loadingSettings}>
+                            {(settings.uy_turi || []).map(item => (
+                                <Option key={item.id} value={item.value}>
+                                    {item.value}
+                                </Option>
+                            ))}
                         </Select>
                     </Form.Item>
 
                     <Form.Item label="Planirovka" name="planirovka">
-                        <Select placeholder="Planirovka">
-                            <Option value="Tashkent">Tashkent</Option>
-                            <Option value="Fransuzkiy">Fransuzkiy</Option>
-                            <Option value="Uluchshiniy 2ta zal">Uluchshiniy+2 ta zal</Option>
-                            <Option value="Uluchshiniy">Uluchshiniy</Option>
-                            <Option value="Galareyka">Galareyka</Option>
-                            <Option value="Navastroyka">Navastroyka</Option>
-                            <Option value="Xrushovka">Xrushovka</Option>
-                            <Option value="Boshqa">Boshqa</Option>
+                        <Select placeholder="Planirovka" loading={loadingSettings}>
+                            {(settings.planirovka || []).map(item => (
+                                <Option key={item.id} value={item.value}>
+                                    {item.value}
+                                </Option>
+                            ))}
                         </Select>
                     </Form.Item>
 
                     <Form.Item label="Xolati" name="xolati">
-                        <Select placeholder="Xolati">
-                            <Option value="Kapitalniy">Kapitalniy</Option>
-                            <Option value="Ortacha">Ortacha</Option>
-                            <Option value="Toza">Toza</Option>
-                            <Option value="Yevro remont">Yevro remont</Option>
-                            <Option value="Kosmetichiskiy">Kosmetichiskiy</Option>
-                            <Option value="Bez remont">Bez remont</Option>
+                        <Select placeholder="Xolati" loading={loadingSettings}>
+                            {(settings.xolati || []).map(item => (
+                                <Option key={item.id} value={item.value}>
+                                    {item.value}
+                                </Option>
+                            ))}
                         </Select>
                     </Form.Item>
 
                     <Form.Item label="Torets" name="torets">
-                        <Select placeholder="Torets">
-                            <Option value="Torets">Torets</Option>
-                            <Option value="Ne Torets">Ne Torets</Option>
-                            <Option value="Boshqa">Boshqa</Option>
+                        <Select placeholder="Torets" loading={loadingSettings}>
+                            {(settings.torets || []).map(item => (
+                                <Option key={item.id} value={item.value}>
+                                    {item.value}
+                                </Option>
+                            ))}
                         </Select>
                     </Form.Item>
 
                     <Form.Item label="Balkon" name="balkon">
-                        <Select placeholder="Balkon">
-                            <Option value="2x6">2x6</Option>
-                            <Option value="2x7">2x7</Option>
-                            <Option value="1.5X6">1.5x6</Option>
-                            <Option value="2x3">2x3</Option>
-                            <Option value="2x3 + 2x3">2x3 + 2x3</Option>
-                            <Option value="1x7">1x7</Option>
-                            <Option value="2x4.5 + 1x1.5">2x4.5 + 1x1.5</Option>
-                            <Option value="2x9">2x9</Option>
-                            <Option value="Yo'q">Yo'q</Option>
-                            <Option value="Boshqa">Boshqa</Option>
+                        <Select placeholder="Balkon" loading={loadingSettings}>
+                            {(settings.balkon || []).map(item => (
+                                <Option key={item.id} value={item.value}>
+                                    {item.value}
+                                </Option>
+                            ))}
                         </Select>
                     </Form.Item>
 

@@ -98,6 +98,13 @@ app.use('/browse', filterIgnoredPaths);  // ✅ Browse'da uploads/storage blokla
 app.use('/download-zip', filterIgnoredPaths);  // ✅ Download'da ham bloklash
 
 
+
+// ============================================
+// SETTINGS ROUTES (YANGI!)
+// ============================================
+const settingsRoutes = require('./routes/settings.routes');
+app.use('/api/settings', settingsRoutes);
+console.log('✅ Settings routes yuklandi');
 // ============================================
 // PUBLIC ROUTES (AUTH KERAK EMAS!)
 // ============================================

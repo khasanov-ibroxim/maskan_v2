@@ -11,6 +11,7 @@ import {
 import api from '../../utils/api.jsx';
 // import ObjectsList from '../../components/ObjectsList.tsx';
 import ObjectsList from '../ObjectsList.tsx';
+import SettingsTab from "./SettingsTab.jsx";
 
 const {Option} = Select;
 const {TabPane} = Tabs;
@@ -381,6 +382,12 @@ const AdminPanel = () => {
                         />
                     </Card>
                 </TabPane>
+
+                <TabPane tab={<span><HomeOutlined /> Settings</span>} key="settings">
+                    <Card>
+                        <SettingsTab />
+                    </Card>
+                </TabPane>
             </Tabs>
 
             {/* Create User Modal */}
@@ -422,10 +429,12 @@ const AdminPanel = () => {
                         <Select onChange={setSelectedRole}>
                             <Option value="user">👤 User</Option>
                             <Option value="rieltor">🏠 Rieltor</Option>
+                            <Option value="individual_rieltor">📱 Individual Rieltor</Option>
                             <Option value="admin">👑 Admin</Option>
                         </Select>
                     </Form.Item>
 
+                    {/* ✅ RIELTOR fields */}
                     {selectedRole === 'rieltor' && (
                         <>
                             <Form.Item name="appScriptUrl" label="App Script URL" rules={[
@@ -440,6 +449,32 @@ const AdminPanel = () => {
                                 <Input placeholder="65" type="number" />
                             </Form.Item>
                         </>
+                    )}
+
+                    {/* ✅ INDIVIDUAL RIELTOR field */}
+                    {selectedRole === 'individual_rieltor' && (
+                        <Form.Item
+                            name="phone"
+                            label="Telefon raqami"
+                            rules={[
+                                { required: true, message: 'Telefon raqamini kiriting!' },
+                                {
+                                    pattern: /^\+998\d{9}$/,
+                                    message: '+998XXXXXXXXX formatida kiriting'
+                                }
+                            ]}
+                        >
+                            <Input
+                                placeholder="+998901234567"
+                                maxLength={13}
+                                onChange={(e) => {
+                                    let input = e.target.value.replace(/\D/g, '');
+                                    if (!input.startsWith('998')) input = '998' + input;
+                                    let formatted = '+' + input.substring(0, 12);
+                                    form.setFieldsValue({ phone: formatted });
+                                }}
+                            />
+                        </Form.Item>
                     )}
 
                     <Form.Item>
@@ -457,6 +492,7 @@ const AdminPanel = () => {
                     </Form.Item>
                 </Form>
             </Modal>
+
 
             {/* Edit User Modal */}
             <Modal
@@ -513,7 +549,31 @@ const AdminPanel = () => {
                             </Form.Item>
                         </>
                     )}
-
+                    {/* ✅ INDIVIDUAL RIELTOR field */}
+                    {selectedRole === 'individual_rieltor' && (
+                        <Form.Item
+                            name="phone"
+                            label="Telefon raqami"
+                            rules={[
+                                { required: true, message: 'Telefon raqamini kiriting!' },
+                                {
+                                    pattern: /^\+998\d{9}$/,
+                                    message: '+998XXXXXXXXX formatida kiriting'
+                                }
+                            ]}
+                        >
+                            <Input
+                                placeholder="+998901234567"
+                                maxLength={13}
+                                onChange={(e) => {
+                                    let input = e.target.value.replace(/\D/g, '');
+                                    if (!input.startsWith('998')) input = '998' + input;
+                                    let formatted = '+' + input.substring(0, 12);
+                                    form.setFieldsValue({ phone: formatted });
+                                }}
+                            />
+                        </Form.Item>
+                    )}
                     <Form.Item>
                         <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
                             <Button onClick={() => {
