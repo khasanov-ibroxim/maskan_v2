@@ -1,16 +1,26 @@
+// server/src/services/telegramService.js - ✅ FIXED: Accept token as parameter
+
 const axios = require('axios');
 const FormData = require('form-data');
-const { TELEGRAM_BOT_TOKEN } = require('../config/env');
 const { TELEGRAM_TIMEOUT } = require('../config/constants');
 
-async function sendToTelegram(chatId, messageText, images, themeId) {
+/**
+ * ✅ CRITICAL FIX: Accept botToken as parameter instead of using env
+ * @param {string} chatId - Telegram chat ID
+ * @param {string} messageText - Message text
+ * @param {Array} images - Array of base64 images
+ * @param {number} themeId - Telegram thread/topic ID
+ * @param {string} botToken - Telegram bot token (from Global Config or .env)
+ */
+async function sendToTelegram(chatId, messageText, images, themeId, botToken) {
     if (!chatId) {
         console.log("⚠️ Chat ID yo'q, Telegram'ga yuborilmadi");
         return { success: false, error: "Chat ID yo'q" };
     }
 
-    if (!TELEGRAM_BOT_TOKEN) {
+    if (!botToken) {
         console.error("❌ TELEGRAM_BOT_TOKEN topilmadi!");
+        console.error("   Global Config'da 'telegram_bot_token' sozlang!");
         return { success: false, error: "Bot token yo'q" };
     }
 
@@ -20,6 +30,7 @@ async function sendToTelegram(chatId, messageText, images, themeId) {
         console.log(`   Theme ID: ${themeId || 'Yo\'q'}`);
         console.log(`   Rasmlar: ${images?.length || 0} ta`);
         console.log(`   Xabar uzunligi: ${messageText?.length || 0} belgi`);
+        console.log(`   Bot Token: ${botToken ? botToken.substring(0, 20) + '...' : 'YO\'Q'}`);
 
         const base64ToBuffer = (base64Data) => {
             const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
@@ -50,7 +61,7 @@ async function sendToTelegram(chatId, messageText, images, themeId) {
             }
 
             response = await axios.post(
-                `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
+                `https://api.telegram.org/bot${botToken}/sendMessage`,
                 payload,
                 {
                     timeout: TELEGRAM_TIMEOUT,
@@ -81,7 +92,7 @@ async function sendToTelegram(chatId, messageText, images, themeId) {
             }
 
             response = await axios.post(
-                `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`,
+                `https://api.telegram.org/bot${botToken}/sendPhoto`,
                 formData,
                 {
                     headers: formData.getHeaders(),
@@ -121,11 +132,11 @@ async function sendToTelegram(chatId, messageText, images, themeId) {
             });
 
             response = await axios.post(
-                `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMediaGroup`,
+                `https://api.telegram.org/bot${botToken}/sendMediaGroup`,
                 formData,
                 {
                     headers: formData.getHeaders(),
-                    timeout: TELEGRAM_TIMEOUT * 2, // Ko'p rasmlar uchun 2x timeout
+                    timeout: TELEGRAM_TIMEOUT * 2,
                     maxContentLength: Infinity,
                     maxBodyLength: Infinity
                 }

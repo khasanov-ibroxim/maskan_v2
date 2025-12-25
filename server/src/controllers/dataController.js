@@ -1,11 +1,11 @@
-// server/src/controllers/dataController.js - FIXED: Moved getGlobalConfig inside async function
+// server/src/controllers/dataController.js - ✅ FIXED: Global Config integration
+
 const { sendToTelegram } = require('../services/telegramService');
 const { sendToAppScriptWithRetry } = require('../services/appScriptService');
 const { saveFiles } = require('../services/fileService');
-const { HERO_APP_SCRIPT } = require('../config/env');
 const PropertyObject = require('../models/Object.pg');
 const User = require('../models/User.pg');
-const AppSettings = require('../models/AppSettings.pg'); // ✅ Import the model, not the result
+const AppSettings = require('../models/AppSettings.pg');
 
 async function sendData(req, res, appScriptQueue) {
     try {
@@ -13,9 +13,18 @@ async function sendData(req, res, appScriptQueue) {
         console.log("🔥 YANGI SO'ROV");
         console.log("=".repeat(60));
 
-        // ✅ FIXED: Get global config inside the async function
+        // ✅ CRITICAL FIX: Get ALL global config
         const globalConfig = await AppSettings.getGlobalConfig();
+
+        // ✅ Extract values with fallbacks
         const COMPANY_PHONE = globalConfig.company_phone || '+998970850604';
+        const TELEGRAM_BOT_TOKEN = globalConfig.telegram_bot_token || process.env.TELEGRAM_TOKEN;
+        const HERO_APP_SCRIPT = globalConfig.glavniy_app_script_url || process.env.HERO_APP_SCRIPT;
+
+        console.log('\n⚙️ GLOBAL CONFIG:');
+        console.log('  Company Phone:', COMPANY_PHONE);
+        console.log('  Telegram Token:', TELEGRAM_BOT_TOKEN ? '✅ Mavjud' : '❌ YO\'Q');
+        console.log('  App Script URL:', HERO_APP_SCRIPT ? '✅ Mavjud' : '❌ YO\'Q');
 
         let phoneForAd = COMPANY_PHONE;
 
@@ -44,7 +53,7 @@ async function sendData(req, res, appScriptQueue) {
             console.error("❌ Fayl saqlashda xato:", fileError.message);
         }
 
-        // ✅ 2. RIELTOR MA'LUMOTLARINI TOPISH (PostgreSQL)
+        // ✅ 2. RIELTOR MA'LUMOTLARINI TOPISH
         let rielterInfo = null;
         try {
             console.log("\n👨‍💼 RIELTOR QIDIRISH:");
@@ -112,19 +121,25 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                 postgres: { success: false }
             };
 
-            // ✅ 5.1 TELEGRAM'GA YUBORISH
+            // ✅ 5.1 TELEGRAM'GA YUBORISH (GLOBAL CONFIG TOKEN bilan)
             try {
                 console.log("\n📱 TELEGRAM'GA YUBORISH:");
                 console.log("  Chat ID:", TELEGRAM_CHAT_ID);
                 console.log("  Theme ID:", rielterInfo?.telegram_theme_id || "YO'Q");
                 console.log("  Rasmlar:", data.rasmlar?.length || 0);
+                console.log("  Bot Token:", TELEGRAM_BOT_TOKEN ? '✅ Mavjud' : '❌ YO\'Q');
+
+                if (!TELEGRAM_BOT_TOKEN) {
+                    throw new Error('Telegram bot token topilmadi! Global Config\'da token\'ni sozlang.');
+                }
 
                 const themeId = rielterInfo?.telegram_theme_id || null;
                 const telegramResult = await sendToTelegram(
                     TELEGRAM_CHAT_ID,
                     telegramMessage,
                     data.rasmlar || [],
-                    themeId
+                    themeId,
+                    TELEGRAM_BOT_TOKEN // ✅ Pass token
                 );
 
                 if (telegramResult.success) {
@@ -139,7 +154,7 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                 results.telegram = { success: false, error: error.message };
             }
 
-            // ✅ 5.2 POSTGRESQL GA SAQLASH (BU YERDA UNIQUE_ID YARATILADI!)
+            // ✅ 5.2 POSTGRESQL GA SAQLASH
             let savedObject = null;
             try {
                 console.log("\n💾 PostgreSQL ga saqlash...");
@@ -180,13 +195,12 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                 results.postgres = { success: false, error: error.message };
             }
 
-            // ✅ CRITICAL FIX: Agar PostgreSQL'ga saqlanmagan bo'lsa, to'xtatish
             if (!savedObject) {
                 console.error("❌ Unique ID yo'q - Google Sheets'ga yuborilmaydi!");
                 return results;
             }
 
-            // ✅ 5.3 GLAVNIY EXCEL'GA YUBORISH (UNIQUE_ID bilan!)
+            // ✅ 5.3 GLAVNIY EXCEL'GA YUBORISH (GLOBAL CONFIG URL bilan)
             try {
                 if (HERO_APP_SCRIPT) {
                     console.log("\n📊 GLAVNIY EXCEL'GA YUBORISH:");
@@ -200,23 +214,18 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                         folderLink: folderLink || "Yo'q"
                     };
 
-                    console.log("  📝 Yuborilayotgan ma'lumotlar:");
-                    console.log("    id:", glavniyData.id);
-                    console.log("    unique_id:", glavniyData.unique_id);
-                    console.log("    folderLink:", glavniyData.folderLink);
-
                     await sendToAppScriptWithRetry(HERO_APP_SCRIPT, glavniyData);
                     results.glavniy = { success: true };
                     console.log("  ✅ GLAVNIY EXCEL'GA YUBORILDI");
                 } else {
-                    console.log("  ⚠️ HERO_APP_SCRIPT yo'q");
+                    console.log("  ⚠️ HERO_APP_SCRIPT yo'q - Global Config'da URL'ni sozlang");
                 }
             } catch (error) {
                 console.error("  ❌ GLAVNIY EXCEL XATO:", error.message);
                 results.glavniy = { success: false, error: error.message };
             }
 
-            // ✅ 5.4 RIELTER EXCEL'GA YUBORISH (UNIQUE_ID bilan!)
+            // ✅ 5.4 RIELTER EXCEL'GA YUBORISH
             if (rielterInfo?.app_script_url) {
                 try {
                     console.log("\n👨‍💼 RIELTER EXCEL'GA YUBORISH:");
@@ -230,11 +239,6 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                         unique_id: savedObject.unique_id,
                         folderLink: folderLink || "Yo'q"
                     };
-
-                    console.log("  📝 Yuborilayotgan ma'lumotlar:");
-                    console.log("    id:", rielterData.id);
-                    console.log("    unique_id:", rielterData.unique_id);
-                    console.log("    folderLink:", rielterData.folderLink);
 
                     await sendToAppScriptWithRetry(
                         rielterInfo.app_script_url,
@@ -250,7 +254,6 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                 }
             } else {
                 console.log("\n  ⚠️ RIELTER APP SCRIPT URL YO'Q");
-                console.log(`    Rieltor: ${rielterInfo?.username || "Topilmadi"}`);
             }
 
             console.log("\n📊 NATIJALAR:");
