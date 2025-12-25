@@ -209,7 +209,6 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
 
                     const glavniyData = {
                         ...data,
-                        id: savedObject.unique_id,
                         unique_id: savedObject.unique_id,
                         folderLink: folderLink || "Yo'q"
                     };
@@ -235,7 +234,6 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
 
                     const rielterData = {
                         ...data,
-                        id: savedObject.unique_id,
                         unique_id: savedObject.unique_id,
                         folderLink: folderLink || "Yo'q"
                     };
