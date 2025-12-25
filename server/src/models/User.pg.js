@@ -1,4 +1,5 @@
-// server/src/models/User.pg.js - UPDATED
+// server/src/models/User.pg.js - ✅ FIXED: Phone support
+
 const bcrypt = require('bcryptjs');
 const { query } = require('../config/database');
 
@@ -37,9 +38,9 @@ class User {
 
     static async getAll() {
         const result = await query(
-            `SELECT id, username, full_name, role, is_active, 
-                    app_script_url, telegram_theme_id, phone, created_at 
-             FROM users 
+            `SELECT id, username, full_name, role, is_active,
+                    app_script_url, telegram_theme_id, phone, created_at
+             FROM users
              ORDER BY created_at DESC`
         );
         return result.rows;
@@ -55,39 +56,69 @@ class User {
 
     static async findById(id) {
         const result = await query(
-            `SELECT id, username, full_name, role, is_active, 
-                    app_script_url, telegram_theme_id, phone, created_at 
+            `SELECT id, username, full_name, role, is_active,
+                    app_script_url, telegram_theme_id, phone, created_at
              FROM users WHERE id = $1`,
             [id]
         );
         return result.rows[0] || null;
     }
 
+    /**
+     * ✅ FIXED: Create user with phone
+     */
     static async create(userData) {
         const {
             username, password, fullName, role = 'user',
-            appScriptUrl, telegramThemeId, phone
+            appScriptUrl, telegramThemeId, phone  // ✅ ADD phone
         } = userData;
+
+        console.log('\n💾 USER CREATE:');
+        console.log('  Username:', username);
+        console.log('  Role:', role);
+        console.log('  Phone:', phone || 'NULL');
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
+        // ✅ CRITICAL: Include phone in INSERT
         const result = await query(
-            `INSERT INTO users (username, password, full_name, role,
-                                app_script_url, telegram_theme_id, phone, is_active)
+            `INSERT INTO users (
+                username, password, full_name, role,
+                app_script_url, telegram_theme_id, phone, is_active
+            )
              VALUES ($1, $2, $3, $4, $5, $6, $7, true)
              RETURNING id, username, full_name, role, is_active,
                  app_script_url, telegram_theme_id, phone, created_at`,
-            [username, hashedPassword, fullName, role,
-                appScriptUrl || null, telegramThemeId || null, phone || null]
+            [
+                username,
+                hashedPassword,
+                fullName,
+                role,
+                appScriptUrl || null,
+                telegramThemeId || null,
+                phone || null  // ✅ Save phone
+            ]
         );
+
+        console.log('  ✅ User yaratildi');
+        if (phone) {
+            console.log('  📱 Phone saqlandi:', phone);
+        }
 
         return result.rows[0];
     }
 
+    /**
+     * ✅ FIXED: Update user with phone
+     */
     static async update(id, updates) {
         const fields = [];
         const values = [];
         let paramCount = 1;
+
+        console.log('\n📝 USER UPDATE:');
+        console.log('  ID:', id);
+        console.log('  Updates:', Object.keys(updates));
 
         if (updates.username) {
             fields.push(`username = $${paramCount++}`);
@@ -114,16 +145,21 @@ class User {
             fields.push(`telegram_theme_id = $${paramCount++}`);
             values.push(updates.telegramThemeId);
         }
+        // ✅ CRITICAL: Handle phone updates
         if (updates.phone !== undefined) {
             fields.push(`phone = $${paramCount++}`);
             values.push(updates.phone);
+            console.log('  📱 Phone yangilanmoqda:', updates.phone || 'NULL');
         }
         if (updates.isActive !== undefined) {
             fields.push(`is_active = $${paramCount++}`);
             values.push(updates.isActive);
         }
 
-        if (fields.length === 0) return null;
+        if (fields.length === 0) {
+            console.log('  ⚠️ Yangilanish yo\'q');
+            return null;
+        }
 
         values.push(id);
         const result = await query(
@@ -134,6 +170,13 @@ class User {
                        app_script_url, telegram_theme_id, phone, created_at`,
             values
         );
+
+        if (result.rows[0]) {
+            console.log('  ✅ User yangilandi');
+            if (updates.phone !== undefined) {
+                console.log('  📱 Phone:', result.rows[0].phone || 'NULL');
+            }
+        }
 
         return result.rows[0] || null;
     }
@@ -153,6 +196,9 @@ class User {
         }
     }
 
+    /**
+     * ✅ FIXED: Get realtors with phone
+     */
     static async getRealtors() {
         const result = await query(
             `SELECT id, username, full_name, role, is_active,
@@ -162,6 +208,15 @@ class User {
                AND is_active = true
              ORDER BY full_name`
         );
+
+        console.log('\n👥 REALTORS:');
+        result.rows.forEach(r => {
+            console.log(`  - ${r.username} (${r.role})`);
+            if (r.phone) {
+                console.log(`    📱 Phone: ${r.phone}`);
+            }
+        });
+
         return result.rows;
     }
 
@@ -173,6 +228,7 @@ class User {
                  COUNT(*) FILTER (WHERE role = 'admin') as admins,
                  COUNT(*) FILTER (WHERE role = 'rieltor') as rieltors,
                  COUNT(*) FILTER (WHERE role = 'individual_rieltor') as individual_rieltors,
+                 COUNT(*) FILTER (WHERE role = 'individual_rieltor' AND phone IS NOT NULL) as individual_with_phone,
                  COUNT(*) FILTER (WHERE role = 'user') as regular_users
              FROM users`
         );
