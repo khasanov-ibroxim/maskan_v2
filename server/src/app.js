@@ -4,7 +4,7 @@ const fs = require('fs');
 const cookieParser = require('cookie-parser');
 
 // ✅ CRITICAL FIX: To'g'ri import
-const { filterIgnoredPaths } = require('./middleware/fileFilter');  // ✅ Destructuring
+const { filterIgnoredPaths } = require('./middleware/fileFilter');
 
 // Middleware
 const corsMiddleware = require('./middleware/cors');
@@ -17,6 +17,9 @@ const simpleAuthRoutes = require('./routes/simpleAuth.routes');
 const simpleUserRoutes = require('./routes/simpleUser.routes');
 const excelRoutes = require('./routes/excel.routes');
 const publicRoutes = require('./routes/public.routes');
+const settingsRoutes = require('./routes/settings.routes');
+const telegramChatRoutes = require('./routes/telegramChat.routes'); // ✅ YANGI QATORIQ
+
 // Utils
 const RequestQueue = require('./utils/queue');
 
@@ -94,21 +97,12 @@ app.use((req, res, next) => {
 });
 
 // ✅ CRITICAL FIX: filterIgnoredPaths to'g'ri ishlatish
-app.use('/browse', filterIgnoredPaths);  // ✅ Browse'da uploads/storage bloklash
-app.use('/download-zip', filterIgnoredPaths);  // ✅ Download'da ham bloklash
+app.use('/browse', filterIgnoredPaths);
+app.use('/download-zip', filterIgnoredPaths);
 
-
-
-// ============================================
-// SETTINGS ROUTES (YANGI!)
-// ============================================
-const settingsRoutes = require('./routes/settings.routes');
-app.use('/api/settings', settingsRoutes);
-console.log('✅ Settings routes yuklandi');
 // ============================================
 // PUBLIC ROUTES (AUTH KERAK EMAS!)
 // ============================================
-
 app.use('/api/public', publicRoutes);
 console.log('✅ Public API routes yuklandi');
 
@@ -128,21 +122,35 @@ app.use('/api/users', simpleUserRoutes);
 console.log('✅ Auth routes yuklandi');
 
 // ============================================
-// 11. EXCEL ROUTES (YANGI!)
+// 11. SETTINGS ROUTES
+// ============================================
+console.log('\n⚙️ Settings routes yuklanmoqda...');
+app.use('/api/settings', settingsRoutes);
+console.log('✅ Settings routes yuklandi');
+
+// ============================================
+// 12. ✅✅✅ TELEGRAM CHATS ROUTES (YANGI!)
+// ============================================
+console.log('\n💬 Telegram Chats routes yuklanmoqda...');
+app.use('/api/telegram-chats', telegramChatRoutes);
+console.log('✅ Telegram Chats routes yuklandi');
+
+// ============================================
+// 13. EXCEL ROUTES
 // ============================================
 console.log('\n📊 Excel routes yuklanmoqda...');
 app.use('/api/excel', excelRoutes);
 console.log('✅ Excel routes yuklandi');
 
 // ============================================
-// 12. PUBLIC DATA ROUTES
+// 14. PUBLIC DATA ROUTES
 // ============================================
 console.log('\n📂 Data routes yuklanmoqda...');
 app.use('/api', dataRoutes(appScriptQueue));
 console.log('✅ Data routes yuklandi');
 
 // ============================================
-// 13. HEALTH CHECK
+// 15. HEALTH CHECK
 // ============================================
 app.get("/api/health", (req, res) => {
     const queueStatus = appScriptQueue.getStatus();
@@ -150,13 +158,14 @@ app.get("/api/health", (req, res) => {
     res.json({
         status: "ok",
         message: "Maskan Lux Server (Telegram Integration) ishlayapti ✅",
-        version: "10.0",
+        version: "10.1",
         storage: "Local filesystem + Excel backup",
         uploadsDir: UPLOADS_DIR,
         queue: queueStatus,
         timestamp: new Date().toLocaleString("uz-UZ"),
         features: {
             telegramIntegration: true,
+            telegramChatsManagement: true, // ✅ YANGI
             googleSheetsIntegration: true,
             localExcelBackup: true,
             autoCleanup: true,
@@ -167,13 +176,13 @@ app.get("/api/health", (req, res) => {
 });
 
 // ============================================
-// 14. ROOT ENDPOINT
+// 16. ROOT ENDPOINT
 // ============================================
 app.get("/", (req, res) => {
     res.json({
         status: "ok",
-        message: "Maskan Lux API v10.0",
-        version: "10.0",
+        message: "Maskan Lux API v10.1",
+        version: "10.1",
         endpoints: {
             health: "/api/health",
             auth: {
@@ -186,6 +195,23 @@ app.get("/", (req, res) => {
                 history: "GET /api/users/sessions/history",
                 logs: "GET /api/users/logs",
                 users: "GET /api/users/users (admin)"
+            },
+            telegramChats: { // ✅ YANGI
+                getAll: "GET /api/telegram-chats",
+                getOne: "GET /api/telegram-chats/:id",
+                create: "POST /api/telegram-chats (admin)",
+                update: "PUT /api/telegram-chats/:id (admin)",
+                delete: "DELETE /api/telegram-chats/:id (admin)",
+                stats: "GET /api/telegram-chats/stats/summary (admin)"
+            },
+            settings: {
+                getAll: "GET /api/settings",
+                getCategory: "GET /api/settings/:category",
+                globalConfig: "GET /api/settings/global-config",
+                updateGlobalConfig: "PUT /api/settings/global-config (admin)",
+                create: "POST /api/settings (admin)",
+                update: "PUT /api/settings/:id (admin)",
+                delete: "DELETE /api/settings/:id (admin)"
             },
             data: {
                 sendData: "POST /api/send-data",
@@ -207,7 +233,7 @@ app.get("/", (req, res) => {
 });
 
 // ============================================
-// 15. 404 HANDLER
+// 17. 404 HANDLER
 // ============================================
 app.use((req, res, next) => {
     console.log('❌ 404 - Path not found:', req.path);
@@ -219,7 +245,7 @@ app.use((req, res, next) => {
 });
 
 // ============================================
-// 16. ERROR HANDLER
+// 18. ERROR HANDLER
 // ============================================
 app.use(errorHandler);
 

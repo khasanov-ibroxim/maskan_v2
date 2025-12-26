@@ -1,4 +1,4 @@
-// server/src/routes/settings.routes.js - ✅ FIXED: Better error handling
+// server/src/routes/settings.routes.js - ✅ FIXED: No duplicate routes
 const express = require('express');
 const router = express.Router();
 const { protect, authorize } = require('../middleware/simpleAuth');
@@ -32,53 +32,41 @@ router.get('/', async (req, res) => {
  * Get global config
  * GET /api/settings/global-config
  */
-router.put('/global-config', protect, authorize('admin'), async (req, res) => {
+router.get('/global-config', async (req, res) => {
     try {
-        const {
-            telegram_bot_token,
-            glavniy_app_script_url,
-            company_phone,
-            default_telegram_chat_id  // ✅ NEW
-        } = req.body;
-
-        // Validation
-        if (!default_telegram_chat_id) {
-            errors.push('default_telegram_chat_id majburiy');
-        }
-
-        // Update each setting
-        await AppSettings.updateGlobalConfig('telegram_bot_token', telegram_bot_token.trim());
-        await AppSettings.updateGlobalConfig('glavniy_app_script_url', glavniy_app_script_url.trim());
-        await AppSettings.updateGlobalConfig('company_phone', company_phone.trim());
-        await AppSettings.updateGlobalConfig('default_telegram_chat_id', default_telegram_chat_id.trim());  // ✅ NEW
-
-        const updatedConfig = await AppSettings.getGlobalConfig();
-
+        const config = await AppSettings.getGlobalConfig();
         res.json({
             success: true,
-            message: 'Global sozlamalar yangilandi',
-            data: updatedConfig
+            data: config
         });
     } catch (error) {
+        console.error('❌ Get global config error:', error);
         res.status(500).json({
             success: false,
             error: error.message
         });
     }
 });
+
 /**
- * ✅ FIXED: Update global config with better validation
+ * ✅ FIXED: Update global config (FAQAT 1 MARTA)
  * PUT /api/settings/global-config
- * Body: { telegram_bot_token, glavniy_app_script_url, company_phone }
+ * Body: { telegram_bot_token, glavniy_app_script_url, company_phone, default_telegram_chat_id }
  */
 router.put('/global-config', protect, authorize('admin'), async (req, res) => {
     try {
-        const { telegram_bot_token, glavniy_app_script_url, company_phone } = req.body;
+        const {
+            telegram_bot_token,
+            glavniy_app_script_url,
+            company_phone,
+            default_telegram_chat_id
+        } = req.body;
 
         console.log('\n📝 PUT /global-config request');
         console.log('  telegram_bot_token:', telegram_bot_token ? 'Provided' : 'Missing');
         console.log('  glavniy_app_script_url:', glavniy_app_script_url ? 'Provided' : 'Missing');
         console.log('  company_phone:', company_phone || 'Missing');
+        console.log('  default_telegram_chat_id:', default_telegram_chat_id || 'Missing');
 
         // ✅ Validation
         const errors = [];
@@ -93,6 +81,10 @@ router.put('/global-config', protect, authorize('admin'), async (req, res) => {
 
         if (!company_phone || company_phone.trim() === '') {
             errors.push('company_phone majburiy');
+        }
+
+        if (!default_telegram_chat_id || default_telegram_chat_id.trim() === '') {
+            errors.push('default_telegram_chat_id majburiy');
         }
 
         if (errors.length > 0) {
@@ -153,6 +145,15 @@ router.put('/global-config', protect, authorize('admin'), async (req, res) => {
         } catch (e) {
             console.error('  ❌ company_phone error:', e.message);
             throw new Error('company_phone yangilashda xato: ' + e.message);
+        }
+
+        try {
+            const r4 = await AppSettings.updateGlobalConfig('default_telegram_chat_id', default_telegram_chat_id.trim());
+            results.push(r4);
+            console.log('  ✅ default_telegram_chat_id updated');
+        } catch (e) {
+            console.error('  ❌ default_telegram_chat_id error:', e.message);
+            throw new Error('default_telegram_chat_id yangilashda xato: ' + e.message);
         }
 
         console.log('  ✅ All settings updated successfully');
