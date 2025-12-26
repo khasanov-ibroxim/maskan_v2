@@ -1,4 +1,4 @@
-// server/src/controllers/dataController.js - ✅ FIXED: Global Config integration
+// server/src/controllers/dataController.js - ✅ FIXED: phone_for_ad properly saved
 
 const { sendToTelegram } = require('../services/telegramService');
 const { sendToAppScriptWithRetry } = require('../services/appScriptService');
@@ -13,10 +13,9 @@ async function sendData(req, res, appScriptQueue) {
         console.log("🔥 YANGI SO'ROV");
         console.log("=".repeat(60));
 
-        // ✅ CRITICAL FIX: Get ALL global config
+        // ✅ Get global config
         const globalConfig = await AppSettings.getGlobalConfig();
 
-        // ✅ Extract values with fallbacks
         const COMPANY_PHONE = globalConfig.company_phone || '+998970850604';
         const TELEGRAM_BOT_TOKEN = globalConfig.telegram_bot_token || process.env.TELEGRAM_TOKEN;
         const HERO_APP_SCRIPT = globalConfig.glavniy_app_script_url || process.env.HERO_APP_SCRIPT;
@@ -26,6 +25,7 @@ async function sendData(req, res, appScriptQueue) {
         console.log('  Telegram Token:', TELEGRAM_BOT_TOKEN ? '✅ Mavjud' : '❌ YO\'Q');
         console.log('  App Script URL:', HERO_APP_SCRIPT ? '✅ Mavjud' : '❌ YO\'Q');
 
+        // ✅ CRITICAL: Initialize phoneForAd early
         let phoneForAd = COMPANY_PHONE;
 
         let data = typeof req.body.data === 'string' ? JSON.parse(req.body.data) : req.body.data;
@@ -63,7 +63,7 @@ async function sendData(req, res, appScriptQueue) {
             console.log(`  📊 Jami rieltor'lar: ${realtors.length}`);
 
             realtors.forEach(r => {
-                console.log(`    - ${r.username} (${r.app_script_url ? '✅ URL bor' : '❌ URL yo\'q'})`);
+                console.log(`    - ${r.username} (Role: ${r.role}, Phone: ${r.phone || 'YO\'Q'})`);
             });
 
             rielterInfo = realtors.find(u => u.username === data.rieltor);
@@ -74,18 +74,25 @@ async function sendData(req, res, appScriptQueue) {
                 console.log("  ✅ Rieltor topildi:");
                 console.log("    ID:", rielterInfo.id);
                 console.log("    Username:", rielterInfo.username);
+                console.log("    Role:", rielterInfo.role);
+                console.log("    Phone:", rielterInfo.phone || "YO'Q");
                 console.log("    App Script URL:", rielterInfo.app_script_url || "YO'Q");
-                console.log("    Telegram Theme ID:", rielterInfo.telegram_theme_id || "YO'Q");
             }
         } catch (error) {
             console.error("❌ Rieltor qidirishda xato:", error.message);
         }
 
+        // ✅ CRITICAL FIX: Determine phoneForAd BEFORE saving to PostgreSQL
         if (rielterInfo && rielterInfo.role === 'individual_rieltor' && rielterInfo.phone) {
             phoneForAd = rielterInfo.phone;
-            console.log('  📱 Individual rieltor telefoni ishlatiladi:', phoneForAd);
+            console.log('\n📱 TELEFON TANLANDI:');
+            console.log('  Turi: Individual rieltor telefoni');
+            console.log('  Raqam:', phoneForAd);
         } else {
-            console.log('  📱 Kompaniya telefoni ishlatiladi:', phoneForAd);
+            phoneForAd = COMPANY_PHONE;
+            console.log('\n📱 TELEFON TANLANDI:');
+            console.log('  Turi: Kompaniya telefoni');
+            console.log('  Raqam:', phoneForAd);
         }
 
         // ✅ 3. TELEGRAM XABAR TAYYORLASH
@@ -121,16 +128,14 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                 postgres: { success: false }
             };
 
-            // ✅ 5.1 TELEGRAM'GA YUBORISH (GLOBAL CONFIG TOKEN bilan)
+            // ✅ 5.1 TELEGRAM'GA YUBORISH
             try {
                 console.log("\n📱 TELEGRAM'GA YUBORISH:");
                 console.log("  Chat ID:", TELEGRAM_CHAT_ID);
                 console.log("  Theme ID:", rielterInfo?.telegram_theme_id || "YO'Q");
-                console.log("  Rasmlar:", data.rasmlar?.length || 0);
-                console.log("  Bot Token:", TELEGRAM_BOT_TOKEN ? '✅ Mavjud' : '❌ YO\'Q');
 
                 if (!TELEGRAM_BOT_TOKEN) {
-                    throw new Error('Telegram bot token topilmadi! Global Config\'da token\'ni sozlang.');
+                    throw new Error('Telegram bot token topilmadi!');
                 }
 
                 const themeId = rielterInfo?.telegram_theme_id || null;
@@ -139,7 +144,7 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                     telegramMessage,
                     data.rasmlar || [],
                     themeId,
-                    TELEGRAM_BOT_TOKEN // ✅ Pass token
+                    TELEGRAM_BOT_TOKEN
                 );
 
                 if (telegramResult.success) {
@@ -154,10 +159,12 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                 results.telegram = { success: false, error: error.message };
             }
 
-            // ✅ 5.2 POSTGRESQL GA SAQLASH
+            // ✅ 5.2 POSTGRESQL GA SAQLASH - WITH phoneForAd
             let savedObject = null;
             try {
                 console.log("\n💾 PostgreSQL ga saqlash...");
+                console.log("  📱 phoneForAd:", phoneForAd);
+
                 savedObject = await PropertyObject.save({
                     kvartil: data.kvartil,
                     xet: data.xet,
@@ -179,7 +186,7 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                     sheetType: data.sheetType,
                     rasmlar: folderLink || "Yo'q",
                     sana: data.sana || new Date().toLocaleString('uz-UZ'),
-                    phoneForAd: phoneForAd
+                    phoneForAd: phoneForAd  // ✅ CRITICAL: Save determined phone
                 });
 
                 if (savedObject) {
@@ -187,6 +194,7 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                     console.log("  ✅ POSTGRESQL GA SAQLANDI");
                     console.log("    ID:", savedObject.id);
                     console.log("    Unique ID:", savedObject.unique_id);
+                    console.log("    📱 phone_for_ad:", savedObject.phone_for_ad);
                 } else {
                     throw new Error('Obyekt saqlanmadi');
                 }
@@ -200,24 +208,23 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                 return results;
             }
 
-            // ✅ 5.3 GLAVNIY EXCEL'GA YUBORISH (GLOBAL CONFIG URL bilan)
+            // ✅ 5.3 GLAVNIY EXCEL'GA YUBORISH
             try {
                 if (HERO_APP_SCRIPT) {
                     console.log("\n📊 GLAVNIY EXCEL'GA YUBORISH:");
-                    console.log("  URL:", HERO_APP_SCRIPT.substring(0, 50) + "...");
-                    console.log("  Unique ID:", savedObject.unique_id);
 
                     const glavniyData = {
                         ...data,
                         unique_id: savedObject.unique_id,
-                        folderLink: folderLink || "Yo'q"
+                        folderLink: folderLink || "Yo'q",
+                        phoneForAd: phoneForAd  // ✅ Include in App Script data
                     };
 
                     await sendToAppScriptWithRetry(HERO_APP_SCRIPT, glavniyData);
                     results.glavniy = { success: true };
                     console.log("  ✅ GLAVNIY EXCEL'GA YUBORILDI");
                 } else {
-                    console.log("  ⚠️ HERO_APP_SCRIPT yo'q - Global Config'da URL'ni sozlang");
+                    console.log("  ⚠️ HERO_APP_SCRIPT yo'q");
                 }
             } catch (error) {
                 console.error("  ❌ GLAVNIY EXCEL XATO:", error.message);
@@ -228,14 +235,12 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
             if (rielterInfo?.app_script_url) {
                 try {
                     console.log("\n👨‍💼 RIELTER EXCEL'GA YUBORISH:");
-                    console.log("  Rieltor:", rielterInfo.username);
-                    console.log("  URL:", rielterInfo.app_script_url.substring(0, 50) + "...");
-                    console.log("  Unique ID:", savedObject.unique_id);
 
                     const rielterData = {
                         ...data,
                         unique_id: savedObject.unique_id,
-                        folderLink: folderLink || "Yo'q"
+                        folderLink: folderLink || "Yo'q",
+                        phoneForAd: phoneForAd  // ✅ Include in App Script data
                     };
 
                     await sendToAppScriptWithRetry(
@@ -250,15 +255,14 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                     console.error("  ❌ RIELTER EXCEL XATO:", error.message);
                     results.rielter = { success: false, error: error.message };
                 }
-            } else {
-                console.log("\n  ⚠️ RIELTER APP SCRIPT URL YO'Q");
             }
 
             console.log("\n📊 NATIJALAR:");
-            console.log("  Telegram:", results.telegram.success ? "✅" : `❌ ${results.telegram.error || ''}`);
-            console.log("  GLAVNIY:", results.glavniy.success ? "✅" : `❌ ${results.glavniy.error || ''}`);
-            console.log("  Rielter:", results.rielter.success ? "✅" : `❌ ${results.rielter.error || ''}`);
-            console.log("  PostgreSQL:", results.postgres.success ? "✅" : `❌ ${results.postgres.error || ''}`);
+            console.log("  Telegram:", results.telegram.success ? "✅" : `❌`);
+            console.log("  GLAVNIY:", results.glavniy.success ? "✅" : `❌`);
+            console.log("  Rielter:", results.rielter.success ? "✅" : `❌`);
+            console.log("  PostgreSQL:", results.postgres.success ? "✅" : `❌`);
+            console.log("  📱 Phone for Ad:", phoneForAd);
 
             return results;
         });
