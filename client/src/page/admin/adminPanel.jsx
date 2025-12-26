@@ -32,22 +32,6 @@ const AdminPanel = () => {
     // ✅ Interval ref (cleanup uchun)
     const intervalRef = useRef(null);
 
-
-    useEffect(() => {
-        loadUsers(false);
-        loadTelegramChats(); // ✅ NEW
-
-        intervalRef.current = setInterval(() => {
-            loadUsers(false);
-        }, 600000);
-
-        return () => {
-            if (intervalRef.current) {
-                clearInterval(intervalRef.current);
-            }
-        };
-    }, [loadUsers]);
-
     // ✅ useCallback bilan loadUsers - faqat 1 marta yaratiladi
     const loadUsers = useCallback(async (showMessage = false) => {
         setLoading(true);
@@ -86,6 +70,22 @@ const AdminPanel = () => {
             console.error('Telegram chatlar yuklashda xato:', error);
         }
     };
+    useEffect(() => {
+        loadUsers(false);
+        loadTelegramChats(); // ✅ NEW
+
+        intervalRef.current = setInterval(() => {
+            loadUsers(false);
+        }, 600000);
+
+        return () => {
+            if (intervalRef.current) {
+                clearInterval(intervalRef.current);
+            }
+        };
+    }, [loadUsers]);
+
+
     // ✅ Manual refresh handler
     const handleManualRefresh = () => {
         console.log('🔄 Manual refresh triggered');
