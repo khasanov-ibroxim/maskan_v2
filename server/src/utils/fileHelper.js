@@ -1,4 +1,4 @@
-// server/src/utils/fileHelper.js - ✅ FIXED: Individual Rieltor Phone
+// server/src/utils/fileHelper.js - ✅ FIXED: phone_for_ad with Global Config fallback
 
 const fs = require('fs');
 const path = require('path');
@@ -45,12 +45,20 @@ function saveTextFile(fileName, content, folderPath) {
 }
 
 /**
- * ✅ CRITICAL FIX: Use phone_for_ad (individual rieltor phone if available)
+ * ✅ CRITICAL FIX: Use phone_for_ad with Global Config fallback
+ *
+ * Priority:
+ * 1. data.phoneForAd (from dataController - individual rieltor or company phone)
+ * 2. Global Config company_phone (fallback)
+ * 3. Hardcoded default +998970850604
+ *
+ * @param {Object} data - Object data
+ * @returns {Promise<Object>} - { olxText, telegramText }
  */
-function createAdTexts(data) {
+async function createAdTexts(data) {
     const {
         kvartil, xet, m2, xolati, uy_turi, balkon, narx,
-        planirovka, sheetType, rieltor, phone_for_ad
+        planirovka, sheetType, rieltor, phoneForAd
     } = data;
 
     const xonaSoni = xet.split("/")[0] || "1";
@@ -58,13 +66,32 @@ function createAdTexts(data) {
     const etajInfo = `${parts[1] || "1"}/${parts[2] || "1"}`;
     const formattedNarx = String(narx).replace(/\s/g, " ");
 
-    // ✅ CRITICAL: Use phone_for_ad (individual rieltor or company phone)
-    const phoneNumber = phone_for_ad || '+998970850604';
+    // ✅ CRITICAL: Determine phone with fallback chain
+    let phoneNumber = phoneForAd;
 
-    console.log('📱 TXT FAYLLAR UCHUN TELEFON:');
+    if (!phoneNumber) {
+        console.log('⚠️ phoneForAd yo\'q - Global Config\'dan olish...');
+
+        try {
+            // ✅ Get from Global Config
+            const AppSettings = require('../models/AppSettings.pg');
+            const globalConfig = await AppSettings.getGlobalConfig();
+            phoneNumber = globalConfig.company_phone || '+998970850604';
+
+            console.log(`  ✅ Global Config company_phone: ${phoneNumber}`);
+        } catch (error) {
+            console.error('  ❌ Global Config olishda xato:', error.message);
+            phoneNumber = '+998970850604'; // Hardcoded fallback
+            console.log(`  ℹ️ Default telefon ishlatiladi: ${phoneNumber}`);
+        }
+    }
+
+    console.log('\n📱 TXT FAYLLAR UCHUN TELEFON:');
     console.log('  Rieltor:', rieltor);
-    console.log('  Phone for Ad:', phoneNumber);
+    console.log('  phoneForAd (from data):', phoneForAd || 'NULL');
+    console.log('  Final Phone:', phoneNumber);
 
+    // ✅ Create OLX text
     const olxText = `${sheetType === "Sotuv" ? "Sotuvda" : "Ijaraga beriladi"} — ${kvartil}, ${xonaSoni} хона
 
 - Qavat: ${etajInfo}
@@ -76,6 +103,7 @@ ${planirovka ? `• Planirovka: ${planirovka}\n` : ""}${balkon ? `• Balkon: ${
 
 #realestate #${kvartil.replace(/\s+/g, "")} #${xonaSoni}xona #Tashkent #Yunusobod #RTD #${rieltor}`;
 
+    // ✅ Create Telegram text
     const telegramText = `🏠 ${sheetType === "Sotuv" ? "Sotuvda" : "Ijaraga beriladi"} — ${kvartil}, ${xonaSoni} хона
 
 🏢 Qavat: ${etajInfo}

@@ -647,8 +647,16 @@ exports.updateObject = async (req, res) => {
                     if (fs.existsSync(folderPath)) {
                         console.log('  ✅ Papka topildi');
 
+                        // ✅ CRITICAL: Prepare data with phoneForAd
+                        const dataForTxt = {
+                            ...updatedObject,
+                            phoneForAd: updatedObject.phone_for_ad  // ✅ Include phone_for_ad
+                        };
+
+                        console.log('  📱 Phone for TXT:', dataForTxt.phoneForAd);
+
                         // Yangilangan ma'lumotlar bilan txt yaratish
-                        const { olxText, telegramText } = createAdTexts(updatedObject);
+                        const { olxText, telegramText } = await createAdTexts(dataForTxt);
 
                         // OLX.TXT yangilash
                         const olxPath = path.join(folderPath, 'olx.txt');

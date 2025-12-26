@@ -43,11 +43,12 @@ async function sendData(req, res, appScriptQueue) {
         console.log("  Telefon:", data.tell);
         console.log("  Rieltor:", data.rieltor);
 
-        // ✅ 1. FAYLLARNI SAQLASH
+        // ✅ 1. FAYLLARNI SAQLASH (phoneForAd hali yo'q - keyinroq aniqlanadi)
         let folderLink = null;
         try {
             console.log("\n💾 Fayllarni saqlash...");
-            folderLink = await saveFiles(data, req);
+            // ✅ Temporary save without phoneForAd - will update TXT files later
+            folderLink = await saveFiles(data, req, COMPANY_PHONE); // Use company phone initially
             console.log("✅ Folder link:", folderLink || "Yo'q");
         } catch (fileError) {
             console.error("❌ Fayl saqlashda xato:", fileError.message);
@@ -206,6 +207,41 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
             if (!savedObject) {
                 console.error("❌ Unique ID yo'q - Google Sheets'ga yuborilmaydi!");
                 return results;
+            }
+
+            // ✅ UPDATE TXT FILES with correct phoneForAd
+            if (folderLink) {
+                try {
+                    console.log("\n📝 TXT FAYLLARNI YANGILASH (to'g'ri telefon bilan)...");
+                    const path = require('path');
+                    const fs = require('fs');
+                    const { createAdTexts } = require('../utils/fileHelper');
+                    const { UPLOADS_DIR } = require('../config/constants');
+
+                    const urlParts = folderLink.split('/browse/');
+                    if (urlParts.length > 1) {
+                        const relativePath = decodeURIComponent(urlParts[1]);
+                        const folderPath = path.join(UPLOADS_DIR, relativePath);
+
+                        if (fs.existsSync(folderPath)) {
+                            const dataForTxt = {
+                                ...data,
+                                phoneForAd: phoneForAd  // ✅ Use determined phone
+                            };
+
+                            console.log('  📱 Yangi telefon:', phoneForAd);
+
+                            const { olxText, telegramText } = await createAdTexts(dataForTxt);
+
+                            fs.writeFileSync(path.join(folderPath, 'olx.txt'), olxText, 'utf8');
+                            fs.writeFileSync(path.join(folderPath, 'telegram.txt'), telegramText, 'utf8');
+
+                            console.log('  ✅ TXT fayllar yangilandi');
+                        }
+                    }
+                } catch (txtError) {
+                    console.error('  ❌ TXT yangilashda xato:', txtError.message);
+                }
             }
 
             // ✅ 5.3 GLAVNIY EXCEL'GA YUBORISH
