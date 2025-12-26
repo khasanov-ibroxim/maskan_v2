@@ -32,32 +32,40 @@ router.get('/', async (req, res) => {
  * Get global config
  * GET /api/settings/global-config
  */
-router.get('/global-config', async (req, res) => {
+router.put('/global-config', protect, authorize('admin'), async (req, res) => {
     try {
-        console.log('\n📥 GET /global-config request');
+        const {
+            telegram_bot_token,
+            glavniy_app_script_url,
+            company_phone,
+            default_telegram_chat_id  // ✅ NEW
+        } = req.body;
 
-        const config = await AppSettings.getGlobalConfig();
+        // Validation
+        if (!default_telegram_chat_id) {
+            errors.push('default_telegram_chat_id majburiy');
+        }
 
-        console.log('✅ Global config returned:', Object.keys(config));
+        // Update each setting
+        await AppSettings.updateGlobalConfig('telegram_bot_token', telegram_bot_token.trim());
+        await AppSettings.updateGlobalConfig('glavniy_app_script_url', glavniy_app_script_url.trim());
+        await AppSettings.updateGlobalConfig('company_phone', company_phone.trim());
+        await AppSettings.updateGlobalConfig('default_telegram_chat_id', default_telegram_chat_id.trim());  // ✅ NEW
+
+        const updatedConfig = await AppSettings.getGlobalConfig();
 
         res.json({
             success: true,
-            data: config
+            message: 'Global sozlamalar yangilandi',
+            data: updatedConfig
         });
     } catch (error) {
-        console.error('❌ Get global config error:', error);
         res.status(500).json({
             success: false,
-            error: error.message,
-            data: {
-                telegram_bot_token: '',
-                glavniy_app_script_url: '',
-                company_phone: '+998970850604'
-            }
+            error: error.message
         });
     }
 });
-
 /**
  * ✅ FIXED: Update global config with better validation
  * PUT /api/settings/global-config

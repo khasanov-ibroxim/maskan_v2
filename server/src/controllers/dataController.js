@@ -97,7 +97,20 @@ async function sendData(req, res, appScriptQueue) {
         }
 
         // ✅ 3. TELEGRAM XABAR TAYYORLASH
-        const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '-1003298985470';
+        let TELEGRAM_CHAT_ID = globalConfig.default_telegram_chat_id || process.env.TELEGRAM_CHAT_ID || '-1003298985470';
+        if (rielterInfo) {
+            // ✅ Check if rieltor has custom chat
+            if (rielterInfo.telegram_chat_id_value) {
+                TELEGRAM_CHAT_ID = rielterInfo.telegram_chat_id_value;
+                console.log('  ✅ Rieltor chat topildi:', TELEGRAM_CHAT_ID);
+            } else {
+                console.log('  ℹ️ Rieltor chatisiz - default chat ishlatiladi');
+            }
+        }
+        console.log('\n📱 TELEGRAM CONFIG:');
+        console.log('  Chat ID:', TELEGRAM_CHAT_ID);
+        console.log('  Theme ID:', rielterInfo?.telegram_theme_id || 'YO\'Q');
+        console.log('  Bot Token:', TELEGRAM_BOT_TOKEN ? '✅' : '❌');
         const telegramMessage = `
 🏠 <b>Yangi uy ma'lumoti</b>
 
@@ -155,6 +168,7 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                     console.error("  ❌ TELEGRAM XATO:", telegramResult.error);
                     results.telegram = { success: false, error: telegramResult.error };
                 }
+
             } catch (error) {
                 console.error("  ❌ TELEGRAM XATO:", error.message);
                 results.telegram = { success: false, error: error.message };

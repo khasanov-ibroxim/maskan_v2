@@ -27,9 +27,26 @@ const AdminPanel = () => {
     const [lastUpdate, setLastUpdate] = useState(null);
     const [form] = Form.useForm();
     const [editForm] = Form.useForm();
+    const [telegramChats, setTelegramChats] = useState([]);
 
     // ✅ Interval ref (cleanup uchun)
     const intervalRef = useRef(null);
+
+
+    useEffect(() => {
+        loadUsers(false);
+        loadTelegramChats(); // ✅ NEW
+
+        intervalRef.current = setInterval(() => {
+            loadUsers(false);
+        }, 600000);
+
+        return () => {
+            if (intervalRef.current) {
+                clearInterval(intervalRef.current);
+            }
+        };
+    }, [loadUsers]);
 
     // ✅ useCallback bilan loadUsers - faqat 1 marta yaratiladi
     const loadUsers = useCallback(async (showMessage = false) => {
@@ -57,28 +74,18 @@ const AdminPanel = () => {
         } finally {
             setLoading(false);
         }
-    }, []); // ✅ Dependencies bo'sh - funksiya o'zgarmaydi
+    }, []);
 
-    // ✅ Component mount bo'lganda - faqat 1 marta
-    useEffect(() => {
-        console.log('🚀 AdminPanel mounted - loading initial data');
-        loadUsers(false);
-
-        // ✅ 10 minutda 1 marta yangilash (600000ms = 10 min)
-        intervalRef.current = setInterval(() => {
-            console.log('🔄 Auto-refresh (10 min interval)');
-            loadUsers(false);
-        }, 600000); // 10 minut
-
-        // ✅ Cleanup - component unmount bo'lganda
-        return () => {
-            console.log('🧹 Cleaning up interval');
-            if (intervalRef.current) {
-                clearInterval(intervalRef.current);
+    const loadTelegramChats = async () => {
+        try {
+            const response = await api.get('/api/telegram-chats');
+            if (response.data.success) {
+                setTelegramChats(response.data.data);
             }
-        };
-    }, [loadUsers]); // ✅ loadUsers dependency (useCallback orqali stable)
-
+        } catch (error) {
+            console.error('Telegram chatlar yuklashda xato:', error);
+        }
+    };
     // ✅ Manual refresh handler
     const handleManualRefresh = () => {
         console.log('🔄 Manual refresh triggered');
@@ -437,44 +444,93 @@ const AdminPanel = () => {
                     {/* ✅ RIELTOR fields */}
                     {selectedRole === 'rieltor' && (
                         <>
+                            <Form.Item
+                                name="telegramChatId"
+                                label="Telegram Chat"
+                                tooltip="Agar tanlanmasa, default chat ishlatiladi"
+                            >
+                                <Select
+                                    placeholder="Chat tanlang (ixtiyoriy)"
+                                    allowClear
+                                    showSearch
+                                    optionFilterProp="children"
+                                >
+                                    {telegramChats.map(chat => (
+                                        <Option key={chat.id} value={chat.id}>
+                                            {chat.chat_name} ({chat.chat_id})
+                                        </Option>
+                                    ))}
+                                </Select>
+                            </Form.Item>
+
+                            <Form.Item
+                                name="telegramThemeId"
+                                label="Telegram Theme ID"
+                                tooltip="Chat ichidagi mavzu ID si (ixtiyoriy)"
+                            >
+                                <Input placeholder="65 (ixtiyoriy)" type="number" />
+                            </Form.Item>
+
                             <Form.Item name="appScriptUrl" label="App Script URL" rules={[
                                 { required: true, type: 'url' }
                             ]}>
                                 <Input placeholder="https://script.google.com/..." />
-                            </Form.Item>
-
-                            <Form.Item name="telegramThemeId" label="Telegram Theme ID" rules={[
-                                { required: true }
-                            ]}>
-                                <Input placeholder="65" type="number" />
                             </Form.Item>
                         </>
                     )}
 
                     {/* ✅ INDIVIDUAL RIELTOR field */}
                     {selectedRole === 'individual_rieltor' && (
-                        <Form.Item
-                            name="phone"
-                            label="Telefon raqami"
-                            rules={[
-                                { required: true, message: 'Telefon raqamini kiriting!' },
-                                {
-                                    pattern: /^\+998\d{9}$/,
-                                    message: '+998XXXXXXXXX formatida kiriting'
-                                }
-                            ]}
-                        >
-                            <Input
-                                placeholder="+998901234567"
-                                maxLength={13}
-                                onChange={(e) => {
-                                    let input = e.target.value.replace(/\D/g, '');
-                                    if (!input.startsWith('998')) input = '998' + input;
-                                    let formatted = '+' + input.substring(0, 12);
-                                    form.setFieldsValue({ phone: formatted });
-                                }}
-                            />
-                        </Form.Item>
+                        <>
+                            <Form.Item
+                                name="telegramChatId"
+                                label="Telegram Chat"
+                                tooltip="Agar tanlanmasa, default chat ishlatiladi"
+                            >
+                                <Select
+                                    placeholder="Chat tanlang (ixtiyoriy)"
+                                    allowClear
+                                    showSearch
+                                    optionFilterProp="children"
+                                >
+                                    {telegramChats.map(chat => (
+                                        <Option key={chat.id} value={chat.id}>
+                                            {chat.chat_name} ({chat.chat_id})
+                                        </Option>
+                                    ))}
+                                </Select>
+                            </Form.Item>
+
+                            <Form.Item
+                                name="telegramThemeId"
+                                label="Telegram Theme ID"
+                                tooltip="Chat ichidagi mavzu ID si (ixtiyoriy)"
+                            >
+                                <Input placeholder="65 (ixtiyoriy)" type="number" />
+                            </Form.Item>
+                            <Form.Item
+                                name="phone"
+                                label="Telefon raqami"
+                                rules={[
+                                    { required: true, message: 'Telefon raqamini kiriting!' },
+                                    {
+                                        pattern: /^\+998\d{9}$/,
+                                        message: '+998XXXXXXXXX formatida kiriting'
+                                    }
+                                ]}
+                            >
+                                <Input
+                                    placeholder="+998901234567"
+                                    maxLength={13}
+                                    onChange={(e) => {
+                                        let input = e.target.value.replace(/\D/g, '');
+                                        if (!input.startsWith('998')) input = '998' + input;
+                                        let formatted = '+' + input.substring(0, 12);
+                                        form.setFieldsValue({ phone: formatted });
+                                    }}
+                                />
+                            </Form.Item>
+                        </>
                     )}
 
                     <Form.Item>

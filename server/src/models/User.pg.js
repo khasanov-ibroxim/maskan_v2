@@ -70,25 +70,22 @@ class User {
     static async create(userData) {
         const {
             username, password, fullName, role = 'user',
-            appScriptUrl, telegramThemeId, phone  // ✅ ADD phone
+            appScriptUrl, telegramThemeId, phone,
+            telegramChatId  // ✅ NEW
         } = userData;
-
-        console.log('\n💾 USER CREATE:');
-        console.log('  Username:', username);
-        console.log('  Role:', role);
-        console.log('  Phone:', phone || 'NULL');
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // ✅ CRITICAL: Include phone in INSERT
         const result = await query(
             `INSERT INTO users (
-                username, password, full_name, role,
-                app_script_url, telegram_theme_id, phone, is_active
-            )
-             VALUES ($1, $2, $3, $4, $5, $6, $7, true)
-             RETURNING id, username, full_name, role, is_active,
-                 app_script_url, telegram_theme_id, phone, created_at`,
+            username, password, full_name, role,
+            app_script_url, telegram_theme_id, phone, 
+            telegram_chat_id, is_active
+        )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
+         RETURNING id, username, full_name, role, is_active,
+             app_script_url, telegram_theme_id, phone, 
+             telegram_chat_id, created_at`,
             [
                 username,
                 hashedPassword,
@@ -96,14 +93,10 @@ class User {
                 role,
                 appScriptUrl || null,
                 telegramThemeId || null,
-                phone || null  // ✅ Save phone
+                phone || null,
+                telegramChatId || null  // ✅ NEW
             ]
         );
-
-        console.log('  ✅ User yaratildi');
-        if (phone) {
-            console.log('  📱 Phone saqlandi:', phone);
-        }
 
         return result.rows[0];
     }
@@ -140,6 +133,10 @@ class User {
         if (updates.appScriptUrl !== undefined) {
             fields.push(`app_script_url = $${paramCount++}`);
             values.push(updates.appScriptUrl);
+        }
+        if (updates.telegramChatId !== undefined) {
+            fields.push(`telegram_chat_id = $${paramCount++}`);
+            values.push(updates.telegramChatId);
         }
         if (updates.telegramThemeId !== undefined) {
             fields.push(`telegram_theme_id = $${paramCount++}`);
@@ -201,21 +198,18 @@ class User {
      */
     static async getRealtors() {
         const result = await query(
-            `SELECT id, username, full_name, role, is_active,
-                    app_script_url, telegram_theme_id, phone
-             FROM users
-             WHERE (role = 'rieltor' OR role = 'individual_rieltor')
-               AND is_active = true
-             ORDER BY full_name`
+            `SELECT
+                 u.id, u.username, u.full_name, u.role, u.is_active,
+                 u.app_script_url, u.telegram_theme_id, u.phone,
+                 u.telegram_chat_id,
+                 tc.chat_id as telegram_chat_id_value,
+                 tc.chat_name as telegram_chat_name
+             FROM users u
+                      LEFT JOIN telegram_chats tc ON u.telegram_chat_id = tc.id
+             WHERE (u.role = 'rieltor' OR u.role = 'individual_rieltor')
+               AND u.is_active = true
+             ORDER BY u.full_name`
         );
-
-        console.log('\n👥 REALTORS:');
-        result.rows.forEach(r => {
-            console.log(`  - ${r.username} (${r.role})`);
-            if (r.phone) {
-                console.log(`    📱 Phone: ${r.phone}`);
-            }
-        });
 
         return result.rows;
     }
