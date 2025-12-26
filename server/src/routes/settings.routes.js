@@ -1,4 +1,4 @@
-// server/src/routes/settings.routes.js
+// server/src/routes/settings.routes.js - ✅ FIXED: Better error handling
 const express = require('express');
 const router = express.Router();
 const { protect, authorize } = require('../middleware/simpleAuth');
@@ -28,14 +28,18 @@ router.get('/', async (req, res) => {
     }
 });
 
-
 /**
  * Get global config
  * GET /api/settings/global-config
  */
 router.get('/global-config', async (req, res) => {
     try {
+        console.log('\n📥 GET /global-config request');
+
         const config = await AppSettings.getGlobalConfig();
+
+        console.log('✅ Global config returned:', Object.keys(config));
+
         res.json({
             success: true,
             data: config
@@ -44,13 +48,18 @@ router.get('/global-config', async (req, res) => {
         console.error('❌ Get global config error:', error);
         res.status(500).json({
             success: false,
-            error: error.message
+            error: error.message,
+            data: {
+                telegram_bot_token: '',
+                glavniy_app_script_url: '',
+                company_phone: '+998970850604'
+            }
         });
     }
 });
 
 /**
- * Update global config
+ * ✅ FIXED: Update global config with better validation
  * PUT /api/settings/global-config
  * Body: { telegram_bot_token, glavniy_app_script_url, company_phone }
  */
@@ -58,23 +67,98 @@ router.put('/global-config', protect, authorize('admin'), async (req, res) => {
     try {
         const { telegram_bot_token, glavniy_app_script_url, company_phone } = req.body;
 
-        // Validation
-        if (!telegram_bot_token || !glavniy_app_script_url || !company_phone) {
+        console.log('\n📝 PUT /global-config request');
+        console.log('  telegram_bot_token:', telegram_bot_token ? 'Provided' : 'Missing');
+        console.log('  glavniy_app_script_url:', glavniy_app_script_url ? 'Provided' : 'Missing');
+        console.log('  company_phone:', company_phone || 'Missing');
+
+        // ✅ Validation
+        const errors = [];
+
+        if (!telegram_bot_token || telegram_bot_token.trim() === '') {
+            errors.push('telegram_bot_token majburiy');
+        }
+
+        if (!glavniy_app_script_url || glavniy_app_script_url.trim() === '') {
+            errors.push('glavniy_app_script_url majburiy');
+        }
+
+        if (!company_phone || company_phone.trim() === '') {
+            errors.push('company_phone majburiy');
+        }
+
+        if (errors.length > 0) {
+            console.log('  ❌ Validation errors:', errors);
             return res.status(400).json({
                 success: false,
-                error: 'Barcha maydonlar to\'ldirilishi kerak'
+                error: 'Validation xatolari',
+                errors: errors
             });
         }
 
-        // Update each
-        await AppSettings.updateGlobalConfig('telegram_bot_token', telegram_bot_token);
-        await AppSettings.updateGlobalConfig('glavniy_app_script_url', glavniy_app_script_url);
-        await AppSettings.updateGlobalConfig('company_phone', company_phone);
+        // ✅ Validate phone format
+        const phoneRegex = /^\+998\d{9}$/;
+        if (!phoneRegex.test(company_phone)) {
+            return res.status(400).json({
+                success: false,
+                error: 'company_phone noto\'g\'ri formatda. Format: +998XXXXXXXXX'
+            });
+        }
+
+        // ✅ Validate URL format
+        try {
+            new URL(glavniy_app_script_url);
+        } catch {
+            return res.status(400).json({
+                success: false,
+                error: 'glavniy_app_script_url noto\'g\'ri URL format'
+            });
+        }
+
+        console.log('  ✅ Validation passed');
+
+        // ✅ Update each setting
+        const results = [];
+
+        try {
+            const r1 = await AppSettings.updateGlobalConfig('telegram_bot_token', telegram_bot_token.trim());
+            results.push(r1);
+            console.log('  ✅ telegram_bot_token updated');
+        } catch (e) {
+            console.error('  ❌ telegram_bot_token error:', e.message);
+            throw new Error('telegram_bot_token yangilashda xato: ' + e.message);
+        }
+
+        try {
+            const r2 = await AppSettings.updateGlobalConfig('glavniy_app_script_url', glavniy_app_script_url.trim());
+            results.push(r2);
+            console.log('  ✅ glavniy_app_script_url updated');
+        } catch (e) {
+            console.error('  ❌ glavniy_app_script_url error:', e.message);
+            throw new Error('glavniy_app_script_url yangilashda xato: ' + e.message);
+        }
+
+        try {
+            const r3 = await AppSettings.updateGlobalConfig('company_phone', company_phone.trim());
+            results.push(r3);
+            console.log('  ✅ company_phone updated');
+        } catch (e) {
+            console.error('  ❌ company_phone error:', e.message);
+            throw new Error('company_phone yangilashda xato: ' + e.message);
+        }
+
+        console.log('  ✅ All settings updated successfully');
+
+        // ✅ Return updated config
+        const updatedConfig = await AppSettings.getGlobalConfig();
 
         res.json({
             success: true,
-            message: 'Global sozlamalar yangilandi'
+            message: 'Global sozlamalar muvaffaqiyatli yangilandi',
+            data: updatedConfig,
+            updated: results.filter(r => r !== null).length
         });
+
     } catch (error) {
         console.error('❌ Update global config error:', error);
         res.status(500).json({
@@ -83,7 +167,6 @@ router.put('/global-config', protect, authorize('admin'), async (req, res) => {
         });
     }
 });
-
 
 /**
  * Get settings by category
