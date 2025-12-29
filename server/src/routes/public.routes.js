@@ -293,6 +293,27 @@ function mapRenovation(xolati) {
 // PUBLIC API ENDPOINTS
 // ============================================
 
+
+router.get('/config', async (req, res) => {
+    try {
+        const globalConfig = await getGlobalConfig();
+        const COMPANY_PHONE = globalConfig.company_phone || '';
+        const TELEGRAM_BOT_TOKEN = globalConfig.telegram_bot_token || '';
+
+        res.json({
+            success: true,
+            data: {companies_phone: COMPANY_PHONE, telegram_bot_token: TELEGRAM_BOT_TOKEN},
+        });
+    }catch (error) {
+        console.log(error);
+        console.error('❌ GET /config error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Server xatosi'
+        });
+    }
+})
+
 /**
  * ✅ GET /api/public/properties
  */
