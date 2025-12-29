@@ -1,4 +1,4 @@
-// server/src/controllers/dataController.js - ✅ FIXED: phone_for_ad properly saved
+// server/src/controllers/dataController.js - ✅ FIXED: Telegram Chat ID properly used
 
 const { sendToTelegram } = require('../services/telegramService');
 const { sendToAppScriptWithRetry } = require('../services/appScriptService');
@@ -19,11 +19,13 @@ async function sendData(req, res, appScriptQueue) {
         const COMPANY_PHONE = globalConfig.company_phone || '+998970850604';
         const TELEGRAM_BOT_TOKEN = globalConfig.telegram_bot_token || process.env.TELEGRAM_TOKEN;
         const HERO_APP_SCRIPT = globalConfig.glavniy_app_script_url || process.env.HERO_APP_SCRIPT;
+        const DEFAULT_TELEGRAM_CHAT_ID = globalConfig.default_telegram_chat_id || process.env.TELEGRAM_CHAT_ID || '-1003298985470';
 
         console.log('\n⚙️ GLOBAL CONFIG:');
         console.log('  Company Phone:', COMPANY_PHONE);
         console.log('  Telegram Token:', TELEGRAM_BOT_TOKEN ? '✅ Mavjud' : '❌ YO\'Q');
         console.log('  App Script URL:', HERO_APP_SCRIPT ? '✅ Mavjud' : '❌ YO\'Q');
+        console.log('  Default Chat ID:', DEFAULT_TELEGRAM_CHAT_ID);
 
         // ✅ CRITICAL: Initialize phoneForAd early
         let phoneForAd = COMPANY_PHONE;
@@ -43,12 +45,11 @@ async function sendData(req, res, appScriptQueue) {
         console.log("  Telefon:", data.tell);
         console.log("  Rieltor:", data.rieltor);
 
-        // ✅ 1. FAYLLARNI SAQLASH (phoneForAd hali yo'q - keyinroq aniqlanadi)
+        // ✅ 1. FAYLLARNI SAQLASH
         let folderLink = null;
         try {
             console.log("\n💾 Fayllarni saqlash...");
-            // ✅ Temporary save without phoneForAd - will update TXT files later
-            folderLink = await saveFiles(data, req, COMPANY_PHONE); // Use company phone initially
+            folderLink = await saveFiles(data, req, COMPANY_PHONE);
             console.log("✅ Folder link:", folderLink || "Yo'q");
         } catch (fileError) {
             console.error("❌ Fayl saqlashda xato:", fileError.message);
@@ -64,7 +65,7 @@ async function sendData(req, res, appScriptQueue) {
             console.log(`  📊 Jami rieltor'lar: ${realtors.length}`);
 
             realtors.forEach(r => {
-                console.log(`    - ${r.username} (Role: ${r.role}, Phone: ${r.phone || 'YO\'Q'})`);
+                console.log(`    - ${r.username} (Role: ${r.role}, Phone: ${r.phone || 'YO\'Q'}, Chat ID: ${r.telegram_chat_id || 'YO\'Q'})`);
             });
 
             rielterInfo = realtors.find(u => u.username === data.rieltor);
@@ -78,6 +79,9 @@ async function sendData(req, res, appScriptQueue) {
                 console.log("    Role:", rielterInfo.role);
                 console.log("    Phone:", rielterInfo.phone || "YO'Q");
                 console.log("    App Script URL:", rielterInfo.app_script_url || "YO'Q");
+                console.log("    Telegram Chat ID (DB):", rielterInfo.telegram_chat_id || "YO'Q");
+                console.log("    Telegram Chat ID (Value):", rielterInfo.telegram_chat_id_value || "YO'Q");
+                console.log("    Telegram Theme ID:", rielterInfo.telegram_theme_id || "YO'Q");
             }
         } catch (error) {
             console.error("❌ Rieltor qidirishda xato:", error.message);
@@ -97,20 +101,32 @@ async function sendData(req, res, appScriptQueue) {
         }
 
         // ✅ 3. TELEGRAM XABAR TAYYORLASH
-        let TELEGRAM_CHAT_ID = globalConfig.default_telegram_chat_id || process.env.TELEGRAM_CHAT_ID || '-1003298985470';
+        // ✅ CRITICAL FIX: Use telegram_chat_id_value (actual chat ID string)
+        let TELEGRAM_CHAT_ID = DEFAULT_TELEGRAM_CHAT_ID;
+
         if (rielterInfo) {
-            // ✅ Check if rieltor has custom chat
+            console.log('\n📱 TELEGRAM CHAT ID ANIQLASH:');
+            console.log('  Rieltor:', rielterInfo.username);
+            console.log('  telegram_chat_id (FK):', rielterInfo.telegram_chat_id);
+            console.log('  telegram_chat_id_value (Actual):', rielterInfo.telegram_chat_id_value);
+
+            // ✅ CRITICAL: Use telegram_chat_id_value NOT telegram_chat_id
             if (rielterInfo.telegram_chat_id_value) {
                 TELEGRAM_CHAT_ID = rielterInfo.telegram_chat_id_value;
-                console.log('  ✅ Rieltor chat topildi:', TELEGRAM_CHAT_ID);
+                console.log('  ✅ Rieltor custom chat topildi:', TELEGRAM_CHAT_ID);
             } else {
-                console.log('  ℹ️ Rieltor chatisiz - default chat ishlatiladi');
+                console.log('  ℹ️ Rieltor chatisiz - default chat ishlatiladi:', DEFAULT_TELEGRAM_CHAT_ID);
             }
+        } else {
+            console.log('\n📱 TELEGRAM CHAT ID:');
+            console.log('  ℹ️ Rieltor topilmadi - default chat ishlatiladi:', DEFAULT_TELEGRAM_CHAT_ID);
         }
-        console.log('\n📱 TELEGRAM CONFIG:');
+
+        console.log('\n📱 FINAL TELEGRAM CONFIG:');
         console.log('  Chat ID:', TELEGRAM_CHAT_ID);
         console.log('  Theme ID:', rielterInfo?.telegram_theme_id || 'YO\'Q');
         console.log('  Bot Token:', TELEGRAM_BOT_TOKEN ? '✅' : '❌');
+
         const telegramMessage = `
 🏠 <b>Yangi uy ma'lumoti</b>
 
@@ -201,7 +217,7 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                     sheetType: data.sheetType,
                     rasmlar: folderLink || "Yo'q",
                     sana: data.sana || new Date().toLocaleString('uz-UZ'),
-                    phoneForAd: phoneForAd  // ✅ CRITICAL: Save determined phone
+                    phoneForAd: phoneForAd
                 });
 
                 if (savedObject) {
@@ -240,7 +256,7 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                         if (fs.existsSync(folderPath)) {
                             const dataForTxt = {
                                 ...data,
-                                phoneForAd: phoneForAd  // ✅ Use determined phone
+                                phoneForAd: phoneForAd
                             };
 
                             console.log('  📱 Yangi telefon:', phoneForAd);
@@ -267,7 +283,7 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                         ...data,
                         unique_id: savedObject.unique_id,
                         folderLink: folderLink || "Yo'q",
-                        phoneForAd: phoneForAd  // ✅ Include in App Script data
+                        phoneForAd: phoneForAd
                     };
 
                     await sendToAppScriptWithRetry(HERO_APP_SCRIPT, glavniyData);
@@ -290,7 +306,7 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
                         ...data,
                         unique_id: savedObject.unique_id,
                         folderLink: folderLink || "Yo'q",
-                        phoneForAd: phoneForAd  // ✅ Include in App Script data
+                        phoneForAd: phoneForAd
                     };
 
                     await sendToAppScriptWithRetry(
@@ -313,6 +329,7 @@ ${folderLink ? `\n🔗 <b>Rasmlar:</b> <a href="${folderLink}">Ko'rish</a>` : ''
             console.log("  Rielter:", results.rielter.success ? "✅" : `❌`);
             console.log("  PostgreSQL:", results.postgres.success ? "✅" : `❌`);
             console.log("  📱 Phone for Ad:", phoneForAd);
+            console.log("  💬 Telegram Chat ID:", TELEGRAM_CHAT_ID);
 
             return results;
         });

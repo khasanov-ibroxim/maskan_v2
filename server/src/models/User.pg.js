@@ -1,4 +1,4 @@
-// server/src/models/User.pg.js - ✅ FIXED: Phone support
+// server/src/models/User.pg.js - ✅ FIXED: Full Telegram Chat ID support
 
 const bcrypt = require('bcryptjs');
 const { query } = require('../config/database');
@@ -39,7 +39,7 @@ class User {
     static async getAll() {
         const result = await query(
             `SELECT id, username, full_name, role, is_active,
-                    app_script_url, telegram_theme_id, phone, created_at
+                    app_script_url, telegram_chat_id, telegram_theme_id, phone, created_at
              FROM users
              ORDER BY created_at DESC`
         );
@@ -57,7 +57,7 @@ class User {
     static async findById(id) {
         const result = await query(
             `SELECT id, username, full_name, role, is_active,
-                    app_script_url, telegram_theme_id, phone, created_at
+                    app_script_url, telegram_chat_id, telegram_theme_id, phone, created_at
              FROM users WHERE id = $1`,
             [id]
         );
@@ -65,44 +65,50 @@ class User {
     }
 
     /**
-     * ✅ FIXED: Create user with phone
+     * ✅ FIXED: Create user with telegramChatId
      */
     static async create(userData) {
         const {
             username, password, fullName, role = 'user',
-            appScriptUrl, telegramThemeId, phone,
-            telegramChatId  // ✅ NEW
+            appScriptUrl, telegramChatId, telegramThemeId, phone
         } = userData;
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
+        console.log('\n📝 USER CREATE:');
+        console.log('  Username:', username);
+        console.log('  Role:', role);
+        console.log('  Telegram Chat ID:', telegramChatId || 'NULL');
+        console.log('  Telegram Theme ID:', telegramThemeId || 'NULL');
+
         const result = await query(
             `INSERT INTO users (
-            username, password, full_name, role,
-            app_script_url, telegram_theme_id, phone, 
-            telegram_chat_id, is_active
-        )
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
-         RETURNING id, username, full_name, role, is_active,
-             app_script_url, telegram_theme_id, phone, 
-             telegram_chat_id, created_at`,
+                username, password, full_name, role,
+                app_script_url, telegram_chat_id, telegram_theme_id, phone, 
+                is_active
+            )
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
+             RETURNING id, username, full_name, role, is_active,
+                 app_script_url, telegram_chat_id, telegram_theme_id, phone, 
+                 created_at`,
             [
                 username,
                 hashedPassword,
                 fullName,
                 role,
                 appScriptUrl || null,
+                telegramChatId || null,  // ✅ Can be null
                 telegramThemeId || null,
-                phone || null,
-                telegramChatId || null  // ✅ NEW
+                phone || null
             ]
         );
 
+        console.log('  ✅ User yaratildi');
         return result.rows[0];
     }
 
     /**
-     * ✅ FIXED: Update user with phone
+     * ✅ FIXED: Update user with telegramChatId
      */
     static async update(id, updates) {
         const fields = [];
@@ -134,20 +140,26 @@ class User {
             fields.push(`app_script_url = $${paramCount++}`);
             values.push(updates.appScriptUrl);
         }
+
+        // ✅ CRITICAL: Handle telegramChatId updates
         if (updates.telegramChatId !== undefined) {
             fields.push(`telegram_chat_id = $${paramCount++}`);
             values.push(updates.telegramChatId);
+            console.log('  💬 Telegram Chat ID yangilanmoqda:', updates.telegramChatId || 'NULL');
         }
+
         if (updates.telegramThemeId !== undefined) {
             fields.push(`telegram_theme_id = $${paramCount++}`);
             values.push(updates.telegramThemeId);
         }
+
         // ✅ CRITICAL: Handle phone updates
         if (updates.phone !== undefined) {
             fields.push(`phone = $${paramCount++}`);
             values.push(updates.phone);
             console.log('  📱 Phone yangilanmoqda:', updates.phone || 'NULL');
         }
+
         if (updates.isActive !== undefined) {
             fields.push(`is_active = $${paramCount++}`);
             values.push(updates.isActive);
@@ -164,7 +176,7 @@ class User {
              SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP
              WHERE id = $${paramCount}
              RETURNING id, username, full_name, role, is_active, 
-                       app_script_url, telegram_theme_id, phone, created_at`,
+                       app_script_url, telegram_chat_id, telegram_theme_id, phone, created_at`,
             values
         );
 
@@ -172,6 +184,9 @@ class User {
             console.log('  ✅ User yangilandi');
             if (updates.phone !== undefined) {
                 console.log('  📱 Phone:', result.rows[0].phone || 'NULL');
+            }
+            if (updates.telegramChatId !== undefined) {
+                console.log('  💬 Telegram Chat ID:', result.rows[0].telegram_chat_id || 'NULL');
             }
         }
 
@@ -194,7 +209,7 @@ class User {
     }
 
     /**
-     * ✅ FIXED: Get realtors with phone
+     * ✅ FIXED: Get realtors with telegram_chat_id_value JOIN
      */
     static async getRealtors() {
         const result = await query(
@@ -211,6 +226,14 @@ class User {
              ORDER BY u.full_name`
         );
 
+        console.log('\n📊 GET REALTORS RESULT:');
+        result.rows.forEach(r => {
+            console.log(`  - ${r.username}:`);
+            console.log(`    telegram_chat_id (FK): ${r.telegram_chat_id || 'NULL'}`);
+            console.log(`    telegram_chat_id_value: ${r.telegram_chat_id_value || 'NULL'}`);
+            console.log(`    telegram_chat_name: ${r.telegram_chat_name || 'NULL'}`);
+        });
+
         return result.rows;
     }
 
@@ -223,6 +246,7 @@ class User {
                  COUNT(*) FILTER (WHERE role = 'rieltor') as rieltors,
                  COUNT(*) FILTER (WHERE role = 'individual_rieltor') as individual_rieltors,
                  COUNT(*) FILTER (WHERE role = 'individual_rieltor' AND phone IS NOT NULL) as individual_with_phone,
+                 COUNT(*) FILTER (WHERE telegram_chat_id IS NOT NULL) as users_with_custom_chat,
                  COUNT(*) FILTER (WHERE role = 'user') as regular_users
              FROM users`
         );
