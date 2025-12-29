@@ -416,6 +416,7 @@ const SettingsTab = () => {
                     <h4 style={{ marginTop: 0 }}>💡 Ma'lumot:</h4>
                     <ul style={{ paddingLeft: 20, marginBottom: 0 }}>
                         <li><strong>Telegram Bot Token:</strong> Telegram xabarlari uchun bot tokeni</li>
+                        <li><strong>Chat id olish:</strong> <a href={` https://api.telegram.org/bot${globalConfig.telegram_bot_token}/getUpdates`} style={{color:"blue"}} target={"_blank"}>CHAT bosing</a> - telegram gruppaga botni qoshing va superadmin qiling . Keyn gruppaga xabar jonating va saytga qaytib obnavit qiling ohirgi qatorda siz yozgan xabarni toping . Xabar turgan qatordan chat:id:-XXXXXXXX toping bu shu gruppaning chatID si"</li>
                         <li><strong>Glavniy App Script URL:</strong> Asosiy Google Sheets uchun script URL</li>
                         <li><strong>Kompaniya Telefon:</strong> Oddiy rieltor uchun ishlatiladi</li>
                         <li><strong>Default Chat ID:</strong> Asosiy Telegram chat (rielterga chat biriktirilmagan bo'lsa)</li>
