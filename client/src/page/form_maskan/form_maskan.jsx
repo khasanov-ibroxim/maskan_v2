@@ -142,7 +142,7 @@ const FormMaskan = () => {
 
             // ✅ Yangi endpoint
             const response = await api.get('/api/users/realtors');
-
+            console.log(response)
             if (response.data.success) {
                 setRealtors(response.data.realtors);
                 console.log('✅ Realtor\'lar yuklandi:', response.data.realtors.length);

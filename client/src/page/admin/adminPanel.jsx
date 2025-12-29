@@ -33,13 +33,29 @@ const AdminPanel = () => {
     const loadUsers = useCallback(async (showMessage = false) => {
         setLoading(true);
         try {
+            console.log('🔍 API ga so\'rov yuborilmoqda...');
+
             const [usersRes, sessionsRes] = await Promise.all([
                 api.get('/api/users/users'),
                 api.get('/api/users/sessions/active')
             ]);
 
-            if (usersRes.data.success) setUsers(usersRes.data.users);
-            if (sessionsRes.data.success) setActiveSessions(sessionsRes.data.sessions);
+            console.log('📥 Users response:', usersRes.data);
+            console.log('📥 Sessions response:', sessionsRes.data);
+
+            if (usersRes.data.success) {
+                console.log('✅ Users soni:', usersRes.data.users?.length);
+                setUsers(usersRes.data.users);
+            } else {
+                console.error('❌ Users success: false');
+            }
+
+            if (sessionsRes.data.success) {
+                console.log('✅ Sessions soni:', sessionsRes.data.sessions?.length);
+                setActiveSessions(sessionsRes.data.sessions);
+            } else {
+                console.error('❌ Sessions success: false');
+            }
 
             setLastUpdate(new Date());
 
@@ -47,7 +63,8 @@ const AdminPanel = () => {
                 message.success('Ma\'lumotlar yangilandi');
             }
         } catch (error) {
-            console.error('Ma\'lumot yuklashda xato:', error);
+            console.error('❌ Ma\'lumot yuklashda xato:', error);
+            console.error('❌ Error response:', error.response?.data);
             if (showMessage) {
                 message.error('Ma\'lumotlarni yuklashda xato');
             }
@@ -55,7 +72,6 @@ const AdminPanel = () => {
             setLoading(false);
         }
     }, []);
-
     const loadTelegramChats = async () => {
         try {
             const response = await api.get('/api/telegram-chats');
@@ -198,9 +214,9 @@ const AdminPanel = () => {
     };
 
     const stats = {
-        totalUsers: users.length,
-        activeUsers: activeSessions.length,
-        realtors: users.filter(u => u.role === 'rieltor').length
+        totalUsers: users?.length || 0,
+        activeUsers: activeSessions?.length || 0,
+        realtors: (users || []).filter(u => u.role === 'rieltor').length
     };
 
     const userColumns = [

@@ -1,12 +1,256 @@
-// server/src/controllers/simpleUserController.js - ✅ FIXED: Telegram Chat ID update
+// server/src/controllers/simpleUserController.js - ✅ COMPLETE VERSION
 
 const User = require('../models/User.pg');
 const { logActivity } = require('../middleware/simpleAuth');
 
-// ... (Other methods unchanged)
+/**
+ * Get active sessions
+ * GET /api/users/sessions/active
+ */
+exports.getActiveSessions = async (req, res) => {
+    try {
+        const Session = require('../models/Session.pg');
+        const sessions = await Session.getActive();
+
+        res.json({
+            success: true,
+            sessions: sessions,
+            count: sessions.length
+        });
+    } catch (error) {
+        console.error('❌ Get active sessions error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+};
 
 /**
- * ✅ CRITICAL FIX: Update user with telegramChatId support
+ * Get session history
+ * GET /api/users/sessions/history
+ */
+exports.getSessionHistory = async (req, res) => {
+    try {
+        const { userId, limit } = req.query;
+        const Session = require('../models/Session.pg');
+
+        const sessions = await Session.getHistory(
+            userId || null,
+            parseInt(limit) || 100
+        );
+
+        res.json({
+            success: true,
+            sessions: sessions,
+            count: sessions.length
+        });
+    } catch (error) {
+        console.error('❌ Get session history error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+};
+
+/**
+ * Get activity logs
+ * GET /api/users/logs
+ */
+exports.getActivityLogs = async (req, res) => {
+    try {
+        const { userId, action, limit } = req.query;
+        const ActivityLog = require('../models/ActivityLog.pg');
+
+        const logs = await ActivityLog.getLogs(
+            {
+                userId: userId || null,
+                action: action || null
+            },
+            parseInt(limit) || 100
+        );
+
+        res.json({
+            success: true,
+            data: logs,
+            count: logs.length
+        });
+    } catch (error) {
+        console.error('❌ Get activity logs error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+};
+
+/**
+ * Get all users (admin only)
+ * GET /api/users/users
+ */
+exports.getAllUsers = async (req, res) => {
+    try {
+        const users = await User.getAll();
+
+        res.json({
+            success: true,
+            users: users,      // ✅ "users" deb qaytarish
+            count: users.length
+        });
+    } catch (error) {
+        console.error('❌ Get all users error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+};
+
+/**
+ * ✅ Get realtors (PUBLIC - no auth required)
+ * GET /api/users/realtors
+ */
+exports.getRealtors = async (req, res) => {
+    try {
+        console.log('\n📋 GET REALTORS REQUEST');
+
+        const realtors = await User.getRealtors();
+
+        console.log(`✅ ${realtors.length} ta realtor topildi`);
+
+        res.json({
+            success: true,
+            realtors: realtors,
+            count: realtors.length
+        });
+    } catch (error) {
+        console.error('❌ Get realtors error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+};
+
+/**
+ * Create new user (admin only)
+ * POST /api/users/users
+ */
+exports.createUser = async (req, res) => {
+    try {
+        const { username, password, fullName, role, appScriptUrl, telegramChatId, telegramThemeId, phone } = req.body;
+
+        console.log('\n📝 CREATE USER REQUEST:');
+        console.log('  Username:', username);
+        console.log('  Role:', role);
+        console.log('  Phone:', phone || 'NULL');
+        console.log('  Telegram Chat ID:', telegramChatId || 'NULL');
+
+        // Validation
+        if (!username || !password || !fullName || !role) {
+            return res.status(400).json({
+                success: false,
+                error: 'Username, password, fullName va role majburiy'
+            });
+        }
+
+        if (password.length < 5) {
+            return res.status(400).json({
+                success: false,
+                error: 'Parol kamida 5 ta belgi bo\'lishi kerak'
+            });
+        }
+
+        // Check username uniqueness
+        const existingUser = await User.findByUsername(username);
+        if (existingUser) {
+            return res.status(400).json({
+                success: false,
+                error: 'Bu username band'
+            });
+        }
+
+        // Role-specific validation
+        if (role === 'rieltor') {
+            if (!appScriptUrl) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Rieltor uchun App Script URL kiritilishi kerak'
+                });
+            }
+
+            // URL validation
+            try {
+                new URL(appScriptUrl);
+            } catch {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Noto\'g\'ri App Script URL formati'
+                });
+            }
+        }
+
+        if (role === 'individual_rieltor') {
+            if (!phone) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Individual rieltor uchun telefon raqami MAJBURIY!'
+                });
+            }
+
+            // Phone validation
+            const phoneRegex = /^\+998\d{9}$/;
+            if (!phoneRegex.test(phone)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Telefon raqami noto\'g\'ri formatda! Format: +998XXXXXXXXX'
+                });
+            }
+        }
+
+        // Create user
+        const user = await User.create({
+            username,
+            password,
+            fullName,
+            role,
+            appScriptUrl: role === 'rieltor' ? appScriptUrl : null,
+            telegramChatId: telegramChatId || null,
+            telegramThemeId: telegramThemeId || null,
+            phone: role === 'individual_rieltor' ? phone : null
+        });
+
+        console.log(`✅ User yaratildi: ${user.username}`);
+
+        // Log activity
+        await logActivity(
+            req.user.id,
+            req.user.username,
+            'create_user',
+            `Yangi user yaratildi: ${user.username} (${user.role})`,
+            req.ip,
+            req.get('user-agent')
+        );
+
+        res.status(201).json({
+            success: true,
+            message: 'User muvaffaqiyatli yaratildi',
+            data: user
+        });
+
+    } catch (error) {
+        console.error('❌ Create user error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+};
+
+/**
+ * Update user (admin only)
+ * PUT /api/users/users/:id
  */
 exports.updateUser = async (req, res) => {
     try {
@@ -17,8 +261,7 @@ exports.updateUser = async (req, res) => {
         console.log('  Username:', username);
         console.log('  Role:', role);
         console.log('  Phone:', phone || 'NULL');
-        console.log('  Telegram Chat ID:', telegramChatId || 'NULL');  // ✅ NEW
-        console.log('  Telegram Theme ID:', telegramThemeId || 'NULL');
+        console.log('  Telegram Chat ID:', telegramChatId || 'NULL');
 
         // Find user
         const user = await User.findById(id);
@@ -29,7 +272,7 @@ exports.updateUser = async (req, res) => {
             });
         }
 
-        // Admin self-edit restrictions
+        // Self-edit restrictions
         if (id === req.user.id && (username !== user.username || role !== user.role)) {
             return res.status(400).json({
                 success: false,
@@ -67,9 +310,8 @@ exports.updateUser = async (req, res) => {
             console.log('  ✅ Yangi parol belgilandi');
         }
 
-        // ✅ CRITICAL: Role-specific validation
+        // Role-specific validation
         if (role === 'rieltor') {
-            // Regular rieltor - needs App Script URL and Telegram Theme ID
             if (!appScriptUrl) {
                 return res.status(400).json({
                     success: false,
@@ -77,15 +319,6 @@ exports.updateUser = async (req, res) => {
                 });
             }
 
-            // ✅ Theme ID NOT required anymore (can be null)
-            // if (!telegramThemeId) {
-            //     return res.status(400).json({
-            //         success: false,
-            //         error: 'Rieltor uchun Telegram Theme ID kiritilishi kerak'
-            //     });
-            // }
-
-            // URL format validation
             try {
                 new URL(appScriptUrl);
             } catch {
@@ -96,17 +329,13 @@ exports.updateUser = async (req, res) => {
             }
 
             updates.appScriptUrl = appScriptUrl.trim();
-            updates.telegramChatId = telegramChatId || null;  // ✅ NEW - Can be null
-            updates.telegramThemeId = telegramThemeId ? parseInt(telegramThemeId) : null;  // ✅ Can be null
-            updates.phone = null;  // Clear phone for regular rieltor
+            updates.telegramChatId = telegramChatId || null;
+            updates.telegramThemeId = telegramThemeId ? parseInt(telegramThemeId) : null;
+            updates.phone = null;
 
             console.log('  📝 Rieltor ma\'lumotlari yangilandi');
-            console.log('    App Script URL:', updates.appScriptUrl);
-            console.log('    Telegram Chat ID:', updates.telegramChatId || 'NULL');
-            console.log('    Telegram Theme ID:', updates.telegramThemeId || 'NULL');
         }
 
-        // ✅ CRITICAL FIX: Individual rieltor phone validation
         if (role === 'individual_rieltor') {
             if (!phone) {
                 return res.status(400).json({
@@ -115,7 +344,6 @@ exports.updateUser = async (req, res) => {
                 });
             }
 
-            // Phone format validation
             const phoneRegex = /^\+998\d{9}$/;
             if (!phoneRegex.test(phone)) {
                 return res.status(400).json({
@@ -125,28 +353,26 @@ exports.updateUser = async (req, res) => {
             }
 
             updates.phone = phone.trim();
-            updates.telegramChatId = telegramChatId || null;  // ✅ NEW - Can be null
-            updates.telegramThemeId = telegramThemeId ? parseInt(telegramThemeId) : null;  // ✅ Can be null
-            updates.appScriptUrl = null;  // Clear App Script for individual
+            updates.telegramChatId = telegramChatId || null;
+            updates.telegramThemeId = telegramThemeId ? parseInt(telegramThemeId) : null;
+            updates.appScriptUrl = null;
 
             console.log('  📱 Individual rieltor - Telefon yangilandi:', phone);
-            console.log('    Telegram Chat ID:', updates.telegramChatId || 'NULL');
-            console.log('    Telegram Theme ID:', updates.telegramThemeId || 'NULL');
         }
 
-        // If changing from individual_rieltor or rieltor to another role
+        // Clear fields when changing from rieltor roles
         if (user.role === 'individual_rieltor' && role !== 'individual_rieltor') {
             updates.phone = null;
             updates.telegramChatId = null;
             updates.telegramThemeId = null;
-            console.log('  🗑️ Telefon va Telegram ma\'lumotlari o\'chirildi (role o\'zgargan)');
+            console.log('  🗑️ Telefon va Telegram ma\'lumotlari o\'chirildi');
         }
 
         if (user.role === 'rieltor' && role !== 'rieltor') {
             updates.appScriptUrl = null;
             updates.telegramChatId = null;
             updates.telegramThemeId = null;
-            console.log('  🗑️ App Script va Telegram ma\'lumotlari o\'chirildi (role o\'zgargan)');
+            console.log('  🗑️ App Script va Telegram ma\'lumotlari o\'chirildi');
         }
 
         // Update user
@@ -160,12 +386,6 @@ exports.updateUser = async (req, res) => {
         }
 
         console.log(`✅ USER YANGILANDI: ${updatedUser.username}`);
-        if (updatedUser.phone) {
-            console.log(`   📱 Phone: ${updatedUser.phone}`);
-        }
-        if (updatedUser.telegram_chat_id) {
-            console.log(`   💬 Telegram Chat ID: ${updatedUser.telegram_chat_id}`);
-        }
 
         // Log changes
         const changes = [];
@@ -192,7 +412,7 @@ exports.updateUser = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Update user xato:', error);
+        console.error('❌ Update user error:', error);
         res.status(500).json({
             success: false,
             error: error.message || 'Server xatosi'
@@ -200,14 +420,78 @@ exports.updateUser = async (req, res) => {
     }
 };
 
-// Export all methods
+/**
+ * Delete user (admin only)
+ * DELETE /api/users/users/:id
+ */
+exports.deleteUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        console.log(`\n🗑️ USER O'CHIRILMOQDA: ${id}`);
+
+        // Find user
+        const user = await User.findById(id);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                error: 'User topilmadi'
+            });
+        }
+
+        // Self-delete prevention
+        if (id === req.user.id) {
+            return res.status(400).json({
+                success: false,
+                error: 'O\'zingizni o\'chira olmaysiz'
+            });
+        }
+
+        // Admin protection
+        if (user.role === 'admin') {
+            return res.status(400).json({
+                success: false,
+                error: 'Admin userni o\'chirib bo\'lmaydi'
+            });
+        }
+
+        // Delete user
+        await User.delete(id);
+
+        console.log(`✅ USER O'CHIRILDI: ${user.username}`);
+
+        // Log activity
+        await logActivity(
+            req.user.id,
+            req.user.username,
+            'delete_user',
+            `User o'chirildi: ${user.username} (${user.role})`,
+            req.ip,
+            req.get('user-agent')
+        );
+
+        res.json({
+            success: true,
+            message: 'User muvaffaqiyatli o\'chirildi'
+        });
+
+    } catch (error) {
+        console.error('❌ Delete user error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+};
+
+// ✅ CRITICAL: Export all functions
 module.exports = {
     getActiveSessions: exports.getActiveSessions,
     getSessionHistory: exports.getSessionHistory,
     getActivityLogs: exports.getActivityLogs,
     getAllUsers: exports.getAllUsers,
+    getRealtors: exports.getRealtors,  // ✅ NOW EXPORTED
     createUser: exports.createUser,
-    deleteUser: exports.deleteUser,
-    getRealtors: exports.getRealtors,
-    updateUser: exports.updateUser
+    updateUser: exports.updateUser,
+    deleteUser: exports.deleteUser
 };
