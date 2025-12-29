@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const PropertyObject = require('../models/Object.pg');
 const path = require('path');
+const {getGlobalConfig} = require("../models/AppSettings.pg");
 const fs = require('fs').promises;
 
 /**
@@ -128,7 +129,7 @@ async function transformProperty(obj, lang = 'uz') {
     console.log('\n📦 TRANSFORM PROPERTY:');
     console.log('  ID:', obj.id);
     console.log('  Rasmlar URL:', obj.rasmlar);
-
+    const globalConfig = await getGlobalConfig();
     // ✅ Get all images from folder
     const images = await getImagesFromFolder(obj.rasmlar);
     console.log('  📊 Images found:', images.length);
@@ -171,7 +172,7 @@ async function transformProperty(obj, lang = 'uz') {
         mainImage: mainImage,
 
         // ✅ Contact info
-        phone: obj.tell || '+998970850604',
+        phone: obj.phone_for_ad || globalConfig.company_phone,
         rieltor: obj.rieltor?.trim() || 'Maskan Lux Agent',
 
         createdAt: obj.sana || obj.created_at || new Date().toISOString(),
@@ -361,6 +362,7 @@ router.get('/properties/:id', async (req, res) => {
         console.log(`\n📥 GET /properties/${id}`);
 
         const obj = await PropertyObject.getById(id);
+
 
         if (!obj) {
             return res.status(404).json({
