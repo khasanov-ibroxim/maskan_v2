@@ -1,4 +1,4 @@
-// server/src/models/AppSettings.pg.js - ✅ FIXED: Proper error handling
+// server/src/models/AppSettings.pg.js - ✅ WITH CASCADER SUPPORT
 const { query } = require('../config/database');
 
 class AppSettings {
@@ -7,7 +7,7 @@ class AppSettings {
      */
     static async getByCategory(category) {
         const result = await query(
-            `SELECT id, category, value, display_order, is_active
+            `SELECT id, category, value, display_order, is_active, parent_id
              FROM app_settings
              WHERE category = $1 AND is_active = true
              ORDER BY display_order ASC, value ASC`,
@@ -17,11 +17,67 @@ class AppSettings {
     }
 
     /**
+     * ✅ NEW: Get cascader structure (Tuman -> Kvartil)
+     */
+    static async getCascaderData() {
+        try {
+            console.log('\n📊 CASCADER DATA OLISH');
+
+            // Get all kvartil items with parent info
+            const result = await query(
+                `SELECT 
+                    id, 
+                    value, 
+                    display_order, 
+                    parent_id
+                 FROM app_settings
+                 WHERE category = 'kvartil' AND is_active = true
+                 ORDER BY display_order ASC, value ASC`
+            );
+
+            console.log(`  Jami kvartil: ${result.rows.length}`);
+
+            // Separate into tumans and kvartils
+            const tumans = result.rows.filter(row => !row.parent_id);
+            const kvartils = result.rows.filter(row => row.parent_id);
+
+            console.log(`  Tumanlar: ${tumans.length}`);
+            console.log(`  Kvartillar: ${kvartils.length}`);
+
+            // Build cascader structure
+            const cascaderData = tumans.map(tuman => {
+                const children = kvartils
+                    .filter(kv => kv.parent_id === tuman.id)
+                    .map(kv => ({
+                        value: kv.value,
+                        label: kv.value,
+                        id: kv.id
+                    }));
+
+                return {
+                    value: tuman.value,
+                    label: tuman.value,
+                    id: tuman.id,
+                    children: children.length > 0 ? children : undefined
+                };
+            });
+
+            console.log('  ✅ Cascader structure yaratildi');
+
+            return cascaderData;
+
+        } catch (error) {
+            console.error('❌ getCascaderData error:', error);
+            return [];
+        }
+    }
+
+    /**
      * Get all categories with their values
      */
     static async getAll() {
         const result = await query(
-            `SELECT category, value, display_order, is_active, id
+            `SELECT category, value, display_order, is_active, id, parent_id
              FROM app_settings
              WHERE is_active = true
              ORDER BY category, display_order ASC`
@@ -36,7 +92,8 @@ class AppSettings {
             grouped[row.category].push({
                 id: row.id,
                 value: row.value,
-                display_order: row.display_order
+                display_order: row.display_order,
+                parent_id: row.parent_id
             });
         });
 
@@ -46,14 +103,16 @@ class AppSettings {
     /**
      * Create new setting
      */
-    static async create(category, value, displayOrder = 0) {
+    static async create(category, value, displayOrder = 0, parentId = null) {
         const result = await query(
-            `INSERT INTO app_settings (category, value, display_order)
-             VALUES ($1, $2, $3)
+            `INSERT INTO app_settings (category, value, display_order, parent_id)
+             VALUES ($1, $2, $3, $4)
              ON CONFLICT (category, value) DO UPDATE
-                 SET display_order = $3, is_active = true
+                 SET display_order = $3, 
+                     parent_id = $4,
+                     is_active = true
              RETURNING *`,
-            [category, value, displayOrder]
+            [category, value, displayOrder, parentId]
         );
         return result.rows[0];
     }
@@ -77,6 +136,10 @@ class AppSettings {
         if (updates.isActive !== undefined) {
             fields.push(`is_active = $${paramCount++}`);
             values.push(updates.isActive);
+        }
+        if (updates.parentId !== undefined) {
+            fields.push(`parent_id = $${paramCount++}`);
+            values.push(updates.parentId);
         }
 
         if (fields.length === 0) return null;
@@ -104,7 +167,7 @@ class AppSettings {
     }
 
     /**
-     * ✅ FIXED: Get global config with proper error handling
+     * Get global config
      */
     static async getGlobalConfig() {
         try {
@@ -119,78 +182,58 @@ class AppSettings {
 
             if (result.rows.length === 0) {
                 console.log('  ⚠️ global_config yo\'q - default yaratilmoqda...');
-
-                // ✅ Create default config
                 await this.createDefaultGlobalConfig();
 
-                // ✅ Retry reading
                 const retryResult = await query(
                     `SELECT value FROM app_settings 
                      WHERE category = 'global_config' AND is_active = true
                      ORDER BY display_order ASC`
                 );
-
                 result.rows = retryResult.rows;
             }
 
             const config = {
                 telegram_bot_token: process.env.TELEGRAM_TOKEN || '',
                 glavniy_app_script_url: process.env.HERO_APP_SCRIPT || '',
-                company_phone: '+998970850604'
+                company_phone: '+998970850604',
+                default_telegram_chat_id: process.env.TELEGRAM_CHAT_ID || '-1003298985470'
             };
 
-            // ✅ Parse values with error handling
             result.rows.forEach(row => {
                 try {
                     const value = row.value;
 
-                    if (!value || typeof value !== 'string') {
-                        console.log(`  ⚠️ Invalid value format:`, value);
+                    if (!value || typeof value !== 'string' || !value.includes(':')) {
                         return;
                     }
 
-                    // ✅ Check if value contains ":"
-                    if (!value.includes(':')) {
-                        console.log(`  ⚠️ Value missing colon separator:`, value);
-                        return;
-                    }
-
-                    // ✅ Split only at first ":"
                     const colonIndex = value.indexOf(':');
                     const key = value.substring(0, colonIndex).trim();
                     const val = value.substring(colonIndex + 1).trim();
 
                     if (key && val) {
                         config[key] = val;
-                        console.log(`  ✅ ${key}: ${val.substring(0, 30)}...`);
-                    } else {
-                        console.log(`  ⚠️ Empty key or value after split:`, value);
                     }
                 } catch (parseError) {
                     console.error(`  ❌ Parse error for row:`, row.value);
-                    console.error(`     Error:`, parseError.message);
                 }
             });
-
-            console.log('\n  📊 Final config keys:', Object.keys(config));
-            console.log('='.repeat(60) + '\n');
 
             return config;
 
         } catch (error) {
             console.error('❌ getGlobalConfig error:', error.message);
-
-            // ✅ Return defaults on error
             return {
                 telegram_bot_token: process.env.TELEGRAM_TOKEN || '',
                 glavniy_app_script_url: process.env.HERO_APP_SCRIPT || '',
-                company_phone: '+998970850604'
+                company_phone: '+998970850604',
+                default_telegram_chat_id: process.env.TELEGRAM_CHAT_ID || '-1003298985470'
             };
         }
     }
 
     /**
-     * ✅ NEW: Create default global config
+     * Create default global config
      */
     static async createDefaultGlobalConfig() {
         try {
@@ -199,7 +242,8 @@ class AppSettings {
             const defaults = [
                 { key: 'telegram_bot_token', value: process.env.TELEGRAM_TOKEN || '', order: 0 },
                 { key: 'glavniy_app_script_url', value: process.env.HERO_APP_SCRIPT || '', order: 1 },
-                { key: 'company_phone', value: '+998970850604', order: 2 }
+                { key: 'company_phone', value: '+998970850604', order: 2 },
+                { key: 'default_telegram_chat_id', value: process.env.TELEGRAM_CHAT_ID || '-1003298985470', order: 3 }
             ];
 
             for (const item of defaults) {
@@ -212,8 +256,6 @@ class AppSettings {
                      SET is_active = true, display_order = $2`,
                     [fullValue, item.order]
                 );
-
-                console.log(`    ✅ Created: ${item.key}`);
             }
 
             console.log('  ✅ Default config created');
@@ -226,7 +268,7 @@ class AppSettings {
     }
 
     /**
-     * ✅ FIXED: Update global config item with validation
+     * Update global config item
      */
     static async updateGlobalConfig(key, value) {
         try {
@@ -238,11 +280,8 @@ class AppSettings {
                 throw new Error('Key va value majburiy');
             }
 
-            // ✅ Create full value string
             const fullValue = `${key}:${value}`;
-            console.log('  Full value:', fullValue.substring(0, 50) + '...');
 
-            // ✅ Check if exists
             const existingResult = await query(
                 `SELECT id FROM app_settings 
                  WHERE category = 'global_config' 
@@ -251,7 +290,6 @@ class AppSettings {
             );
 
             if (existingResult.rows.length > 0) {
-                // ✅ Update existing
                 const result = await query(
                     `UPDATE app_settings 
                      SET value = $1
@@ -264,7 +302,6 @@ class AppSettings {
                 console.log('  ✅ Updated existing row');
                 return result.rows[0];
             } else {
-                // ✅ Insert new
                 const result = await query(
                     `INSERT INTO app_settings (category, value, display_order, is_active)
                      VALUES ('global_config', $1, 

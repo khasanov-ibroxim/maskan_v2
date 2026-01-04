@@ -12,18 +12,17 @@ import {
     Upload,
     Alert,
     Spin,
+    Cascader,
 } from "antd";
-import { InboxOutlined, WifiOutlined, DisconnectOutlined } from "@ant-design/icons";
+import { InboxOutlined } from "@ant-design/icons";
 import axios from "axios";
 import "./form_maskan.css"
 import api from '../../utils/api.jsx';
-import {getRealtors} from "../../utils/api.jsx";
 
 const { Option } = Select;
 
 // SERVER URL
 const SERVER_URL = import.meta.env.VITE_API_URL;
-
 
 /* ----------------- helper functions ----------------- */
 
@@ -106,6 +105,9 @@ const FormMaskan = () => {
     const [settings, setSettings] = useState({});
     const [loadingSettings, setLoadingSettings] = useState(false);
 
+    // ✅ NEW: Cascader data
+    const [cascaderData, setCascaderData] = useState([]);
+    const [loadingCascader, setLoadingCascader] = useState(false);
 
     useEffect(() => {
         const userData =
@@ -117,6 +119,7 @@ const FormMaskan = () => {
 
         loadRealtors();
         loadSettings();
+        loadCascaderData(); // ✅ NEW
     }, []);
 
     const loadSettings = async () => {
@@ -134,15 +137,39 @@ const FormMaskan = () => {
             setLoadingSettings(false);
         }
     };
-    // ✅ Realtor'larni serverdan yuklash
+
+    // ✅ NEW: Load cascader data (Tuman -> Kvartil)
+    const loadCascaderData = async () => {
+        setLoadingCascader(true);
+        try {
+            console.log('📥 Cascader data yuklanmoqda...');
+            const response = await api.get('/api/settings/cascader');
+
+            if (response.data.success) {
+                setCascaderData(response.data.data);
+                console.log('✅ Cascader yuklandi:', response.data.data);
+
+                if (response.data.data.length === 0) {
+                    message.warning('⚠️ Hozircha tuman va kvartillar mavjud emas');
+                }
+            } else {
+                throw new Error(response.data.error || 'Xato yuz berdi');
+            }
+        } catch (error) {
+            console.error('❌ Cascader yuklashda xato:', error);
+            message.error('Tuman va kvartillarni yuklashda xato');
+            setCascaderData([]);
+        } finally {
+            setLoadingCascader(false);
+        }
+    };
+
     const loadRealtors = async () => {
         setLoadingRealtors(true);
         try {
             console.log('📥 Realtor\'lar yuklanmoqda...');
-
-            // ✅ Yangi endpoint
             const response = await api.get('/api/users/realtors');
-            console.log(response)
+
             if (response.data.success) {
                 setRealtors(response.data.realtors);
                 console.log('✅ Realtor\'lar yuklandi:', response.data.realtors.length);
@@ -162,7 +189,6 @@ const FormMaskan = () => {
         }
     };
 
-
     useEffect(() => {
         const savedSheet = localStorage.getItem("selectedSheetName");
         const savedSheetType = localStorage.getItem("selectedSheetType");
@@ -172,7 +198,6 @@ const FormMaskan = () => {
     }, [form]);
 
     const onFinish = async (values) => {
-
         setLoading(true);
         setUploadProgress(0);
 
@@ -223,10 +248,18 @@ const FormMaskan = () => {
             })();
             const xodim = userData?.username || "";
 
+            // ✅ CRITICAL: Extract kvartil from cascader [tuman, kvartil]
+            const kvartilValue = Array.isArray(values.kvartil)
+                ? values.kvartil[values.kvartil.length - 1]  // Get last item (kvartil)
+                : values.kvartil;
+
+            console.log('📍 Cascader selection:', values.kvartil);
+            console.log('📍 Extracted kvartil:', kvartilValue);
+
             const dataToSend = {
                 sheetName: values.sheetName.replace(/\s*xona\s*/gi, '').trim(),
                 sheetType: values.sheetType,
-                kvartil: values.kvartil,
+                kvartil: kvartilValue, // ✅ Only kvartil name
                 xet,
                 tell: values.tell,
                 m2: values.m2 || "",
@@ -308,18 +341,17 @@ const FormMaskan = () => {
     const uploadProps = {
         multiple: true,
         accept: "image/*",
-        beforeUpload: () => false, // avtomatik upload bloklanadi
+        beforeUpload: () => false,
         onChange: ({ fileList: newList }) => {
             if (newList.length > 10) {
                 message.warning("Maksimal 10 ta rasm yuklaysiz!");
-                newList = newList.slice(0, 10); // ortiqchasini kesib tashlaymiz
+                newList = newList.slice(0, 10);
             }
             setFileList(newList);
         },
         fileList,
         listType: "picture",
     };
-
 
     const handleSheetChange = (value) => {
         localStorage.setItem("selectedSheetName", value);
@@ -330,7 +362,6 @@ const FormMaskan = () => {
         localStorage.setItem("selectedSheetType", value);
         form.setFieldsValue({ sheetType: value });
     };
-
 
     return (
         <div className={"form_maskan"}>
@@ -345,7 +376,6 @@ const FormMaskan = () => {
                 }}
             >
                 <h2 style={{textAlign: "center", marginBottom: 20}}>🏠 Uy ma'lumotlari</h2>
-
 
                 <Form form={form} autoComplete="off" layout="vertical" onFinish={onFinish}>
                     <Form.Item
@@ -373,23 +403,67 @@ const FormMaskan = () => {
                         </Select>
                     </Form.Item>
 
+                    {/* ✅ NEW: Cascader for Tuman -> Kvartil */}
                     <Form.Item
-                        label="Kvartil"
+                        label="Tuman va Kvartil"
                         name="kvartil"
-                        rules={[{required: true, message: "Kvartilni tanlang!"}]}
+                        rules={[{required: true, message: "Tuman va kvartilni tanlang!"}]}
+                        extra={
+                            <span style={{ fontSize: 12, color: '#666' }}>
+                                Avval tumanni, keyin kvartilni tanlang
+                            </span>
+                        }
                     >
-                        <Select
-                            placeholder="Kvartilni tanlang"
-                            loading={loadingSettings}
-                            showSearch
-                        >
-                            {(settings.kvartil || []).map(item => (
-                                <Option key={item.id} value={item.value}>
-                                    {item.value}
-                                </Option>
-                            ))}
-                        </Select>
+                        <Cascader
+                            options={cascaderData}
+                            placeholder="Tumanni va kvartilni tanlang"
+                            loading={loadingCascader}
+                            showSearch={{
+                                filter: (inputValue, path) => {
+                                    return path.some(option =>
+                                        option.label.toLowerCase().includes(inputValue.toLowerCase())
+                                    );
+                                }
+                            }}
+                            notFoundContent={
+                                loadingCascader ? (
+                                    <div style={{textAlign: 'center', padding: '10px'}}>
+                                        <Spin size="small" />
+                                        <div>Yuklanmoqda...</div>
+                                    </div>
+                                ) : (
+                                    <div style={{textAlign: 'center', padding: '10px'}}>
+                                        Tuman yoki kvartil topilmadi
+                                    </div>
+                                )
+                            }
+                            changeOnSelect={false}
+                            displayRender={(labels) => labels.join(' → ')}
+                        />
                     </Form.Item>
+
+                    {/* Agar cascader data yuklanmagan bo'lsa, reload tugmasi */}
+                    {!loadingCascader && cascaderData.length === 0 && (
+                        <Alert
+                            message="Tuman va kvartillar topilmadi"
+                            description={
+                                <span>
+                                    Tuman va kvartillar yuklanmadi.
+                                    <Button
+                                        type="link"
+                                        size="small"
+                                        onClick={loadCascaderData}
+                                        style={{padding: 0, marginLeft: 5}}
+                                    >
+                                        Qayta urinish
+                                    </Button>
+                                </span>
+                            }
+                            type="warning"
+                            showIcon
+                            style={{ marginBottom: 16 }}
+                        />
+                    )}
 
                     <Form.Item label="X/E/ET (xona / etaj / etajnost)" required>
                         <Input.Group compact style={{display: "flex", gap: 8, alignItems: "center"}}>
@@ -501,7 +575,6 @@ const FormMaskan = () => {
                         />
                     </Form.Item>
 
-                    {/* ✅ Realtor select - serverdan olingan list */}
                     <Form.Item
                         label="Rielter"
                         name="rieltor"
@@ -536,7 +609,6 @@ const FormMaskan = () => {
                         </Select>
                     </Form.Item>
 
-                    {/* Agar realtor'lar yuklanmagan bo'lsa, reload tugmasi */}
                     {!loadingRealtors && realtors.length === 0 && (
                         <Alert
                             message="Realtor'lar topilmadi"
@@ -558,6 +630,7 @@ const FormMaskan = () => {
                             style={{ marginBottom: 16 }}
                         />
                     )}
+
                     <Form.Item label="Primichaniya (Izohlash)" name="opisaniya">
                         <Input.TextArea placeholder="Remont yaxshi, mebel bor..." rows={3}/>
                     </Form.Item>
@@ -631,6 +704,7 @@ const FormMaskan = () => {
                             </Form.Item>
                         </div>
                     </Form.Item>
+
                     <Row justify="center">
                         <Col span={20}>
                             <Button
@@ -664,6 +738,7 @@ const FormMaskan = () => {
                             </p>
                         </div>
                     )}
+
                     <Form.Item label="Rasmlar" name="rasmlar">
                         <Upload.Dragger {...uploadProps}>
                             <p className="ant-upload-drag-icon">

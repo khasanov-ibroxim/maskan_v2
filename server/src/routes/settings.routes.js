@@ -320,4 +320,21 @@ router.post('/:category/reorder', protect, authorize('admin'), async (req, res) 
     }
 });
 
+
+router.get('/cascader', async (req, res) => {
+    try {
+        const cascaderData = await AppSettings.getCascaderData();
+        res.json({
+            success: true,
+            data: cascaderData
+        });
+    } catch (error) {
+        console.error('❌ Get cascader error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
 module.exports = router;
