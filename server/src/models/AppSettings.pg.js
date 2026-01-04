@@ -1,7 +1,102 @@
-// server/src/models/AppSettings.pg.js - ✅ WITH CASCADER SUPPORT
+// server/src/models/AppSettings.pg.js - ✅ ULTIMATE FIX
 const { query } = require('../config/database');
 
 class AppSettings {
+    /**
+     * ✅ CRITICAL FIX: Cascader data with proper filtering
+     */
+    static async getCascaderData() {
+        try {
+            console.log('\n📊 CASCADER DATA (FIXED VERSION)');
+            console.log('='.repeat(60));
+
+            // ✅ Get all active kvartil category rows
+            const result = await query(
+                `SELECT 
+                    id, 
+                    value, 
+                    display_order, 
+                    parent_id,
+                    category
+                 FROM app_settings
+                 WHERE category = 'kvartil' 
+                   AND is_active = true
+                 ORDER BY display_order ASC, value ASC`
+            );
+
+            console.log(`📊 Query result: ${result.rows.length} rows`);
+
+            if (!result.rows || result.rows.length === 0) {
+                console.log('❌ QUERY BO\'SH!');
+                console.log('\n🔍 SABABLARI:');
+                console.log('1. Database\'da "kvartil" category yo\'q');
+                console.log('2. Barcha qatorlar is_active = false');
+                console.log('3. Database connection muammosi');
+                console.log('\n💡 YECHIM:');
+                console.log('psql -U postgres -d maskanlux');
+                console.log('SELECT * FROM app_settings WHERE category = \'kvartil\';');
+                console.log('='.repeat(60));
+                return [];
+            }
+
+            // ✅ Log all rows
+            console.log('\n📋 DATABASE QATORLARI:');
+            result.rows.forEach((row, i) => {
+                const type = row.parent_id ? 'KVARTIL' : 'TUMAN';
+                console.log(`  ${i + 1}. "${row.value}" (${type}, ID: ${row.id}, parent: ${row.parent_id || 'NULL'})`);
+            });
+
+            // ✅ Separate tumans and kvartils
+            const tumans = result.rows.filter(row => !row.parent_id);
+            const kvartils = result.rows.filter(row => row.parent_id);
+
+            console.log(`\n🏙️ TUMANLAR: ${tumans.length}`);
+            console.log(`📍 KVARTILLAR: ${kvartils.length}`);
+
+            if (tumans.length === 0) {
+                console.log('❌ TUMANLAR YO\'Q!');
+                console.log('\n💡 Tuman qo\'shish:');
+                console.log('INSERT INTO app_settings (category, value, parent_id, is_active)');
+                console.log('VALUES (\'kvartil\', \'Yunusobod\', NULL, true);');
+                console.log('='.repeat(60));
+                return [];
+            }
+
+            // ✅ Build cascader structure
+            const cascaderData = tumans.map(tuman => {
+                const children = kvartils
+                    .filter(kv => kv.parent_id === tuman.id)
+                    .map(kv => ({
+                        value: kv.value,
+                        label: kv.value,
+                        id: kv.id
+                    }));
+
+                console.log(`  🔗 "${tuman.value}" → ${children.length} kvartils`);
+
+                return {
+                    value: tuman.value,
+                    label: tuman.value,
+                    id: tuman.id,
+                    children: children.length > 0 ? children : undefined
+                };
+            });
+
+            console.log(`\n✅ FINAL RESULT: ${cascaderData.length} tumanlar`);
+            console.log('='.repeat(60));
+
+            return cascaderData;
+
+        } catch (error) {
+            console.error('\n❌ getCascaderData ERROR:');
+            console.error('='.repeat(60));
+            console.error('Message:', error.message);
+            console.error('Stack:', error.stack);
+            console.error('='.repeat(60));
+            return [];
+        }
+    }
+
     /**
      * Get all settings by category
      */
@@ -17,119 +112,6 @@ class AppSettings {
     }
 
     /**
-     * ✅ ULTIMATE FIX: Get cascader with raw debugging
-     */
-    static async getCascaderData() {
-        try {
-            console.log('\n📊 CASCADER DATA OLISH (DEBUG MODE)');
-
-            // ✅ Step 1: Get ALL rows without filtering
-            const allRows = await query(
-                `SELECT
-                     id,
-                     value,
-                     display_order,
-                     parent_id,
-                     category,
-                     is_active
-                 FROM app_settings
-                 ORDER BY value ASC`
-            );
-
-            console.log(`  🗂️ TOTAL app_settings rows: ${allRows.rows.length}`);
-            allRows.rows.forEach((row, i) => {
-                console.log(`    ${i + 1}. "${row.value}" - category: "${row.category}", parent_id: ${row.parent_id}, active: ${row.is_active}`);
-            });
-
-            // ✅ Step 2: Filter for kvartil category
-            const kvartilRows = allRows.rows.filter(row => row.category === 'kvartil');
-            console.log(`  📍 Kvartil category rows: ${kvartilRows.rows.length}`);
-
-            // ✅ Step 3: Get only active kvartils
-            const result = await query(
-                `SELECT 
-                    id, 
-                    value, 
-                    display_order, 
-                    parent_id,
-                    category,
-                    is_active
-                 FROM app_settings
-                 WHERE category = 'kvartil' AND is_active = true
-                 ORDER BY display_order ASC, value ASC`
-            );
-
-            console.log(`  ✅ Query result: ${result.rows.length} rows`);
-
-            if (result.rows.length === 0) {
-                console.log('  ❌ QUERY BO\'SH ARRAY QAYTARDI!');
-                console.log('  🔍 Sabablari:');
-                console.log('     1. category != "kvartil"');
-                console.log('     2. is_active = false');
-                console.log('     3. Database connection issue');
-                return [];
-            }
-
-            // ✅ Log each row
-            result.rows.forEach((row, i) => {
-                const parentStr = row.parent_id === null || row.parent_id === undefined ? 'NULL (TUMAN)' : row.parent_id;
-                console.log(`    ${i + 1}. "${row.value}" (ID: ${row.id}, parent: ${parentStr})`);
-            });
-
-            // ✅ Separate tumans and kvartils
-            const tumans = result.rows.filter(row =>
-                row.parent_id === null ||
-                row.parent_id === undefined
-            );
-
-            const kvartils = result.rows.filter(row =>
-                row.parent_id !== null &&
-                row.parent_id !== undefined
-            );
-
-            console.log(`\n  🏙️ TUMANLAR: ${tumans.length}`);
-            tumans.forEach(t => {
-                console.log(`    • ${t.value} (ID: ${t.id})`);
-            });
-
-            console.log(`\n  📍 KVARTILLAR: ${kvartils.length}`);
-            kvartils.forEach(k => {
-                console.log(`    • ${k.value} (ID: ${k.id}, parent: ${k.parent_id})`);
-            });
-
-            // ✅ Build cascader structure
-            const cascaderData = tumans.map(tuman => {
-                const children = kvartils
-                    .filter(kv => kv.parent_id === tuman.id)
-                    .map(kv => ({
-                        value: kv.value,
-                        label: kv.value,
-                        id: kv.id
-                    }));
-
-                console.log(`  🔗 Tuman "${tuman.value}" → ${children.length} kvartils`);
-
-                return {
-                    value: tuman.value,
-                    label: tuman.value,
-                    id: tuman.id,
-                    children: children.length > 0 ? children : undefined
-                };
-            });
-
-            console.log(`\n  ✅ FINAL RESULT: ${cascaderData.length} tumanlar`);
-            console.log('  📤 Returning:', JSON.stringify(cascaderData, null, 2));
-
-            return cascaderData;
-
-        } catch (error) {
-            console.error('❌ getCascaderData CRITICAL ERROR:');
-            console.error('   Message:', error.message);
-            console.error('   Stack:', error.stack);
-            return [];
-        }
-    }
-    /**
      * Get all categories with their values
      */
     static async getAll() {
@@ -140,7 +122,6 @@ class AppSettings {
              ORDER BY category, display_order ASC`
         );
 
-        // Group by category
         const grouped = {};
         result.rows.forEach(row => {
             if (!grouped[row.category]) {
@@ -158,9 +139,15 @@ class AppSettings {
     }
 
     /**
-     * Create new setting
+     * ✅ Create new setting (STRICT KVARTIL ENFORCEMENT)
      */
     static async create(category, value, displayOrder = 0, parentId = null) {
+        // ✅ Force 'kvartil' category for tuman/kvartil system
+        if (category === 'tuman') {
+            console.log('⚠️ Category "tuman" → "kvartil" (forced)');
+            category = 'kvartil';
+        }
+
         const result = await query(
             `INSERT INTO app_settings (category, value, display_order, parent_id)
              VALUES ($1, $2, $3, $4)
@@ -171,6 +158,12 @@ class AppSettings {
              RETURNING *`,
             [category, value, displayOrder, parentId]
         );
+
+        console.log('✅ Created/Updated:');
+        console.log(`  Category: ${result.rows[0].category}`);
+        console.log(`  Value: ${result.rows[0].value}`);
+        console.log(`  Parent: ${result.rows[0].parent_id || 'NULL (TUMAN)'}`);
+
         return result.rows[0];
     }
 
@@ -229,25 +222,10 @@ class AppSettings {
     static async getGlobalConfig() {
         try {
             const result = await query(
-                `SELECT value FROM app_settings 
+                `SELECT value FROM app_settings
                  WHERE category = 'global_config' AND is_active = true
                  ORDER BY display_order ASC`
             );
-
-            console.log('\n🔍 GLOBAL CONFIG DATABASE:');
-            console.log('  Query result rows:', result.rows.length);
-
-            if (result.rows.length === 0) {
-                console.log('  ⚠️ global_config yo\'q - default yaratilmoqda...');
-                await this.createDefaultGlobalConfig();
-
-                const retryResult = await query(
-                    `SELECT value FROM app_settings 
-                     WHERE category = 'global_config' AND is_active = true
-                     ORDER BY display_order ASC`
-                );
-                result.rows = retryResult.rows;
-            }
 
             const config = {
                 telegram_bot_token: process.env.TELEGRAM_TOKEN || '',
@@ -257,27 +235,18 @@ class AppSettings {
             };
 
             result.rows.forEach(row => {
-                try {
-                    const value = row.value;
-
-                    if (!value || typeof value !== 'string' || !value.includes(':')) {
-                        return;
-                    }
-
+                const value = row.value;
+                if (value && typeof value === 'string' && value.includes(':')) {
                     const colonIndex = value.indexOf(':');
                     const key = value.substring(0, colonIndex).trim();
                     const val = value.substring(colonIndex + 1).trim();
-
                     if (key && val) {
                         config[key] = val;
                     }
-                } catch (parseError) {
-                    console.error(`  ❌ Parse error for row:`, row.value);
                 }
             });
 
             return config;
-
         } catch (error) {
             console.error('❌ getGlobalConfig error:', error.message);
             return {
@@ -290,107 +259,40 @@ class AppSettings {
     }
 
     /**
-     * Create default global config
-     */
-    static async createDefaultGlobalConfig() {
-        try {
-            console.log('  📝 Creating default global config...');
-
-            const defaults = [
-                { key: 'telegram_bot_token', value: process.env.TELEGRAM_TOKEN || '', order: 0 },
-                { key: 'glavniy_app_script_url', value: process.env.HERO_APP_SCRIPT || '', order: 1 },
-                { key: 'company_phone', value: '+998970850604', order: 2 },
-                { key: 'default_telegram_chat_id', value: process.env.TELEGRAM_CHAT_ID || '-1003298985470', order: 3 }
-            ];
-
-            for (const item of defaults) {
-                const fullValue = `${item.key}:${item.value}`;
-
-                await query(
-                    `INSERT INTO app_settings (category, value, display_order, is_active)
-                     VALUES ('global_config', $1, $2, true)
-                     ON CONFLICT (category, value) DO UPDATE
-                     SET is_active = true, display_order = $2`,
-                    [fullValue, item.order]
-                );
-            }
-
-            console.log('  ✅ Default config created');
-            return true;
-
-        } catch (error) {
-            console.error('  ❌ Create default config error:', error.message);
-            return false;
-        }
-    }
-
-    /**
      * Update global config item
      */
     static async updateGlobalConfig(key, value) {
-        try {
-            console.log('\n📝 UPDATE GLOBAL CONFIG:');
-            console.log('  Key:', key);
-            console.log('  Value:', value ? value.substring(0, 30) + '...' : 'NULL');
+        const fullValue = `${key}:${value}`;
+        const existingResult = await query(
+            `SELECT id FROM app_settings 
+             WHERE category = 'global_config' 
+             AND value LIKE $1`,
+            [`${key}:%`]
+        );
 
-            if (!key || value === undefined || value === null) {
-                throw new Error('Key va value majburiy');
-            }
-
-            const fullValue = `${key}:${value}`;
-
-            const existingResult = await query(
-                `SELECT id FROM app_settings 
+        if (existingResult.rows.length > 0) {
+            const result = await query(
+                `UPDATE app_settings 
+                 SET value = $1
                  WHERE category = 'global_config' 
-                 AND value LIKE $1`,
-                [`${key}:%`]
+                 AND value LIKE $2
+                 RETURNING *`,
+                [fullValue, `${key}:%`]
             );
-
-            if (existingResult.rows.length > 0) {
-                const result = await query(
-                    `UPDATE app_settings 
-                     SET value = $1
-                     WHERE category = 'global_config' 
-                     AND value LIKE $2
-                     RETURNING *`,
-                    [fullValue, `${key}:%`]
-                );
-
-                console.log('  ✅ Updated existing row');
-                return result.rows[0];
-            } else {
-                const result = await query(
-                    `INSERT INTO app_settings (category, value, display_order, is_active)
-                     VALUES ('global_config', $1, 
-                         (SELECT COALESCE(MAX(display_order), 0) + 1 
-                          FROM app_settings 
-                          WHERE category = 'global_config'),
-                         true)
-                     RETURNING *`,
-                    [fullValue]
-                );
-
-                console.log('  ✅ Inserted new row');
-                return result.rows[0];
-            }
-
-        } catch (error) {
-            console.error('❌ updateGlobalConfig error:', error.message);
-            throw error;
-        }
-    }
-
-    /**
-     * Reorder settings in category
-     */
-    static async reorder(category, orderedIds) {
-        for (let i = 0; i < orderedIds.length; i++) {
-            await query(
-                'UPDATE app_settings SET display_order = $1 WHERE id = $2',
-                [i, orderedIds[i]]
+            return result.rows[0];
+        } else {
+            const result = await query(
+                `INSERT INTO app_settings (category, value, display_order, is_active)
+                 VALUES ('global_config', $1, 
+                     (SELECT COALESCE(MAX(display_order), 0) + 1 
+                      FROM app_settings 
+                      WHERE category = 'global_config'),
+                     true)
+                 RETURNING *`,
+                [fullValue]
             );
+            return result.rows[0];
         }
-        return true;
     }
 }
 

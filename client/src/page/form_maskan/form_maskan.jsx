@@ -125,7 +125,7 @@ const FormMaskan = () => {
     const loadSettings = async () => {
         setLoadingSettings(true);
         try {
-            const response = await api.get('/api/settings');
+            const response = await api.get('api/settings');
             if (response.data.success) {
                 setSettings(response.data.data);
                 console.log('✅ Settings yuklandi:', response.data.data);
