@@ -231,26 +231,48 @@ const SettingsTab = () => {
 
     const handleSubmitKvartil = async (values) => {
         try {
+            console.log('\n📝 KVARTIL SUBMIT:', values);
+
+            // ✅ CRITICAL: Always ensure category is 'kvartil'
+            const payload = {
+                category: 'kvartil',  // ✅ FORCED - never 'tuman'
+                value: values.value.trim(),
+                displayOrder: values.displayOrder || 0,
+                parentId: values.parentId || null  // ✅ null = tuman, uuid = kvartil
+            };
+
+            console.log('  📤 Payload:', payload);
+
+            if (values.parentId) {
+                console.log('  ✅ Turi: KVARTIL (parent_id mavjud)');
+            } else {
+                console.log('  ✅ Turi: TUMAN (parent_id = null)');
+            }
+
             if (editingKvartil) {
-                await api.put(`/api/settings/${editingKvartil.id}`, {
-                    value: values.value,
-                    displayOrder: values.displayOrder,
-                    parentId: values.parentId
-                });
+                const response = await api.put(`/api/settings/${editingKvartil.id}`, payload);
+                console.log('  ✅ Update response:', response.data);
                 message.success('Yangilandi');
             } else {
-                await api.post('/api/settings', {
-                    category: 'kvartil',
-                    value: values.value,
-                    displayOrder: values.displayOrder,
-                    parentId: values.parentId
-                });
+                const response = await api.post('/api/settings', payload);
+                console.log('  ✅ Create response:', response.data);
                 message.success('Qo\'shildi');
             }
+
+            // ✅ Close modal
             setKvartilModalVisible(false);
             kvartilForm.resetFields();
-            loadCascaderData();
+
+            // ✅ Reload after delay
+            console.log('🔄 Ma\'lumotlar yangilanmoqda...');
+            setTimeout(() => {
+                loadCascaderData();
+                loadSettings();
+            }, 500);
+
         } catch (error) {
+            console.error('❌ Submit error:', error);
+            console.error('   Response:', error.response?.data);
             message.error(error.response?.data?.error || 'Xato yuz berdi');
         }
     };

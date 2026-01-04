@@ -17,34 +17,87 @@ class AppSettings {
     }
 
     /**
-     * ✅ NEW: Get cascader structure (Tuman -> Kvartil)
+     * ✅ ULTIMATE FIX: Get cascader with raw debugging
      */
     static async getCascaderData() {
         try {
-            console.log('\n📊 CASCADER DATA OLISH');
+            console.log('\n📊 CASCADER DATA OLISH (DEBUG MODE)');
 
-            // Get all kvartil items with parent info
+            // ✅ Step 1: Get ALL rows without filtering
+            const allRows = await query(
+                `SELECT
+                     id,
+                     value,
+                     display_order,
+                     parent_id,
+                     category,
+                     is_active
+                 FROM app_settings
+                 ORDER BY value ASC`
+            );
+
+            console.log(`  🗂️ TOTAL app_settings rows: ${allRows.rows.length}`);
+            allRows.rows.forEach((row, i) => {
+                console.log(`    ${i + 1}. "${row.value}" - category: "${row.category}", parent_id: ${row.parent_id}, active: ${row.is_active}`);
+            });
+
+            // ✅ Step 2: Filter for kvartil category
+            const kvartilRows = allRows.rows.filter(row => row.category === 'kvartil');
+            console.log(`  📍 Kvartil category rows: ${kvartilRows.rows.length}`);
+
+            // ✅ Step 3: Get only active kvartils
             const result = await query(
                 `SELECT 
                     id, 
                     value, 
                     display_order, 
-                    parent_id
+                    parent_id,
+                    category,
+                    is_active
                  FROM app_settings
                  WHERE category = 'kvartil' AND is_active = true
                  ORDER BY display_order ASC, value ASC`
             );
 
-            console.log(`  Jami kvartil: ${result.rows.length}`);
+            console.log(`  ✅ Query result: ${result.rows.length} rows`);
 
-            // Separate into tumans and kvartils
-            const tumans = result.rows.filter(row => !row.parent_id);
-            const kvartils = result.rows.filter(row => row.parent_id);
+            if (result.rows.length === 0) {
+                console.log('  ❌ QUERY BO\'SH ARRAY QAYTARDI!');
+                console.log('  🔍 Sabablari:');
+                console.log('     1. category != "kvartil"');
+                console.log('     2. is_active = false');
+                console.log('     3. Database connection issue');
+                return [];
+            }
 
-            console.log(`  Tumanlar: ${tumans.length}`);
-            console.log(`  Kvartillar: ${kvartils.length}`);
+            // ✅ Log each row
+            result.rows.forEach((row, i) => {
+                const parentStr = row.parent_id === null || row.parent_id === undefined ? 'NULL (TUMAN)' : row.parent_id;
+                console.log(`    ${i + 1}. "${row.value}" (ID: ${row.id}, parent: ${parentStr})`);
+            });
 
-            // Build cascader structure
+            // ✅ Separate tumans and kvartils
+            const tumans = result.rows.filter(row =>
+                row.parent_id === null ||
+                row.parent_id === undefined
+            );
+
+            const kvartils = result.rows.filter(row =>
+                row.parent_id !== null &&
+                row.parent_id !== undefined
+            );
+
+            console.log(`\n  🏙️ TUMANLAR: ${tumans.length}`);
+            tumans.forEach(t => {
+                console.log(`    • ${t.value} (ID: ${t.id})`);
+            });
+
+            console.log(`\n  📍 KVARTILLAR: ${kvartils.length}`);
+            kvartils.forEach(k => {
+                console.log(`    • ${k.value} (ID: ${k.id}, parent: ${k.parent_id})`);
+            });
+
+            // ✅ Build cascader structure
             const cascaderData = tumans.map(tuman => {
                 const children = kvartils
                     .filter(kv => kv.parent_id === tuman.id)
@@ -54,6 +107,8 @@ class AppSettings {
                         id: kv.id
                     }));
 
+                console.log(`  🔗 Tuman "${tuman.value}" → ${children.length} kvartils`);
+
                 return {
                     value: tuman.value,
                     label: tuman.value,
@@ -62,16 +117,18 @@ class AppSettings {
                 };
             });
 
-            console.log('  ✅ Cascader structure yaratildi');
+            console.log(`\n  ✅ FINAL RESULT: ${cascaderData.length} tumanlar`);
+            console.log('  📤 Returning:', JSON.stringify(cascaderData, null, 2));
 
             return cascaderData;
 
         } catch (error) {
-            console.error('❌ getCascaderData error:', error);
+            console.error('❌ getCascaderData CRITICAL ERROR:');
+            console.error('   Message:', error.message);
+            console.error('   Stack:', error.stack);
             return [];
         }
     }
-
     /**
      * Get all categories with their values
      */
