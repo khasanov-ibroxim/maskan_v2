@@ -125,7 +125,7 @@ const FormMaskan = () => {
     const loadSettings = async () => {
         setLoadingSettings(true);
         try {
-            const response = await api.get('api/settings');
+            const response = await api.get('/api/settings');
             if (response.data.success) {
                 setSettings(response.data.data);
                 console.log('✅ Settings yuklandi:', response.data.data);
@@ -292,7 +292,7 @@ const FormMaskan = () => {
 
             const progressPromise = simulateProgress(setUploadProgress, 1500);
 
-            const serverResponse = await axios.post(`${SERVER_URL}/api/send-data`, formData, {
+            const serverResponse = await axios.post(`${SERVER_URL}api/send-data`, formData, {
                 headers: { "Content-Type": "multipart/form-data" },
                 timeout: 60000,
             });
