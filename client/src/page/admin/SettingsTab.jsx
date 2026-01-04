@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Tabs, Table, Button, Modal, Form, Input, message, Space, Popconfirm, InputNumber, Divider, Select, Tag } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SettingOutlined, SaveOutlined, MessageOutlined } from '@ant-design/icons';
+import { Card, Tabs, Table, Button, Modal, Form, Input, message, Space, Popconfirm, InputNumber, Select, Tag, Collapse, Divider } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, SettingOutlined, SaveOutlined, MessageOutlined, GlobalOutlined, TranslationOutlined } from '@ant-design/icons';
 import api from '../../utils/api';
 
 const { TabPane } = Tabs;
 const { Option } = Select;
+const { Panel } = Collapse;
 
 const categories = [
     { key: 'balkon', label: '🏗️ Balkon', description: 'Balkon turlari' },
@@ -12,6 +13,13 @@ const categories = [
     { key: 'planirovka', label: '📐 Planirovka', description: 'Uy rejasi turlari' },
     { key: 'xolati', label: '🔧 Xolati', description: 'Ta\'mir holati' },
     { key: 'torets', label: '🚗 Torets', description: 'Parkovka turlari' }
+];
+
+const LANGUAGES = [
+    { key: 'uz', label: "O'zbekcha", flag: '🇺🇿', column: 'value_uz' },
+    { key: 'ru', label: 'Русский', flag: '🇷🇺', column: 'value_ru' },
+    { key: 'en', label: 'English', flag: '🇬🇧', column: 'value_en' },
+    { key: 'uz_cy', label: 'Ўзбекча', flag: '🇺🇿', column: 'value_uz_cy' }
 ];
 
 const SettingsTab = () => {
@@ -33,6 +41,7 @@ const SettingsTab = () => {
     const [editingChat, setEditingChat] = useState(null);
     const [editingKvartil, setEditingKvartil] = useState(null);
     const [currentCategory, setCurrentCategory] = useState('kvartil');
+    const [currentLang, setCurrentLang] = useState('uz');
     const [form] = Form.useForm();
     const [chatForm] = Form.useForm();
     const [kvartilForm] = Form.useForm();
@@ -95,7 +104,8 @@ const SettingsTab = () => {
                 const tumans = response.data.data.map(item => ({
                     id: item.id,
                     value: item.value,
-                    label: item.label
+                    label: item.label,
+                    translations: item.translations
                 }));
                 setTumanList(tumans);
 
@@ -211,8 +221,14 @@ const SettingsTab = () => {
 
     const handleEditKvartil = (item) => {
         setEditingKvartil(item);
+
+        const translations = item.translations || {};
+
         kvartilForm.setFieldsValue({
-            value: item.value,
+            value_uz: translations.uz || item.value,
+            value_ru: translations.ru || '',
+            value_en: translations.en || '',
+            value_uz_cy: translations.uz_cy || '',
             displayOrder: item.display_order,
             parentId: item.parent_id
         });
@@ -233,24 +249,31 @@ const SettingsTab = () => {
         try {
             console.log('\n📝 KVARTIL SUBMIT:', values);
 
-            // ✅ CRITICAL: Always ensure category is 'kvartil'
             const payload = {
-                category: 'kvartil',  // ✅ FORCED - never 'tuman'
-                value: values.value.trim(),
+                category: 'kvartil',
+                translations: {
+                    uz: values.value_uz?.trim() || '',
+                    ru: values.value_ru?.trim() || '',
+                    en: values.value_en?.trim() || '',
+                    uz_cy: values.value_uz_cy?.trim() || ''
+                },
                 displayOrder: values.displayOrder || 0,
-                parentId: values.parentId || null  // ✅ null = tuman, uuid = kvartil
+                parentId: values.parentId || null
             };
 
             console.log('  📤 Payload:', payload);
 
-            if (values.parentId) {
-                console.log('  ✅ Turi: KVARTIL (parent_id mavjud)');
-            } else {
-                console.log('  ✅ Turi: TUMAN (parent_id = null)');
-            }
-
             if (editingKvartil) {
-                const response = await api.put(`/api/settings/${editingKvartil.id}`, payload);
+                const updatePayload = {
+                    value_uz: payload.translations.uz,
+                    value_ru: payload.translations.ru,
+                    value_en: payload.translations.en,
+                    value_uz_cy: payload.translations.uz_cy,
+                    displayOrder: payload.displayOrder,
+                    parentId: payload.parentId
+                };
+
+                const response = await api.put(`/api/settings/${editingKvartil.id}`, updatePayload);
                 console.log('  ✅ Update response:', response.data);
                 message.success('Yangilandi');
             } else {
@@ -259,11 +282,9 @@ const SettingsTab = () => {
                 message.success('Qo\'shildi');
             }
 
-            // ✅ Close modal
             setKvartilModalVisible(false);
             kvartilForm.resetFields();
 
-            // ✅ Reload after delay
             console.log('🔄 Ma\'lumotlar yangilanmoqda...');
             setTimeout(() => {
                 loadCascaderData();
@@ -287,8 +308,14 @@ const SettingsTab = () => {
     const handleEdit = (item, category) => {
         setCurrentCategory(category);
         setEditingItem(item);
+
+        const translations = item.translations || {};
+
         form.setFieldsValue({
-            value: item.value,
+            value_uz: translations.uz || item.value,
+            value_ru: translations.ru || '',
+            value_en: translations.en || '',
+            value_uz_cy: translations.uz_cy || '',
             displayOrder: item.display_order
         });
         setModalVisible(true);
@@ -306,16 +333,32 @@ const SettingsTab = () => {
 
     const handleSubmit = async (values) => {
         try {
+            const payload = {
+                category: currentCategory,
+                translations: {
+                    uz: values.value_uz?.trim() || '',
+                    ru: values.value_ru?.trim() || '',
+                    en: values.value_en?.trim() || '',
+                    uz_cy: values.value_uz_cy?.trim() || ''
+                },
+                displayOrder: values.displayOrder || 0
+            };
+
             if (editingItem) {
-                await api.put(`/api/settings/${editingItem.id}`, values);
+                const updatePayload = {
+                    value_uz: payload.translations.uz,
+                    value_ru: payload.translations.ru,
+                    value_en: payload.translations.en,
+                    value_uz_cy: payload.translations.uz_cy,
+                    displayOrder: payload.displayOrder
+                };
+                await api.put(`/api/settings/${editingItem.id}`, updatePayload);
                 message.success('Yangilandi');
             } else {
-                await api.post('/api/settings', {
-                    category: currentCategory,
-                    ...values
-                });
+                await api.post('/api/settings', payload);
                 message.success('Qo\'shildi');
             }
+
             setModalVisible(false);
             loadSettings();
         } catch (error) {
@@ -325,10 +368,52 @@ const SettingsTab = () => {
 
     const categoryColumns = (category) => [
         {
-            title: 'Qiymat',
+            title: () => (
+                <Space>
+                    <span>Qiymat</span>
+                    <Select
+                        size="small"
+                        value={currentLang}
+                        onChange={setCurrentLang}
+                        style={{ width: 150 }}
+                    >
+                        {LANGUAGES.map(lang => (
+                            <Option key={lang.key} value={lang.key}>
+                                {lang.flag} {lang.label}
+                            </Option>
+                        ))}
+                    </Select>
+                </Space>
+            ),
             dataIndex: 'value',
             key: 'value',
-            width: '60%'
+            width: '60%',
+            render: (_, record) => {
+                const translations = record.translations || {};
+                const currentValue = translations[currentLang] || record.value;
+
+                return (
+                    <div>
+                        <div style={{ fontWeight: 500 }}>{currentValue}</div>
+                        <Collapse ghost style={{ marginTop: 8 }}>
+                            <Panel
+                                header={<span style={{ fontSize: 12, color: '#888' }}>
+                                    <TranslationOutlined /> Barcha tarjimalar
+                                </span>}
+                                key="1"
+                                style={{ fontSize: 12 }}
+                            >
+                                {LANGUAGES.map(lang => (
+                                    <div key={lang.key} style={{ padding: '4px 0' }}>
+                                        <Tag color="blue">{lang.flag} {lang.label}</Tag>
+                                        <span>{translations[lang.key] || '-'}</span>
+                                    </div>
+                                ))}
+                            </Panel>
+                        </Collapse>
+                    </div>
+                );
+            }
         },
         {
             title: 'Tartib',
@@ -368,15 +453,55 @@ const SettingsTab = () => {
 
     const kvartilColumns = [
         {
-            title: 'Tuman / Kvartil',
+            title: () => (
+                <Space>
+                    <span>Tuman / Kvartil</span>
+                    <Select
+                        size="small"
+                        value={currentLang}
+                        onChange={setCurrentLang}
+                        style={{ width: 150 }}
+                    >
+                        {LANGUAGES.map(lang => (
+                            <Option key={lang.key} value={lang.key}>
+                                {lang.flag} {lang.label}
+                            </Option>
+                        ))}
+                    </Select>
+                </Space>
+            ),
             dataIndex: 'value',
             key: 'value',
             width: '50%',
-            render: (value, record) => {
-                if (record.parent_id) {
-                    return <span style={{ paddingLeft: 24 }}>↳ {value}</span>;
-                }
-                return <strong>{value}</strong>;
+            render: (_, record) => {
+                const translations = record.translations || {};
+                const currentValue = translations[currentLang] || record.value;
+
+                const display = record.parent_id ?
+                    <span style={{ paddingLeft: 24 }}>↳ {currentValue}</span> :
+                    <strong>{currentValue}</strong>;
+
+                return (
+                    <div>
+                        <div>{display}</div>
+                        <Collapse ghost style={{ marginTop: 8 }}>
+                            <Panel
+                                header={<span style={{ fontSize: 12, color: '#888' }}>
+                                    <TranslationOutlined /> Barcha tarjimalar
+                                </span>}
+                                key="1"
+                                style={{ fontSize: 12 }}
+                            >
+                                {LANGUAGES.map(lang => (
+                                    <div key={lang.key} style={{ padding: '4px 0' }}>
+                                        <Tag color="blue">{lang.flag} {lang.label}</Tag>
+                                        <span>{translations[lang.key] || '-'}</span>
+                                    </div>
+                                ))}
+                            </Panel>
+                        </Collapse>
+                    </div>
+                );
             }
         },
         {
@@ -484,7 +609,8 @@ const SettingsTab = () => {
                 id: tuman.id,
                 value: tuman.value,
                 display_order: 0,
-                parent_id: null
+                parent_id: null,
+                translations: tuman.translations
             });
 
             if (tuman.children) {
@@ -493,7 +619,8 @@ const SettingsTab = () => {
                         id: kvartil.id,
                         value: kvartil.value,
                         display_order: 0,
-                        parent_id: tuman.id
+                        parent_id: tuman.id,
+                        translations: kvartil.translations
                     });
                 });
             }
@@ -507,7 +634,7 @@ const SettingsTab = () => {
             <div style={{ marginBottom: 20 }}>
                 <h2 style={{ margin: 0 }}>⚙️ Sozlamalar</h2>
                 <p style={{ color: '#666', marginTop: 8 }}>
-                    Tizim sozlamalari va form tanlovlari
+                    <GlobalOutlined /> Ko'p tilni qo'llab-quvvatlovchi tizim sozlamalari
                 </p>
             </div>
 
@@ -617,7 +744,7 @@ const SettingsTab = () => {
                         <div>
                             <h3 style={{ margin: 0 }}>📍 Tuman va Kvartillar</h3>
                             <p style={{ color: '#888', margin: 0 }}>
-                                Avval TUMAN yarating, keyin unga KVARTILLAR qo'shing
+                                <GlobalOutlined /> Har bir tuman/kvartil 4 ta tilda saqlanadi
                             </p>
                         </div>
                         <Button type="primary" icon={<PlusOutlined />} onClick={handleAddKvartil}>
@@ -639,7 +766,9 @@ const SettingsTab = () => {
                         <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
                                 <h3 style={{ margin: 0 }}>{cat.label}</h3>
-                                <p style={{ color: '#888', margin: 0 }}>{cat.description}</p>
+                                <p style={{ color: '#888', margin: 0 }}>
+                                    <GlobalOutlined /> {cat.description}
+                                </p>
                             </div>
                             <Button type="primary" icon={<PlusOutlined />} onClick={() => handleAdd(cat.key)}>
                                 Yangi qo'shish
@@ -657,6 +786,7 @@ const SettingsTab = () => {
                 ))}
             </Tabs>
 
+            {/* Chat Modal */}
             <Modal
                 title={editingChat ? '✏️ Chat Tahrirlash' : '➕ Yangi Chat Qo\'shish'}
                 open={chatModalVisible}
@@ -664,7 +794,7 @@ const SettingsTab = () => {
                 footer={null}
                 width={500}
             >
-                <Form form={chatForm} layout="vertical" onFinish={handleSubmitChat}>
+                <Form form={chatForm} layout>
                     <Form.Item name="chatName" label="Chat Nomi" rules={[{ required: true, message: 'Chat nomini kiriting!' }, { min: 2, message: 'Kamida 2 ta belgi' }]}>
                         <Input placeholder="Masalan: Marketing Chat" />
                     </Form.Item>
