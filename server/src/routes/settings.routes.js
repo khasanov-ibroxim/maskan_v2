@@ -176,16 +176,17 @@ router.put('/global-config', protect, authorize('admin'), async (req, res) => {
 });
 
 /**
- * ✅ ULTIMATE FIX: Create with strict validation
+ * ✅ FIXED: Support both old (value) and new (translations) formats
  * POST /api/settings
  */
 router.post('/', protect, authorize('admin'), async (req, res) => {
     try {
-        let { category, value, displayOrder, parentId } = req.body;
+        let { category, value, translations, displayOrder, parentId } = req.body;
 
         console.log('\n📝 POST /api/settings');
         console.log('  Category:', category);
-        console.log('  Value:', value);
+        console.log('  Value:', value || 'NULL');
+        console.log('  Translations:', translations || 'NULL');
         console.log('  Parent ID:', parentId || 'NULL');
 
         // ✅ CRITICAL: Force 'kvartil' for tuman/kvartil system
@@ -194,23 +195,64 @@ router.post('/', protect, authorize('admin'), async (req, res) => {
             console.log('  ✅ Category forced to: kvartil');
         }
 
-        if (!category || !value) {
+        // ✅ Validation
+        if (!category) {
             return res.status(400).json({
                 success: false,
-                error: 'Category va value majburiy'
+                error: 'Category majburiy'
+            });
+        }
+
+        // ✅ CRITICAL: Support both formats
+        let finalTranslations;
+
+        if (translations && typeof translations === 'object') {
+            // New format with translations
+            finalTranslations = {
+                uz: (translations.uz || '').trim(),
+                ru: (translations.ru || '').trim(),
+                en: (translations.en || '').trim(),
+                uz_cy: (translations.uz_cy || '').trim()
+            };
+            console.log('  ✅ Using translations format');
+        } else if (value) {
+            // Old format - use value for all languages
+            const trimmedValue = value.trim();
+            finalTranslations = {
+                uz: trimmedValue,
+                ru: trimmedValue,
+                en: trimmedValue,
+                uz_cy: trimmedValue
+            };
+            console.log('  ✅ Using value format (all languages same)');
+        } else {
+            return res.status(400).json({
+                success: false,
+                error: 'Value yoki translations majburiy'
+            });
+        }
+
+        // Check if at least one translation exists
+        if (!finalTranslations.uz && !finalTranslations.ru && !finalTranslations.en && !finalTranslations.uz_cy) {
+            return res.status(400).json({
+                success: false,
+                error: 'Kamida bitta til kiritilishi kerak'
             });
         }
 
         // Create setting
         const setting = await AppSettings.create(
             category,
-            value.trim(),
+            finalTranslations,
             displayOrder || 0,
             parentId || null
         );
 
         console.log('  ✅ Created:', setting.id);
-        console.log('    Value:', setting.value);
+        console.log('    uz:', setting.value_uz);
+        console.log('    ru:', setting.value_ru);
+        console.log('    en:', setting.value_en);
+        console.log('    uz_cy:', setting.value_uz_cy);
         console.log('    Parent ID:', setting.parent_id || 'NULL (TUMAN)');
 
         res.json({
@@ -226,7 +268,6 @@ router.post('/', protect, authorize('admin'), async (req, res) => {
         });
     }
 });
-
 /**
  * Update setting
  * PUT /api/settings/:id

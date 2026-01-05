@@ -818,12 +818,41 @@ const SettingsTab = () => {
                 open={kvartilModalVisible}
                 onCancel={() => { setKvartilModalVisible(false); kvartilForm.resetFields(); }}
                 footer={null}
-                width={500}
+                width={600}
             >
                 <Form form={kvartilForm} layout="vertical" onFinish={handleSubmitKvartil}>
-                    <Form.Item name="value" label="Nomi" rules={[{ required: true, message: 'Nomini kiriting!' }, { min: 1, message: 'Kamida 1 ta belgi' }]}>
-                        <Input placeholder="Masalan: Yunusobod yoki Yunusobod - 1" />
+                    {/* ✅ 4 ta til inputi */}
+                    <Form.Item
+                        name="value_uz"
+                        label={<span>🇺🇿 O'zbekcha (Lotin)</span>}
+                        rules={[
+                            { required: true, message: 'Kamida bitta til kiritilishi kerak!' }
+                        ]}
+                    >
+                        <Input placeholder="Masalan: Yunusobod" />
                     </Form.Item>
+
+                    <Form.Item
+                        name="value_ru"
+                        label={<span>🇷🇺 Русский</span>}
+                    >
+                        <Input placeholder="Например: Юнусабад" />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="value_en"
+                        label={<span>🇬🇧 English</span>}
+                    >
+                        <Input placeholder="Example: Yunusabad" />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="value_uz_cy"
+                        label={<span>🇺🇿 Ўзбекча (Кирилл)</span>}
+                    >
+                        <Input placeholder="Масалан: Юнусобод" />
+                    </Form.Item>
+
                     <Form.Item name="parentId" label="Turi" extra={<span style={{ fontSize: 12, color: '#666' }}>Bo'sh qoldiring = TUMAN, Tanlang = KVARTIL</span>}>
                         <Select placeholder="Tuman tanlang (Kvartil bo'lsa)" allowClear>
                             {tumanList.map(tuman => (
