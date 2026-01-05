@@ -292,7 +292,7 @@ const FormMaskan = () => {
 
             const progressPromise = simulateProgress(setUploadProgress, 1500);
 
-            const serverResponse = await axios.post(`${SERVER_URL}api/send-data`, formData, {
+            const serverResponse = await api.post(`/api/send-data`, formData, {
                 headers: { "Content-Type": "multipart/form-data" },
                 timeout: 60000,
             });
