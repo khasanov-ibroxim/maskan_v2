@@ -245,10 +245,13 @@ const SettingsTab = () => {
         }
     };
 
+// client/src/page/admin/SettingsTab.jsx - ✅ FIXED: Full translation edit support
+
     const handleSubmitKvartil = async (values) => {
         try {
             console.log('\n📝 KVARTIL SUBMIT:', values);
 
+            // ✅ CRITICAL: Build translations object
             const payload = {
                 category: 'kvartil',
                 translations: {
@@ -264,6 +267,7 @@ const SettingsTab = () => {
             console.log('  📤 Payload:', payload);
 
             if (editingKvartil) {
+                // ✅ UPDATE - send all translations
                 const updatePayload = {
                     value_uz: payload.translations.uz,
                     value_ru: payload.translations.ru,
@@ -273,10 +277,13 @@ const SettingsTab = () => {
                     parentId: payload.parentId
                 };
 
+                console.log('  🔄 Update payload:', updatePayload);
+
                 const response = await api.put(`/api/settings/${editingKvartil.id}`, updatePayload);
                 console.log('  ✅ Update response:', response.data);
                 message.success('Yangilandi');
             } else {
+                // ✅ CREATE
                 const response = await api.post('/api/settings', payload);
                 console.log('  ✅ Create response:', response.data);
                 message.success('Qo\'shildi');
@@ -297,6 +304,7 @@ const SettingsTab = () => {
             message.error(error.response?.data?.error || 'Xato yuz berdi');
         }
     };
+
 
     const handleAdd = (category) => {
         setCurrentCategory(category);
@@ -331,8 +339,11 @@ const SettingsTab = () => {
         }
     };
 
+// ✅ SAME FIX for handleSubmit (other categories)
     const handleSubmit = async (values) => {
         try {
+            console.log('\n📝 SUBMIT (Other Categories):', currentCategory, values);
+
             const payload = {
                 category: currentCategory,
                 translations: {
@@ -877,19 +888,46 @@ const SettingsTab = () => {
                 open={modalVisible}
                 onCancel={() => { setModalVisible(false); form.resetFields(); }}
                 footer={null}
-                width={500}
+                width={600}
             >
                 <Form form={form} layout="vertical" onFinish={handleSubmit}>
-                    <Form.Item name="value" label="Qiymat" rules={[{ required: true, message: 'Qiymat kiriting!' }, { min: 1, message: 'Kamida 1 ta belgi' }]}>
-                        <Input placeholder="Masalan: Yunusobod - 20" />
+                    {/* ✅ 4 ta til inputi */}
+                    <Form.Item
+                        name="value_uz"
+                        label={<span>🇺🇿 O'zbekcha (Lotin)</span>}
+                        rules={[{ required: true, message: 'Kamida bitta til kiritilishi kerak!' }]}
+                    >
+                        <Input placeholder="Masalan: Panel" />
                     </Form.Item>
-                    <Form.Item name="displayOrder" label="Tartib raqami" rules={[{ required: true, message: 'Tartib kiriting!' }]} initialValue={0}>
-                        <InputNumber style={{ width: '100%' }} min={0} placeholder="0" />
+
+                    <Form.Item name="value_ru" label={<span>🇷🇺 Русский</span>}>
+                        <Input placeholder="Например: Панель" />
                     </Form.Item>
+
+                    <Form.Item name="value_en" label={<span>🇬🇧 English</span>}>
+                        <Input placeholder="Example: Panel" />
+                    </Form.Item>
+
+                    <Form.Item name="value_uz_cy" label={<span>🇺🇿 Ўзбекча (Кирилл)</span>}>
+                        <Input placeholder="Масалан: Панел" />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="displayOrder"
+                        label="Tartib raqami"
+                        initialValue={0}
+                    >
+                        <InputNumber style={{ width: '100%' }} min={0} />
+                    </Form.Item>
+
                     <Form.Item>
                         <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
-                            <Button onClick={() => { setModalVisible(false); form.resetFields(); }}>Bekor qilish</Button>
-                            <Button type="primary" htmlType="submit">{editingItem ? 'Yangilash' : 'Qo\'shish'}</Button>
+                            <Button onClick={() => { setModalVisible(false); form.resetFields(); }}>
+                                Bekor qilish
+                            </Button>
+                            <Button type="primary" htmlType="submit">
+                                {editingItem ? 'Yangilash' : 'Qo\'shish'}
+                            </Button>
                         </Space>
                     </Form.Item>
                 </Form>

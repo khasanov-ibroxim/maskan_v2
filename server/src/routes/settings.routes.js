@@ -179,6 +179,7 @@ router.put('/global-config', protect, authorize('admin'), async (req, res) => {
  * ✅ FIXED: Support both old (value) and new (translations) formats
  * POST /api/settings
  */
+
 router.post('/', protect, authorize('admin'), async (req, res) => {
     try {
         let { category, value, translations, displayOrder, parentId } = req.body;
@@ -186,7 +187,7 @@ router.post('/', protect, authorize('admin'), async (req, res) => {
         console.log('\n📝 POST /api/settings');
         console.log('  Category:', category);
         console.log('  Value:', value || 'NULL');
-        console.log('  Translations:', translations || 'NULL');
+        console.log('  Translations:', translations);
         console.log('  Parent ID:', parentId || 'NULL');
 
         // ✅ CRITICAL: Force 'kvartil' for tuman/kvartil system
@@ -203,7 +204,7 @@ router.post('/', protect, authorize('admin'), async (req, res) => {
             });
         }
 
-        // ✅ CRITICAL: Support both formats
+        // ✅ CRITICAL: Build translations object properly
         let finalTranslations;
 
         if (translations && typeof translations === 'object') {
@@ -232,13 +233,17 @@ router.post('/', protect, authorize('admin'), async (req, res) => {
             });
         }
 
-        // Check if at least one translation exists
-        if (!finalTranslations.uz && !finalTranslations.ru && !finalTranslations.en && !finalTranslations.uz_cy) {
+        // ✅ Check if at least one translation exists
+        const hasAnyTranslation = Object.values(finalTranslations).some(v => v && v.length > 0);
+
+        if (!hasAnyTranslation) {
             return res.status(400).json({
                 success: false,
                 error: 'Kamida bitta til kiritilishi kerak'
             });
         }
+
+        console.log('  📝 Final translations:', finalTranslations);
 
         // Create setting
         const setting = await AppSettings.create(

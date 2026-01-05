@@ -189,26 +189,31 @@ class AppSettings {
         console.log('  en:', translations.en);
         console.log('  uz_cy:', translations.uz_cy);
 
+        // ✅ CRITICAL: value column = value_uz (for backward compatibility)
+        const valueForLegacyColumn = translations.uz || translations.value || '';
+
         const result = await query(
             `INSERT INTO app_settings (
-                category, 
-                value_uz, 
-                value_ru, 
-                value_en, 
-                value_uz_cy, 
-                display_order, 
-                parent_id
-            )
-             VALUES ($1, $2, $3, $4, $5, $6, $7)
-             RETURNING *`,
+            category, 
+            value,           -- ✅ Legacy column
+            value_uz, 
+            value_ru, 
+            value_en, 
+            value_uz_cy, 
+            display_order, 
+            parent_id
+        )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         RETURNING *`,
             [
                 category,
-                translations.uz || translations.value, // Fallback
-                translations.ru || translations.value,
-                translations.en || translations.value,
-                translations.uz_cy || translations.value,
-                displayOrder,
-                parentId
+                valueForLegacyColumn,        // ✅ $2: value = value_uz
+                translations.uz || '',       // ✅ $3: value_uz
+                translations.ru || '',       // ✅ $4: value_ru
+                translations.en || '',       // ✅ $5: value_en
+                translations.uz_cy || '',    // ✅ $6: value_uz_cy
+                displayOrder,                // ✅ $7
+                parentId                     // ✅ $8
             ]
         );
 
@@ -218,7 +223,6 @@ class AppSettings {
 
         return result.rows[0];
     }
-
     /**
      * Update setting with translations
      */
@@ -227,49 +231,72 @@ class AppSettings {
         const values = [];
         let paramCount = 1;
 
+        console.log('\n📝 UPDATE SETTINGS:');
+        console.log('  ID:', id);
+        console.log('  Updates:', updates);
+
+        // ✅ Handle all translation fields
         if (updates.value_uz !== undefined) {
             fields.push(`value_uz = $${paramCount++}`);
-            values.push(updates.value_uz);
+            fields.push(`value = $${paramCount++}`);  // ✅ Sync legacy column
+            values.push(updates.value_uz || '');
+            values.push(updates.value_uz || '');
+            console.log('  ✅ value_uz:', updates.value_uz);
         }
+
         if (updates.value_ru !== undefined) {
             fields.push(`value_ru = $${paramCount++}`);
-            values.push(updates.value_ru);
+            values.push(updates.value_ru || '');
+            console.log('  ✅ value_ru:', updates.value_ru);
         }
+
         if (updates.value_en !== undefined) {
             fields.push(`value_en = $${paramCount++}`);
-            values.push(updates.value_en);
+            values.push(updates.value_en || '');
+            console.log('  ✅ value_en:', updates.value_en);
         }
+
         if (updates.value_uz_cy !== undefined) {
             fields.push(`value_uz_cy = $${paramCount++}`);
-            values.push(updates.value_uz_cy);
+            values.push(updates.value_uz_cy || '');
+            console.log('  ✅ value_uz_cy:', updates.value_uz_cy);
         }
 
         if (updates.displayOrder !== undefined) {
             fields.push(`display_order = $${paramCount++}`);
             values.push(updates.displayOrder);
         }
+
         if (updates.isActive !== undefined) {
             fields.push(`is_active = $${paramCount++}`);
             values.push(updates.isActive);
         }
+
         if (updates.parentId !== undefined) {
             fields.push(`parent_id = $${paramCount++}`);
             values.push(updates.parentId);
         }
 
-        if (fields.length === 0) return null;
+        if (fields.length === 0) {
+            console.log('  ⚠️ Hech qanday yangilanish yo\'q');
+            return null;
+        }
 
         values.push(id);
         const result = await query(
             `UPDATE app_settings
-             SET ${fields.join(', ')}
-             WHERE id = $${paramCount}
-             RETURNING *`,
+         SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $${paramCount}
+         RETURNING *`,
             values
         );
+
+        if (result.rows[0]) {
+            console.log('  ✅ Updated successfully');
+        }
+
         return result.rows[0];
     }
-
     /**
      * Delete setting (soft delete)
      */
