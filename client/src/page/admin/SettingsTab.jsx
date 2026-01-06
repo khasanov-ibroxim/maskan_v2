@@ -105,7 +105,8 @@ const SettingsTab = () => {
                     id: item.id,
                     value: item.value,
                     label: item.label,
-                    translations: item.translations
+                    translations: item.translations,
+                    display_order: item.display_order,
                 }));
                 setTumanList(tumans);
 
@@ -339,7 +340,6 @@ const SettingsTab = () => {
         }
     };
 
-// ✅ SAME FIX for handleSubmit (other categories)
     const handleSubmit = async (values) => {
         try {
             console.log('\n📝 SUBMIT (Other Categories):', currentCategory, values);
@@ -431,7 +431,7 @@ const SettingsTab = () => {
             dataIndex: 'display_order',
             key: 'display_order',
             width: '20%',
-            render: (order) => <span style={{ color: '#888' }}>{order}</span>
+            render: (order) => <span style={{ color: '#888' }}>{order ?? 0}</span>
         },
         {
             title: 'Amallar',
@@ -530,7 +530,7 @@ const SettingsTab = () => {
             dataIndex: 'display_order',
             key: 'display_order',
             width: '15%',
-            render: (order) => <span style={{ color: '#888' }}>{order}</span>
+            render: (order) => <span style={{ color: '#888' }}>{order ?? 0}</span>
         },
         {
             title: 'Amallar',
@@ -581,7 +581,7 @@ const SettingsTab = () => {
             dataIndex: 'display_order',
             key: 'display_order',
             width: '15%',
-            render: (order) => <span style={{ color: '#888' }}>{order}</span>
+            render: (order) => <span style={{ color: '#888' }}>{order ?? 0}</span>
         },
         {
             title: 'Amallar',
@@ -619,7 +619,7 @@ const SettingsTab = () => {
             flattened.push({
                 id: tuman.id,
                 value: tuman.value,
-                display_order: 0,
+                display_order: tuman.display_order ?? 0,   // ✅ FIX
                 parent_id: null,
                 translations: tuman.translations
             });
@@ -629,7 +629,7 @@ const SettingsTab = () => {
                     flattened.push({
                         id: kvartil.id,
                         value: kvartil.value,
-                        display_order: 0,
+                        display_order: kvartil.display_order ?? 0, // ✅ FIX
                         parent_id: tuman.id,
                         translations: kvartil.translations
                     });

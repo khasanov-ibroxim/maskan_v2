@@ -182,7 +182,7 @@ router.put('/global-config', protect, authorize('admin'), async (req, res) => {
 
 router.post('/', protect, authorize('admin'), async (req, res) => {
     try {
-        let { category, value, translations, displayOrder, parentId } = req.body;
+        let { category, value, translations, display_order, parentId } = req.body;
 
         console.log('\n📝 POST /api/settings');
         console.log('  Category:', category);
@@ -249,7 +249,7 @@ router.post('/', protect, authorize('admin'), async (req, res) => {
         const setting = await AppSettings.create(
             category,
             finalTranslations,
-            displayOrder || 0,
+            display_order || 0,
             parentId || null
         );
 

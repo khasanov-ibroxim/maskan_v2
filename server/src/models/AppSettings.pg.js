@@ -55,6 +55,7 @@ class AppSettings {
                             value: kvValue,
                             label: kvValue,
                             id: kv.id,
+                            display_order: kv.display_order,
                             // Include all translations
                             translations: {
                                 uz: kv.value_uz,
@@ -71,6 +72,7 @@ class AppSettings {
                     value: tumanValue,
                     label: tumanValue,
                     id: tuman.id,
+                    display_order: tuman.display_order,
                     translations: {
                         uz: tuman.value_uz,
                         ru: tuman.value_ru,
