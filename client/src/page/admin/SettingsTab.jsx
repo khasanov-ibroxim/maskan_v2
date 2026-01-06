@@ -181,7 +181,7 @@ const SettingsTab = () => {
         chatForm.setFieldsValue({
             chatName: chat.chat_name,
             chatId: chat.chat_id,
-            displayOrder: chat.display_order
+            display_order: chat.display_order
         });
         setChatModalVisible(true);
     };
@@ -229,7 +229,7 @@ const SettingsTab = () => {
             value_ru: translations.ru || '',
             value_en: translations.en || '',
             value_uz_cy: translations.uz_cy || '',
-            displayOrder: item.display_order,
+            display_order: item.display_order,
             parentId: item.parent_id
         });
         setKvartilModalVisible(true);
@@ -260,7 +260,7 @@ const SettingsTab = () => {
                     en: values.value_en?.trim() || '',
                     uz_cy: values.value_uz_cy?.trim() || ''
                 },
-                displayOrder: values.displayOrder || 0,
+                display_order: values.display_order || 0,
                 parentId: values.parentId || null
             };
 
@@ -273,7 +273,7 @@ const SettingsTab = () => {
                     value_ru: payload.translations.ru,
                     value_en: payload.translations.en,
                     value_uz_cy: payload.translations.uz_cy,
-                    displayOrder: payload.displayOrder,
+                    display_order: payload.display_order,
                     parentId: payload.parentId
                 };
 
@@ -324,7 +324,7 @@ const SettingsTab = () => {
             value_ru: translations.ru || '',
             value_en: translations.en || '',
             value_uz_cy: translations.uz_cy || '',
-            displayOrder: item.display_order
+            display_order: item.display_order
         });
         setModalVisible(true);
     };
@@ -352,7 +352,7 @@ const SettingsTab = () => {
                     en: values.value_en?.trim() || '',
                     uz_cy: values.value_uz_cy?.trim() || ''
                 },
-                displayOrder: values.displayOrder || 0
+                display_order: values.display_order || 0
             };
 
             if (editingItem) {
@@ -361,7 +361,7 @@ const SettingsTab = () => {
                     value_ru: payload.translations.ru,
                     value_en: payload.translations.en,
                     value_uz_cy: payload.translations.uz_cy,
-                    displayOrder: payload.displayOrder
+                    display_order: payload.display_order
                 };
                 await api.put(`/api/settings/${editingItem.id}`, updatePayload);
                 message.success('Yangilandi');
@@ -812,7 +812,7 @@ const SettingsTab = () => {
                     <Form.Item name="chatId" label="Chat ID" rules={[{ required: true, message: 'Chat ID kiriting!' }, { pattern: /^-?\d+$/, message: 'Faqat raqamlar' }]}>
                         <Input placeholder="-1003298985470" />
                     </Form.Item>
-                    <Form.Item name="displayOrder" label="Tartib raqami" rules={[{ required: true, message: 'Tartib kiriting!' }]} initialValue={0}>
+                    <Form.Item name="display_order" label="Tartib raqami" rules={[{ required: true, message: 'Tartib kiriting!' }]} initialValue={0}>
                         <InputNumber style={{ width: '100%' }} min={0} placeholder="0" />
                     </Form.Item>
                     <Form.Item>
@@ -871,7 +871,7 @@ const SettingsTab = () => {
                             ))}
                         </Select>
                     </Form.Item>
-                    <Form.Item name="displayOrder" label="Tartib raqami" rules={[{ required: true, message: 'Tartib kiriting!' }]} initialValue={0}>
+                    <Form.Item name="display_order" label="Tartib raqami" rules={[{ required: true, message: 'Tartib kiriting!' }]} initialValue={0}>
                         <InputNumber style={{ width: '100%' }} min={0} placeholder="0" />
                     </Form.Item>
                     <Form.Item>
@@ -913,7 +913,7 @@ const SettingsTab = () => {
                     </Form.Item>
 
                     <Form.Item
-                        name="displayOrder"
+                        name="display_order"
                         label="Tartib raqami"
                         initialValue={0}
                     >
