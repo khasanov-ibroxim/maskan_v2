@@ -1,270 +1,240 @@
-// server/src/routes/public.routes.js - FINAL FIXED VERSION
+// server/src/routes/public.routes.js - ✅ MULTILANG VERSION
 const express = require('express');
 const router = express.Router();
 const PropertyObject = require('../models/Object.pg');
+const AppSettings = require('../models/AppSettings.pg');
 const path = require('path');
 const {getGlobalConfig} = require("../models/AppSettings.pg");
 const fs = require('fs').promises;
 
 /**
- * ✅ CRITICAL FIX: Get images array from folder link
+ * ✅ Get images array from folder link
  */
 async function getImagesFromFolder(folderLink) {
     if (!folderLink || folderLink === "Yo'q") {
-        console.log('⚠️ Folder link yo\'q');
         return [];
     }
 
     try {
-        console.log('\n📂 RASMLARNI OLISH:');
-        console.log('  Folder Link:', folderLink);
-
-        // ✅ Parse folder path from browse URL
-        // Example: http://194.163.140.30:5000/browse/Yunusobod%20-%2011/3%20xona/...
         const urlParts = folderLink.split('/browse/');
-
         if (urlParts.length < 2) {
-            console.log('  ❌ Browse URL noto\'g\'ri format');
             return [];
         }
 
-        const baseUrl = urlParts[0]; // http://194.163.140.30:5000
-        const encodedPath = urlParts[1]; // Yunusobod%20-%2011/3%20xona/...
-        const decodedPath = decodeURIComponent(encodedPath); // Yunusobod - 11/3 xona/...
+        const baseUrl = urlParts[0];
+        const encodedPath = urlParts[1];
+        const decodedPath = decodeURIComponent(encodedPath);
 
-        console.log('  Base URL:', baseUrl);
-        console.log('  Decoded Path:', decodedPath);
-
-        // ✅ Create local file system path
         const UPLOADS_ROOT = path.join(__dirname, '../../uploads');
         const folderPath = path.join(UPLOADS_ROOT, decodedPath);
 
-        console.log('  Local Path:', folderPath);
-
-        // ✅ Check if folder exists
         try {
             await fs.access(folderPath);
-            console.log('  ✅ Folder mavjud');
         } catch {
-            console.log('  ❌ Folder topilmadi');
             return [];
         }
 
-        // ✅ Read directory
         const files = await fs.readdir(folderPath);
-        console.log('  📊 Fayllar soni:', files.length);
-
-        // ✅ Filter only images and sort
         const IMAGE_EXT = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+
         const imageFiles = files
             .filter(file => {
                 const ext = path.extname(file).toLowerCase();
                 return IMAGE_EXT.includes(ext);
             })
             .sort((a, b) => {
-                // Sort by number: photo_1.jpg, photo_2.jpg, ...
                 const numA = parseInt(a.match(/\d+/)?.[0] || '999');
                 const numB = parseInt(b.match(/\d+/)?.[0] || '999');
                 return numA - numB;
             });
 
-        console.log('  📷 Rasmlar:', imageFiles.length);
-
         if (imageFiles.length === 0) {
-            console.log('  ⚠️ Rasmlar topilmadi');
             return [];
         }
 
-        // ✅ Create full URLs for each image
         const imageUrls = imageFiles.map(file => {
-            // Create encoded path: Yunusobod%20-%2011/3%20xona/.../photo_1.jpg
             const imagePath = `${decodedPath}/${file}`
                 .split('/')
                 .map(segment => encodeURIComponent(segment))
                 .join('/');
-
             return `${baseUrl}/browse/${imagePath}`;
-        });
-
-        console.log(`  ✅ ${imageUrls.length} ta rasm URL yaratildi`);
-        imageUrls.forEach((url, i) => {
-            console.log(`    ${i + 1}. ${path.basename(url)}`);
         });
 
         return imageUrls;
 
     } catch (error) {
-        console.error('  ❌ getImagesFromFolder error:', error.message);
+        console.error('❌ getImagesFromFolder error:', error.message);
         return [];
     }
 }
 
 /**
- * ✅ CRITICAL FIX: Parse price correctly (55 000 -> 55000)
+ * ✅ Parse price correctly
  */
 function parsePrice(priceValue) {
     if (!priceValue) return 0;
 
-    // Convert to string and remove all non-numeric characters except dots
     const cleanPrice = String(priceValue)
-        .replace(/\s/g, '')        // Remove spaces
-        .replace(/\$/g, '')        // Remove $
-        .replace(/у\.е\./g, '')    // Remove у.е.
-        .replace(/[^\d.]/g, '');   // Keep only digits and dots
+        .replace(/\s/g, '')
+        .replace(/\$/g, '')
+        .replace(/у\.е\./g, '')
+        .replace(/[^\d.]/g, '');
 
-    const parsed = parseFloat(cleanPrice) || 0;
-
-    console.log('  💰 Price parsing:');
-    console.log('    Raw:', priceValue);
-    console.log('    Clean:', cleanPrice);
-    console.log('    Parsed:', parsed);
-
-    return parsed;
+    return parseFloat(cleanPrice) || 0;
 }
 
 /**
- * ✅ Transform to frontend format with FIXED images and price
+ * ✅ Get translation for specific field from app_settings
  */
-async function transformProperty(obj, lang = 'uz') {
-    console.log('\n📦 TRANSFORM PROPERTY:');
-    console.log('  ID:', obj.id);
-    console.log('  Rasmlar URL:', obj.rasmlar);
-    const globalConfig = await getGlobalConfig();
-    // ✅ Get all images from folder
-    const images = await getImagesFromFolder(obj.rasmlar);
-    console.log('  📊 Images found:', images.length);
+async function getFieldTranslations(category, value) {
+    if (!value) return null;
 
-    // ✅ Main image - first one
-    const mainImage = images.length > 0 ? images[0] : null;
-    console.log('  🖼️ Main image:', mainImage ? path.basename(mainImage) : 'None');
+    try {
+        const allSettings = await AppSettings.getByCategory(category, 'uz');
+        const setting = allSettings.find(s =>
+            s.translations.uz === value ||
+            s.translations.ru === value ||
+            s.translations.en === value ||
+            s.translations.uz_cy === value
+        );
 
-    // Parse XET
-    const xonaSoni = obj.xet ? obj.xet.split('/')[0] : '1';
-    const etaj = obj.xet ? obj.xet.split('/')[1] : '1';
-    const etajnost = obj.xet ? obj.xet.split('/')[2] : '1';
+        if (setting && setting.translations) {
+            return {
+                uz: setting.translations.uz || value,
+                ru: setting.translations.ru || setting.translations.uz || value,
+                en: setting.translations.en || setting.translations.uz || value,
+                uz_cy: setting.translations.uz_cy || setting.translations.uz || value
+            };
+        }
+    } catch (error) {
+        console.error(`❌ Translation error for ${category}:`, error.message);
+    }
 
-    // ✅ CRITICAL: Parse price correctly
-    const price = parsePrice(obj.narx);
-
-    const translations = createTranslations(obj, lang);
-
-    const result = {
-        id: obj.id,
-        title: translations.title,
-        description: translations.description,
-
-        // ✅ Price (properly parsed)
-        price: price,
-
-        rooms: parseInt(xonaSoni) || 1,
-        area: parseFloat(obj.m2) || 0,
-        floor: parseInt(etaj) || 1,
-        totalFloors: parseInt(etajnost) || 1,
-
-        district: obj.kvartil || '',
-        type: translateSheetType(obj.sheet_type, lang),
-
-
-        // ✅ Images array (all photos)
-        images: images,
-
-        // ✅ Main image (first photo)
-        mainImage: mainImage,
-
-        // ✅ Contact info
-        phone: obj.phone_for_ad || globalConfig.company_phone,
-        rieltor: obj.rieltor?.trim() || 'Maskan Lux Agent',
-
-        createdAt: obj.sana || obj.created_at || new Date().toISOString(),
-
-        // Additional details
-        renovation: obj.xolati || 'Yaxshi',
-        buildingType: obj.uy_turi || 'Panel',
-        balcony: obj.balkon || "Yo'q",
-        parking: obj.torets || "Yo'q",
-        layout: obj.planirovka || null,
+    // Fallback - return value for all languages
+    return {
+        uz: value,
+        ru: value,
+        en: value,
+        uz_cy: value
     };
-
-    return result;
 }
+
+/**
+ * ✅ Get kvartil (location) translations
+ */
+async function getKvartilTranslations(kvartilValue) {
+    if (!kvartilValue) return null;
+
+    try {
+        const cascaderData = await AppSettings.getCascaderData('uz');
+
+        // Search in tumans (parent_id = null)
+        for (const tuman of cascaderData) {
+            if (tuman.translations) {
+                const translations = tuman.translations;
+                if (translations.uz === kvartilValue ||
+                    translations.ru === kvartilValue ||
+                    translations.en === kvartilValue ||
+                    translations.uz_cy === kvartilValue) {
+                    return {
+                        uz: translations.uz || kvartilValue,
+                        ru: translations.ru || translations.uz || kvartilValue,
+                        en: translations.en || translations.uz || kvartilValue,
+                        uz_cy: translations.uz_cy || translations.uz || kvartilValue
+                    };
+                }
+            }
+
+            // Search in children (kvartils)
+            if (tuman.children) {
+                for (const child of tuman.children) {
+                    if (child.translations) {
+                        const translations = child.translations;
+                        if (translations.uz === kvartilValue ||
+                            translations.ru === kvartilValue ||
+                            translations.en === kvartilValue ||
+                            translations.uz_cy === kvartilValue) {
+                            return {
+                                uz: translations.uz || kvartilValue,
+                                ru: translations.ru || translations.uz || kvartilValue,
+                                en: translations.en || translations.uz || kvartilValue,
+                                uz_cy: translations.uz_cy || translations.uz || kvartilValue
+                            };
+                        }
+                    }
+                }
+            }
+        }
+    } catch (error) {
+        console.error('❌ Kvartil translation error:', error.message);
+    }
+
+    return {
+        uz: kvartilValue,
+        ru: kvartilValue,
+        en: kvartilValue,
+        uz_cy: kvartilValue
+    };
+}
+
+/**
+ * ✅ Sheet type translations
+ */
 const SHEET_TYPE_TRANSLATIONS = {
-    Sotuv: {
+    'Sotuv': {
         uz: 'Sotiladi',
-        'uz-cy': 'Сотилади',
         ru: 'Продажа',
-        en: 'For Sale'
+        en: 'For Sale',
+        uz_cy: 'Сотилади'
     },
-    Arenda: {
+    'Arenda': {
         uz: 'Ijaraga beriladi',
-        'uz-cy': 'Ижарага берилади',
         ru: 'Аренда',
-        en: 'For Rent'
+        en: 'For Rent',
+        uz_cy: 'Ижарага берилади'
     }
 };
-function translateSheetType(sheetType, lang = 'uz') {
-    if (!sheetType) return '';
 
-    return (
-        SHEET_TYPE_TRANSLATIONS[sheetType]?.[lang] ||
-        SHEET_TYPE_TRANSLATIONS[sheetType]?.uz ||
-        sheetType
-    );
-}
+/**
+ * ✅ Create multilingual title
+ */
+function createMultilingualTitle(obj) {
+    const xonaSoni = obj.xet ? obj.xet.split('/')[0] : '1';
+    const location = obj.kvartil || 'Yunusobod';
+    const type = obj.sheet_type || 'Sotuv';
 
-function createTranslations(dbProperty, lang) {
-    const xonaSoni = dbProperty.xet ? dbProperty.xet.split('/')[0] : '1';
-    const location = dbProperty.kvartil || 'Yunusobod';
-    const type = dbProperty.sheet_type || 'Sotuv';
-
-    const titles = {
-        uz: `${type === 'Sotuv' ? 'Sotiladi' : 'Ijaraga'} ${xonaSoni}-xonali kvartira ${location}`,
-        ru: `${type === 'Sotuv' ? 'Продается' : 'Сдается'} ${xonaSoni}-комнатная квартира ${location}`,
-        en: `${type === 'Sotuv' ? 'For Sale' : 'For Rent'} ${xonaSoni}-room apartment ${location}`
-    };
-
-    const descriptions = {
-        uz: createDescription(dbProperty, 'uz'),
-        ru: createDescription(dbProperty, 'ru'),
-        en: createDescription(dbProperty, 'en')
+    const typeTranslations = SHEET_TYPE_TRANSLATIONS[type] || {
+        uz: type,
+        ru: type,
+        en: type,
+        uz_cy: type
     };
 
     return {
-        title: titles[lang] || titles.uz,
-        description: descriptions[lang] || descriptions.uz
+        uz: `${typeTranslations.uz} ${xonaSoni}-xonali kvartira ${location}`,
+        ru: `${typeTranslations.ru} ${xonaSoni}-комнатная квартира ${location}`,
+        en: `${typeTranslations.en} ${xonaSoni}-room apartment ${location}`,
+        uz_cy: `${typeTranslations.uz_cy} ${xonaSoni}-хонали квартира ${location}`
     };
 }
 
 /**
- * Create description in specific language
+ * ✅ Create multilingual description
  */
-function createDescription(property, lang) {
-    const { kvartil, xet, m2, xolati, uy_turi, planirovka, balkon } = property;
+function createMultilingualDescription(obj) {
+    const { kvartil, xet, m2, xolati, uy_turi, planirovka, balkon } = obj;
     const xonaSoni = xet ? xet.split('/')[0] : '1';
     const etajInfo = xet ? `${xet.split('/')[1]}/${xet.split('/')[2]}` : '1/1';
 
-    if (lang === 'ru') {
-        let desc = `${xonaSoni}-комнатная квартира в ${kvartil}\n\n`;
-        desc += `• Площадь: ${m2} м²\n`;
-        desc += `• Этаж: ${etajInfo}\n`;
-        if (uy_turi) desc += `• Тип дома: ${uy_turi}\n`;
-        if (xolati) desc += `• Состояние: ${xolati}\n`;
-        if (planirovka) desc += `• Планировка: ${planirovka}\n`;
-        if (balkon) desc += `• Балкон: ${balkon}\n`;
-        return desc;
-    }
+    return {
+        uz: createDescriptionUz(kvartil, xonaSoni, etajInfo, m2, uy_turi, xolati, planirovka, balkon),
+        ru: createDescriptionRu(kvartil, xonaSoni, etajInfo, m2, uy_turi, xolati, planirovka, balkon),
+        en: createDescriptionEn(kvartil, xonaSoni, etajInfo, m2, uy_turi, xolati, planirovka, balkon),
+        uz_cy: createDescriptionUzCy(kvartil, xonaSoni, etajInfo, m2, uy_turi, xolati, planirovka, balkon)
+    };
+}
 
-    if (lang === 'en') {
-        let desc = `${xonaSoni}-room apartment in ${kvartil}\n\n`;
-        desc += `• Area: ${m2} m²\n`;
-        desc += `• Floor: ${etajInfo}\n`;
-        if (uy_turi) desc += `• Building type: ${uy_turi}\n`;
-        if (xolati) desc += `• Condition: ${xolati}\n`;
-        if (planirovka) desc += `• Layout: ${planirovka}\n`;
-        if (balkon) desc += `• Balcony: ${balkon}\n`;
-        return desc;
-    }
-
-    // Uzbek (default)
+function createDescriptionUz(kvartil, xonaSoni, etajInfo, m2, uy_turi, xolati, planirovka, balkon) {
     let desc = `${kvartil}da ${xonaSoni}-xonali kvartira\n\n`;
     desc += `• Maydon: ${m2} m²\n`;
     desc += `• Qavat: ${etajInfo}\n`;
@@ -275,25 +245,126 @@ function createDescription(property, lang) {
     return desc;
 }
 
+function createDescriptionRu(kvartil, xonaSoni, etajInfo, m2, uy_turi, xolati, planirovka, balkon) {
+    let desc = `${xonaSoni}-комнатная квартира в ${kvartil}\n\n`;
+    desc += `• Площадь: ${m2} м²\n`;
+    desc += `• Этаж: ${etajInfo}\n`;
+    if (uy_turi) desc += `• Тип дома: ${uy_turi}\n`;
+    if (xolati) desc += `• Состояние: ${xolati}\n`;
+    if (planirovka) desc += `• Планировка: ${planirovka}\n`;
+    if (balkon) desc += `• Балкон: ${balkon}\n`;
+    return desc;
+}
+
+function createDescriptionEn(kvartil, xonaSoni, etajInfo, m2, uy_turi, xolati, planirovka, balkon) {
+    let desc = `${xonaSoni}-room apartment in ${kvartil}\n\n`;
+    desc += `• Area: ${m2} m²\n`;
+    desc += `• Floor: ${etajInfo}\n`;
+    if (uy_turi) desc += `• Building type: ${uy_turi}\n`;
+    if (xolati) desc += `• Condition: ${xolati}\n`;
+    if (planirovka) desc += `• Layout: ${planirovka}\n`;
+    if (balkon) desc += `• Balcony: ${balkon}\n`;
+    return desc;
+}
+
+function createDescriptionUzCy(kvartil, xonaSoni, etajInfo, m2, uy_turi, xolati, planirovka, balkon) {
+    let desc = `${kvartil}да ${xonaSoni}-хонали квартира\n\n`;
+    desc += `• Майдон: ${m2} м²\n`;
+    desc += `• Қават: ${etajInfo}\n`;
+    if (uy_turi) desc += `• Уй тури: ${uy_turi}\n`;
+    if (xolati) desc += `• Таъмир: ${xolati}\n`;
+    if (planirovka) desc += `• Планировка: ${planirovka}\n`;
+    if (balkon) desc += `• Балкон: ${balkon}\n`;
+    return desc;
+}
+
 /**
- * Map xolati to renovation enum
+ * ✅ Transform to frontend format with ALL translations
  */
-function mapRenovation(xolati) {
-    if (!xolati) return 'euro';
+async function transformProperty(obj) {
+    console.log('\n📦 TRANSFORM PROPERTY:');
+    console.log('  ID:', obj.id);
+    console.log('  Kvartil:', obj.kvartil);
 
-    const lower = xolati.toLowerCase();
-    if (lower.includes('евро') || lower.includes('euro')) return 'euro';
-    if (lower.includes('средн') || lower.includes('oddiy')) return 'standard';
-    if (lower.includes('треб') || lower.includes('tamir')) return 'needs';
+    const globalConfig = await getGlobalConfig();
 
-    return 'euro';
+    // Get images
+    const images = await getImagesFromFolder(obj.rasmlar);
+    const mainImage = images.length > 0 ? images[0] : null;
+
+    // Parse XET
+    const xonaSoni = obj.xet ? obj.xet.split('/')[0] : '1';
+    const etaj = obj.xet ? obj.xet.split('/')[1] : '1';
+    const etajnost = obj.xet ? obj.xet.split('/')[2] : '1';
+
+    // Parse price
+    const price = parsePrice(obj.narx);
+
+    // ✅ Get translations for all fields
+    const kvartilTranslations = await getKvartilTranslations(obj.kvartil);
+    const uyTuriTranslations = await getFieldTranslations('uy_turi', obj.uy_turi);
+    const xolatiTranslations = await getFieldTranslations('xolati', obj.xolati);
+    const planirovkaTranslations = await getFieldTranslations('planirovka', obj.planirovka);
+    const balkonTranslations = await getFieldTranslations('balkon', obj.balkon);
+    const toretsTranslations = await getFieldTranslations('torets', obj.torets);
+
+    // ✅ Create multilingual title and description
+    const titleTranslations = createMultilingualTitle(obj);
+    const descriptionTranslations = createMultilingualDescription(obj);
+
+    // ✅ Sheet type translations
+    const sheetTypeTranslations = SHEET_TYPE_TRANSLATIONS[obj.sheet_type] || {
+        uz: obj.sheet_type,
+        ru: obj.sheet_type,
+        en: obj.sheet_type,
+        uz_cy: obj.sheet_type
+    };
+
+    return {
+        id: obj.id,
+
+        // ✅ Multilingual title
+        title: titleTranslations,
+
+        // ✅ Multilingual description
+        description: descriptionTranslations,
+
+        // Price and basic info
+        price: price,
+        rooms: parseInt(xonaSoni) || 1,
+        area: parseFloat(obj.m2) || 0,
+        floor: parseInt(etaj) || 1,
+        totalFloors: parseInt(etajnost) || 1,
+
+        // ✅ Multilingual fields
+        district: kvartilTranslations,
+        type: sheetTypeTranslations,
+        buildingType: uyTuriTranslations,
+        renovation: xolatiTranslations,
+        layout: planirovkaTranslations,
+        balcony: balkonTranslations,
+        parking: toretsTranslations,
+
+        // Images
+        images: images,
+        mainImage: mainImage,
+
+        // Contact info
+        phone: obj.phone_for_ad || globalConfig.company_phone,
+        rieltor: obj.rieltor?.trim() || 'Maskan Lux Agent',
+
+        // Dates
+        createdAt: obj.sana || obj.created_at || new Date().toISOString(),
+    };
 }
 
 // ============================================
 // PUBLIC API ENDPOINTS
 // ============================================
 
-
+/**
+ * ✅ GET /api/public/config
+ */
 router.get('/config', async (req, res) => {
     try {
         const globalConfig = await getGlobalConfig();
@@ -302,26 +373,28 @@ router.get('/config', async (req, res) => {
 
         res.json({
             success: true,
-            data: {companies_phone: COMPANY_PHONE, telegram_bot_token: TELEGRAM_BOT_TOKEN},
+            data: {
+                companies_phone: COMPANY_PHONE,
+                telegram_bot_token: TELEGRAM_BOT_TOKEN
+            },
         });
-    }catch (error) {
-        console.log(error);
+    } catch (error) {
         console.error('❌ GET /config error:', error);
         res.status(500).json({
             success: false,
             error: 'Server xatosi'
         });
     }
-})
+});
 
 /**
- * ✅ GET /api/public/properties
+ * ✅ GET /api/public/properties - Returns ALL translations
  */
 router.get('/properties', async (req, res) => {
     try {
-        const { lang = 'uz', rooms, location, type } = req.query;
+        const { rooms, location, type } = req.query;
 
-        console.log('\n📥 GET /properties', { lang, rooms, location, type });
+        console.log('\n📥 GET /properties', { rooms, location, type });
 
         // Build filters
         const filters = {};
@@ -332,7 +405,7 @@ router.get('/properties', async (req, res) => {
         let allObjects = await PropertyObject.getAll(filters);
         console.log(`📊 PostgreSQL: ${allObjects.length} objects`);
 
-        // ✅ Filter only objects with images
+        // Filter only objects with images
         allObjects = allObjects.filter(obj => {
             return obj.rasmlar &&
                 obj.rasmlar !== "Yo'q" &&
@@ -350,12 +423,12 @@ router.get('/properties', async (req, res) => {
             });
         }
 
-        // Transform all objects
+        // ✅ Transform all objects with ALL translations
         const properties = await Promise.all(
-            allObjects.map(obj => transformProperty(obj, lang))
+            allObjects.map(obj => transformProperty(obj))
         );
 
-        console.log(`✅ Returning ${properties.length} properties`);
+        console.log(`✅ Returning ${properties.length} properties with full translations`);
 
         res.json({
             success: true,
@@ -373,17 +446,15 @@ router.get('/properties', async (req, res) => {
 });
 
 /**
- * ✅ GET /api/public/properties/:id
+ * ✅ GET /api/public/properties/:id - Returns ALL translations
  */
 router.get('/properties/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const { lang = 'uz' } = req.query;
 
         console.log(`\n📥 GET /properties/${id}`);
 
         const obj = await PropertyObject.getById(id);
-
 
         if (!obj) {
             return res.status(404).json({
@@ -400,13 +471,13 @@ router.get('/properties/:id', async (req, res) => {
             });
         }
 
-        const property = await transformProperty(obj, lang);
+        // ✅ Transform with ALL translations
+        const property = await transformProperty(obj);
 
         console.log('✅ Property found:', property.id);
+        console.log('  Translations: uz, ru, en, uz_cy');
         console.log('  Price:', property.price);
         console.log('  Images:', property.images.length);
-        console.log('  Main Image:', property.mainImage ? '✅' : '❌');
-        console.log('  Rieltor:', property.rieltor);
 
         res.json({
             success: true,
@@ -423,7 +494,7 @@ router.get('/properties/:id', async (req, res) => {
 });
 
 /**
- * ✅ GET /api/public/locations
+ * ✅ GET /api/public/locations - Returns locations with translations
  */
 router.get('/locations', async (req, res) => {
     try {
@@ -438,10 +509,21 @@ router.get('/locations', async (req, res) => {
             }
         });
 
-        const locations = Object.entries(locationCounts)
-            .map(([name, count]) => ({ name, count }))
-            .filter(loc => loc.count > 0)
-            .sort((a, b) => b.count - a.count);
+        // ✅ Get translations for each location
+        const locationsPromises = Object.entries(locationCounts)
+            .filter(([_, count]) => count > 0)
+            .map(async ([name, count]) => {
+                const translations = await getKvartilTranslations(name);
+                return {
+                    name: translations,  // ✅ Now returns object with all translations
+                    count
+                };
+            });
+
+        const locations = await Promise.all(locationsPromises);
+
+        // Sort by count
+        locations.sort((a, b) => b.count - a.count);
 
         res.json({
             success: true,
