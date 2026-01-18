@@ -484,7 +484,7 @@ const AdminPanel = () => {
                             </Form.Item>
 
                             <Form.Item name="appScriptUrl" label="App Script URL" rules={[
-                                { required: true, type: 'url' }
+                                { required: false, type: 'url' }
                             ]}>
                                 <Input placeholder="https://script.google.com/..." />
                             </Form.Item>

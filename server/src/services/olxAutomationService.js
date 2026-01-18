@@ -165,11 +165,6 @@ function cleanTempImages() {
     }
 }
 
-/**
- * Create description
- */
-
-// ✅ CRITICAL FIX: Phone number in OLX form (PARTIAL - only phone section)
 
 /**
  * Create description - with correct phone
@@ -195,7 +190,7 @@ function createDescription(data) {
     if (xolati) description += `• Ta'mir: ${xolati}\n`;
     if (planirovka) description += `• Planirovka: ${planirovka}\n`;
     if (balkon) description += `• Balkon: ${balkon}\n`;
-    description += `\nNARX: ${formattedPrice} y.e. (Kelishiladi)\n`;
+    description += `\nNARX: ${formattedPrice} y.e. (Kelishiladi)\n\n`;
 
 
     description += `${sheet_type === "Sotuv" ? "ПРОДАЕТСЯ" : "АРЕНДА"} - ${location.toUpperCase()}\n${xonaSoni}-комнатная квартира\n\n`;

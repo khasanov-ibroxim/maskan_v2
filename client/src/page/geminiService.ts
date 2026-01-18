@@ -2,7 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 
 // Initialize Gemini Client
 // CRITICAL: process.env.API_KEY is handled by the environment
-const ai = new GoogleGenAI({ apiKey: "AIzaSyBYDizkF9RK3n_nFcV5i1fC58_tFdAxEwY" });
+const ai = new GoogleGenAI({ apiKey: "AIzaSyDxIyENGBYfY2L0S8YZJqlf_0FMaTnKle4" });
 
 // @ts-ignore
 export const sendMessageToGemini = async (
