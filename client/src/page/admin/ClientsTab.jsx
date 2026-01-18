@@ -161,6 +161,11 @@ const ClientsTab = () => {
         setModalVisible(true);
     };
 
+    const handleCopyId = (id) => {
+        navigator.clipboard.writeText(id);
+        message.success('ID nusxalandi!');
+    };
+
     const handleDelete = async (id) => {
         try {
             await api.delete(`/api/clients/${id}`);
@@ -299,7 +304,7 @@ const ClientsTab = () => {
             message.error('Obyektlarni yuklashda xato');
         }
     };
-
+    console.log(assignedObjects)
     // Unassign object
     const handleUnassignObject = async (clientId, objectId) => {
         try {
@@ -727,7 +732,7 @@ const ClientsTab = () => {
                 open={assignedObjectsModalVisible}
                 onCancel={() => setAssignedObjectsModalVisible(false)}
                 footer={null}
-                width={800}
+                width={900}
             >
                 {assignedObjects.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: 40, color: '#999' }}>
@@ -750,7 +755,12 @@ const ClientsTab = () => {
                                 ]}
                             >
                                 <List.Item.Meta
-                                    avatar={<Avatar icon={<HomeOutlined />} style={{ backgroundColor: '#1890ff' }} />}
+                                    avatar={
+                                        <Avatar
+                                            icon={<HomeOutlined />}
+                                            style={{ backgroundColor: '#1890ff' }}
+                                        />
+                                    }
                                     title={
                                         <Space>
                                             <strong>{item.kvartil}</strong>
@@ -759,13 +769,59 @@ const ClientsTab = () => {
                                     }
                                     description={
                                         <div>
+                                            {/* ✅ FIXED: Full ID with copy button */}
+                                            <div style={{ marginBottom: 8 }}>
+                                                <strong>ID:</strong>
+                                                <Tag
+                                                    color="cyan"
+                                                    style={{
+                                                        marginLeft: 8,
+                                                        cursor: 'pointer',
+                                                        userSelect: 'all',
+                                                        fontFamily: 'monospace',
+                                                        fontSize: 11
+                                                    }}
+                                                    onClick={() => handleCopyId(item.id)}
+                                                >
+                                                    {item.id}
+                                                </Tag>
+                                                <Button
+                                                    type="text"
+                                                    size="small"
+                                                    icon={<i className="anticon">📋</i>}
+                                                    onClick={() => handleCopyId(item.id)}
+                                                    style={{ padding: '0 4px' }}
+                                                />
+                                            </div>
+
                                             <div><strong>Maydon:</strong> {item.m2} m²</div>
                                             <div><strong>Narx:</strong> {item.narx}</div>
                                             <div><strong>Telefon:</strong> {item.tell}</div>
-                                            {item.fio && <div><strong>Ega:</strong> {item.fio}</div>}
+
+                                            {/* ✅ FIXED: Show realtor name from fio field */}
+                                            {item.rieltor && (
+                                                <div style={{ marginTop: 4 }}>
+                                                    <strong>Rieltor:</strong>
+                                                    <Tag color="green" style={{ marginLeft: 8 }}>
+                                                        <TeamOutlined /> {item.rieltor}
+                                                    </Tag>
+                                                </div>
+                                            )}
+
+                                            {/* ✅ FIXED: Show owner from ega field */}
+                                            {item.ega && (
+                                                <div style={{ marginTop: 4 }}>
+                                                    <strong>Ega:</strong>
+                                                    <Tag color="orange" style={{ marginLeft: 8 }}>
+                                                        <UserOutlined /> {item.ega}
+                                                    </Tag>
+                                                </div>
+                                            )}
+
+                                            {/* Assignment date */}
                                             {item.assigned_at && (
                                                 <div style={{ marginTop: 8, fontSize: 12, color: '#999' }}>
-                                                    Biriktirilgan: {new Date(item.assigned_at).toLocaleString('uz-UZ')}
+                                                    <strong>Biriktirilgan:</strong> {new Date(item.assigned_at).toLocaleString('uz-UZ')}
                                                 </div>
                                             )}
                                         </div>
