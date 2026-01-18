@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
     Card, Table, Button, Modal, Input, Select, message,
     Space, Popconfirm, Tag, InputNumber, Divider, Descriptions,
-    Drawer, List, Avatar
+    Drawer, List, Avatar, Cascader
 } from 'antd';
 import {
     PlusOutlined, EditOutlined, DeleteOutlined, UserOutlined,
@@ -23,9 +23,13 @@ const ClientsTab = () => {
     const [selectedClient, setSelectedClient] = useState(null);
     const [matches, setMatches] = useState([]);
 
-    // ✅ NEW: Assigned objects modal
+    // ✅ Assigned objects modal
     const [assignedObjectsModalVisible, setAssignedObjectsModalVisible] = useState(false);
     const [assignedObjects, setAssignedObjects] = useState([]);
+
+    // ✅ Cascader data
+    const [cascaderData, setCascaderData] = useState([]);
+    const [cascaderValue, setCascaderValue] = useState([]);
 
     // Form state
     const [formData, setFormData] = useState({
@@ -38,12 +42,39 @@ const ClientsTab = () => {
         totalFloorsMax: null,
         priceMin: null,
         priceMax: null,
-        notes: ''
+        notes: '',
+        preferredLocations: []
     });
 
     useEffect(() => {
         loadClients();
         loadRealtors();
+    }, []);
+
+    // ✅ FIXED: Load cascader data with error handling
+    useEffect(() => {
+        const loadCascaderData = async () => {
+            try {
+                console.log('📊 Loading cascader data...');
+
+                const response = await api.get('/api/settings/cascader');
+
+                console.log('✅ Cascader response:', response.data);
+
+                if (response.data.success && response.data.data) {
+                    setCascaderData(response.data.data);
+                    console.log(`✅ ${response.data.data.length} tumans loaded`);
+                } else {
+                    console.error('❌ Invalid cascader response format');
+                    message.error('Manzillar yuklanmadi');
+                }
+            } catch (error) {
+                console.error('❌ Cascader load error:', error);
+                message.error('Manzillar yuklanishda xatolik');
+            }
+        };
+
+        loadCascaderData();
     }, []);
 
     const loadClients = async () => {
@@ -83,13 +114,35 @@ const ClientsTab = () => {
             totalFloorsMax: null,
             priceMin: null,
             priceMax: null,
-            notes: ''
+            notes: '',
+            preferredLocations: []
         });
+        setCascaderValue([]);
         setModalVisible(true);
     };
 
     const handleEdit = (client) => {
         setEditingClient(client);
+
+        // ✅ FIXED: Properly transform preferredLocations for Cascader
+        let cascaderValue = [];
+
+        if (client.preferred_locations && Array.isArray(client.preferred_locations)) {
+            cascaderValue = client.preferred_locations.map(loc => {
+                if (loc.kvartils && loc.kvartils.length > 0) {
+                    // Has specific kvartil
+                    return [loc.tuman, loc.kvartils[0]];
+                } else {
+                    // Only tuman (entire district)
+                    return [loc.tuman];
+                }
+            });
+        }
+
+        console.log('✏️ Editing client:', client.full_name);
+        console.log('📍 Preferred locations (DB):', client.preferred_locations);
+        console.log('📍 Cascader value:', cascaderValue);
+
         setFormData({
             fullName: client.full_name || '',
             phone: client.phone || '',
@@ -100,8 +153,11 @@ const ClientsTab = () => {
             totalFloorsMax: client.total_floors_max,
             priceMin: client.price_min,
             priceMax: client.price_max,
-            notes: client.notes || ''
+            notes: client.notes || '',
+            preferredLocations: client.preferred_locations || []
         });
+
+        setCascaderValue(cascaderValue);
         setModalVisible(true);
     };
 
@@ -138,8 +194,11 @@ const ClientsTab = () => {
                 totalFloorsMax: formData.totalFloorsMax,
                 priceMin: formData.priceMin,
                 priceMax: formData.priceMax,
-                notes: formData.notes
+                notes: formData.notes,
+                preferredLocations: formData.preferredLocations || []
             };
+
+            console.log('💾 Submitting client:', payload);
 
             if (editingClient) {
                 await api.put(`/api/clients/${editingClient.id}`, payload);
@@ -150,6 +209,7 @@ const ClientsTab = () => {
             }
 
             setModalVisible(false);
+            setCascaderValue([]);
             loadClients();
         } catch (error) {
             message.error(error.response?.data?.error || 'Xato yuz berdi');
@@ -197,7 +257,35 @@ const ClientsTab = () => {
         setFormData({ ...formData, phone: formatted });
     };
 
-    // ✅ NEW: Show assigned objects
+    // ✅ FIXED: Handle location changes properly
+    const handleLocationChange = (value) => {
+        console.log('📍 Cascader changed:', value);
+
+        setCascaderValue(value);
+
+        if (!value || value.length === 0) {
+            setFormData({
+                ...formData,
+                preferredLocations: []
+            });
+            return;
+        }
+
+        // Value is array of [tuman, kvartil] pairs
+        const newLocations = value.map(([tuman, kvartil]) => ({
+            tuman: tuman,
+            kvartils: kvartil ? [kvartil] : []
+        }));
+
+        setFormData({
+            ...formData,
+            preferredLocations: newLocations
+        });
+
+        console.log('📍 Preferred locations updated:', newLocations);
+    };
+
+    // Show assigned objects
     const handleShowAssignedObjects = async (client) => {
         try {
             setSelectedClient(client);
@@ -212,7 +300,7 @@ const ClientsTab = () => {
         }
     };
 
-    // ✅ NEW: Unassign object
+    // Unassign object
     const handleUnassignObject = async (clientId, objectId) => {
         try {
             await api.post(`/api/clients/${clientId}/unassign-object`, { objectId });
@@ -278,6 +366,30 @@ const ClientsTab = () => {
                     {record.price_max && <div>Max: ${record.price_max.toLocaleString()}</div>}
                 </div>
             )
+        },
+        {
+            title: 'Manzillar',
+            dataIndex: 'preferred_locations',
+            key: 'locations',
+            width: 250,
+            render: (locations) => {
+                if (!locations || locations.length === 0) {
+                    return <Tag color="default">Belgilanmagan</Tag>;
+                }
+
+                return (
+                    <Space direction="vertical" size={2}>
+                        {locations.map((loc, idx) => (
+                            <Tag key={idx} color="purple">
+                                📍 {loc.tuman}
+                                {loc.kvartils && loc.kvartils.length > 0 && (
+                                    <span> ({loc.kvartils.join(', ')})</span>
+                                )}
+                            </Tag>
+                        ))}
+                    </Space>
+                );
+            }
         },
         {
             title: 'Rieltor',
@@ -401,7 +513,10 @@ const ClientsTab = () => {
             <Modal
                 title={editingClient ? '✏️ Client Tahrirlash' : '➕ Yangi Client'}
                 open={modalVisible}
-                onCancel={() => setModalVisible(false)}
+                onCancel={() => {
+                    setModalVisible(false);
+                    setCascaderValue([]);
+                }}
                 onOk={handleSubmit}
                 width={700}
                 okText={editingClient ? 'Yangilash' : 'Qo\'shish'}
@@ -442,6 +557,30 @@ const ClientsTab = () => {
                         <Option value={4}>4-xonali</Option>
                         <Option value={5}>5+ xonali</Option>
                     </Select>
+                </div>
+
+                {/* ✅ FIXED: Cascader for locations */}
+                <div style={{ marginBottom: 16 }}>
+                    <label style={{ display: 'block', marginBottom: 8 }}>Manzillar</label>
+                    <Cascader
+                        multiple
+                        style={{ width: '100%' }}
+                        options={cascaderData}
+                        value={cascaderValue}
+                        onChange={handleLocationChange}
+                        placeholder="Tuman va kvartillarni tanlang"
+                        showSearch
+                        maxTagCount="responsive"
+                    />
+                    <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
+                        {formData.preferredLocations.length > 0 && (
+                            <div>
+                                Tanlangan: {formData.preferredLocations.map(loc =>
+                                `${loc.tuman}${loc.kvartils.length > 0 ? ` (${loc.kvartils.join(', ')})` : ''}`
+                            ).join(', ')}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <Space style={{ width: '100%', marginBottom: 16 }}>
@@ -522,6 +661,7 @@ const ClientsTab = () => {
                 </div>
             </Modal>
 
+            {/* Matches Drawer */}
             <Drawer
                 title={`🏠 ${selectedClient?.full_name} uchun mos uylar`}
                 placement="right"
@@ -581,7 +721,7 @@ const ClientsTab = () => {
                 />
             </Drawer>
 
-            {/* ✅ NEW: Assigned Objects Modal */}
+            {/* Assigned Objects Modal */}
             <Modal
                 title={`🏠 ${selectedClient?.full_name} - Biriktirilgan uylar`}
                 open={assignedObjectsModalVisible}

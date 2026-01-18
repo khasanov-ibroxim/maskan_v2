@@ -1,50 +1,46 @@
-// server/src/routes/client.routes.js
+// server/src/routes/client.routes.js - ✅ FULLY FIXED
 const express = require('express');
 const router = express.Router();
 const { protect, authorize } = require('../middleware/simpleAuth');
-const {
-    getClients,
-    getClient,
-    createClient,
-    updateClient,
-    deleteClient,
-    assignRealtor,
-    assignObject,
-    unassignObject,
-    findMatches,
-    getStats,
-    getAssignedObjects // ✅ NEW
-} = require('../controllers/clientController');
 
-// Statistics (must be before /:id)
-router.get('/stats/summary', protect, authorize('admin'), getStats);
+// ✅ CRITICAL FIX: Import entire controller module
+const clientController = require('../controllers/clientController');
+
+// ============================================
+// ROUTES - PROPER ORDER (Specific → Dynamic)
+// ============================================
+
+// Statistics (must be FIRST - specific route)
+router.get('/stats/summary', protect, authorize('admin'), clientController.getStats);
 
 // Get all clients
-router.get('/', protect, authorize('admin'), getClients);
+router.get('/', protect, authorize('admin'), clientController.getClients);
 
-// Get client by ID
-router.get('/:id', protect, authorize('admin'), getClient);
+// ✅ Get assigned objects (BEFORE /:id to avoid conflicts)
+router.get('/:id/assigned-objects', protect, authorize('admin'), clientController.getAssignedObjects);
+
+// ✅ Find matching objects (BEFORE /:id)
+router.get('/:id/matches', protect, authorize('admin'), clientController.findMatches);
+
+// Get client by ID (after specific sub-routes)
+router.get('/:id', protect, authorize('admin'), clientController.getClient);
 
 // Create new client
-router.post('/', protect, authorize('admin'), createClient);
+router.post('/', protect, authorize('admin'), clientController.createClient);
 
 // Update client
-router.put('/:id', protect, authorize('admin'), updateClient);
+router.put('/:id', protect, authorize('admin'), clientController.updateClient);
 
 // Delete client
-router.delete('/:id', protect, authorize('admin'), deleteClient);
+router.delete('/:id', protect, authorize('admin'), clientController.deleteClient);
 
 // Assign realtor
-router.post('/:id/assign-realtor', protect, authorize('admin'), assignRealtor);
+router.post('/:id/assign-realtor', protect, authorize('admin'), clientController.assignRealtor);
 
-// Assign/Unassign objects
-router.post('/:id/assign-object', protect, authorize('admin'), assignObject);
-router.post('/:id/unassign-object', protect, authorize('admin'), unassignObject);
+// Assign object to client
+router.post('/:id/assign-object', protect, authorize('admin'), clientController.assignObject);
 
-// Find matching objects
-router.get('/:id/matches', protect, authorize('admin'), findMatches);
-
-// ✅ NEW: Get assigned objects
-router.get('/:id/assigned-objects', protect, authorize('admin'), getAssignedObjects);
+// Unassign object from client
+router.post('/:id/unassign-object', protect, authorize('admin'), clientController.unassignObject);
 
 module.exports = router;

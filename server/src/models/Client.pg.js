@@ -196,54 +196,140 @@ class Client {
      * Assign object to client
      */
     static async assignObject(clientId, objectId) {
-        const client = await this.getById(clientId);
-        if (!client) throw new Error('Client not found');
+        console.log('\n📝 ASSIGN OBJECT');
+        console.log('='.repeat(60));
+        console.log('  Client ID:', clientId);
+        console.log('  Object ID:', objectId);
 
-        const assignedObjects = client.assigned_objects || [];
+        try {
+            // 1. Get client
+            const client = await this.getById(clientId);
+            if (!client) {
+                throw new Error('Client not found');
+            }
 
-        // Check if already assigned
-        const exists = assignedObjects.find(a => a.object_id === objectId);
-        if (exists) {
-            return client;
+            console.log('  ✅ Client topildi:', client.full_name);
+
+            // 2. Parse existing assigned objects
+            let assignedObjects = [];
+
+            if (client.assigned_objects) {
+                if (typeof client.assigned_objects === 'string') {
+                    try {
+                        assignedObjects = JSON.parse(client.assigned_objects);
+                    } catch (e) {
+                        console.log('  ⚠️ JSON parse xato, yangi array yaratilmoqda');
+                        assignedObjects = [];
+                    }
+                } else if (Array.isArray(client.assigned_objects)) {
+                    assignedObjects = client.assigned_objects;
+                } else {
+                    console.log('  ⚠️ Noto\'g\'ri format, yangi array yaratilmoqda');
+                    assignedObjects = [];
+                }
+            }
+
+            console.log('  📊 Mavjud obyektlar:', assignedObjects.length);
+
+            // 3. Check if already assigned
+            const exists = assignedObjects.find(a => a.object_id === objectId);
+            if (exists) {
+                console.log('  ℹ️ Bu obyekt allaqachon biriktirilgan');
+                return client;
+            }
+
+            // 4. ✅ CRITICAL: Add new assignment
+            const newAssignment = {
+                object_id: objectId,
+                assigned_at: new Date().toISOString()
+            };
+
+            assignedObjects.push(newAssignment);
+
+            console.log('  ✅ Yangi obyekt qo\'shildi');
+            console.log('  📊 Jami obyektlar:', assignedObjects.length);
+            console.log('  📝 Yangilanayotgan ma\'lumot:', JSON.stringify(assignedObjects));
+
+            // 5. Update database
+            const result = await query(
+                `UPDATE clients
+                 SET assigned_objects = $1, updated_at = CURRENT_TIMESTAMP
+                 WHERE id = $2
+                 RETURNING *`,
+                [JSON.stringify(assignedObjects), clientId]
+            );
+
+            if (!result.rows[0]) {
+                throw new Error('Update muvaffaqiyatsiz');
+            }
+
+            console.log('  ✅ Database yangilandi');
+            console.log('  📊 Yangi assigned_objects:', result.rows[0].assigned_objects);
+            console.log('='.repeat(60));
+
+            return result.rows[0];
+
+        } catch (error) {
+            console.error('❌ assignObject xato:', error);
+            console.error('='.repeat(60));
+            throw error;
         }
-
-        assignedObjects.push({
-            object_id: objectId,
-            assigned_at: new Date().toISOString()
-        });
-
-        const result = await query(
-            `UPDATE clients
-             SET assigned_objects = $1, updated_at = CURRENT_TIMESTAMP
-             WHERE id = $2
-             RETURNING *`,
-            [JSON.stringify(assignedObjects), clientId]
-        );
-
-        return result.rows[0];
     }
 
     /**
      * Unassign object from client
      */
     static async unassignObject(clientId, objectId) {
-        const client = await this.getById(clientId);
-        if (!client) throw new Error('Client not found');
+        console.log('\n🗑️ UNASSIGN OBJECT');
+        console.log('='.repeat(60));
+        console.log('  Client ID:', clientId);
+        console.log('  Object ID:', objectId);
 
-        const assignedObjects = (client.assigned_objects || [])
-            .filter(a => a.object_id !== objectId);
+        try {
+            const client = await this.getById(clientId);
+            if (!client) {
+                throw new Error('Client not found');
+            }
 
-        const result = await query(
-            `UPDATE clients
-             SET assigned_objects = $1, updated_at = CURRENT_TIMESTAMP
-             WHERE id = $2
-             RETURNING *`,
-            [JSON.stringify(assignedObjects), clientId]
-        );
+            console.log('  ✅ Client topildi:', client.full_name);
 
-        return result.rows[0];
+            // Parse assigned objects
+            let assignedObjects = [];
+            if (client.assigned_objects) {
+                if (typeof client.assigned_objects === 'string') {
+                    assignedObjects = JSON.parse(client.assigned_objects);
+                } else if (Array.isArray(client.assigned_objects)) {
+                    assignedObjects = client.assigned_objects;
+                }
+            }
+
+            console.log('  📊 Mavjud obyektlar:', assignedObjects.length);
+
+            // Filter out the object
+            const filteredObjects = assignedObjects.filter(a => a.object_id !== objectId);
+
+            console.log('  📊 Qolganlari:', filteredObjects.length);
+
+            // Update database
+            const result = await query(
+                `UPDATE clients
+                 SET assigned_objects = $1, updated_at = CURRENT_TIMESTAMP
+                 WHERE id = $2
+                 RETURNING *`,
+                [JSON.stringify(filteredObjects), clientId]
+            );
+
+            console.log('  ✅ Database yangilandi');
+            console.log('='.repeat(60));
+
+            return result.rows[0];
+
+        } catch (error) {
+            console.error('❌ unassignObject xato:', error);
+            console.error('='.repeat(60));
+            throw error;
+        }
     }
-
     /**
      * Find matching objects for client
      */
@@ -290,14 +376,16 @@ class Client {
             params.push(client.total_floors_max);
         }
 
-        // Location filter
+        // ✅ UPDATED: Location filter with preferred_locations
         if (client.preferred_locations && client.preferred_locations.length > 0) {
             const locationConditions = [];
             client.preferred_locations.forEach(loc => {
                 if (loc.kvartils && loc.kvartils.length > 0) {
+                    // Specific kvartils selected
                     const kvartilList = loc.kvartils.map(k => `'${k}'`).join(', ');
                     locationConditions.push(`o.kvartil IN (${kvartilList})`);
                 } else if (loc.tuman) {
+                    // Entire district (all kvartils in that district)
                     locationConditions.push(`o.kvartil LIKE '${loc.tuman}%'`);
                 }
             });
@@ -338,32 +426,77 @@ class Client {
     }
 
     /**
-     * Get assigned objects with full details
+     * ✅ UPDATED: Get assigned objects with full details INCLUDING REALTOR NAME
      */
     static async getAssignedObjects(clientId) {
-        const client = await this.getById(clientId);
-        if (!client) throw new Error('Client not found');
+        console.log('\n📋 GET ASSIGNED OBJECTS');
+        console.log('='.repeat(60));
+        console.log('  Client ID:', clientId);
 
-        const assignedObjects = client.assigned_objects || [];
-        if (assignedObjects.length === 0) return [];
+        try {
+            const client = await this.getById(clientId);
+            if (!client) {
+                throw new Error('Client not found');
+            }
 
-        const objectIds = assignedObjects.map(a => a.object_id);
+            console.log('  ✅ Client topildi:', client.full_name);
 
-        // Get full object details
-        const placeholders = objectIds.map((_, i) => `${i + 1}`).join(',');
-        const result = await query(
-            `SELECT * FROM objects WHERE id IN (${placeholders}) ORDER BY created_at DESC`,
-            objectIds
-        );
+            // Parse assigned objects
+            let assignedObjects = [];
+            if (client.assigned_objects) {
+                if (typeof client.assigned_objects === 'string') {
+                    assignedObjects = JSON.parse(client.assigned_objects);
+                } else if (Array.isArray(client.assigned_objects)) {
+                    assignedObjects = client.assigned_objects;
+                }
+            }
 
-        // Merge with assignment data
-        return result.rows.map(obj => {
-            const assignment = assignedObjects.find(a => a.object_id === obj.id);
-            return {
-                ...obj,
-                assigned_at: assignment?.assigned_at
-            };
-        });
+            console.log('  📊 Assigned objects array:', assignedObjects.length);
+
+            if (assignedObjects.length === 0) {
+                console.log('  ℹ️ Hech qanday obyekt biriktirilmagan');
+                console.log('='.repeat(60));
+                return [];
+            }
+
+            const objectIds = assignedObjects.map(a => a.object_id);
+            console.log('  📝 Object IDs:', objectIds);
+
+            // Get full object details with realtor name
+            const placeholders = objectIds.map((_, i) => `$${i + 1}::uuid`).join(',');
+            const result = await query(
+                `SELECT 
+                    o.*,
+                    u.full_name as realtor_name,
+                    u.username as realtor_username
+                 FROM objects o
+                 LEFT JOIN users u ON o.realtor_id = u.id
+                 WHERE o.id IN (${placeholders}) 
+                 ORDER BY o.created_at DESC`,
+                objectIds
+            );
+
+            console.log('  ✅ Objects from DB:', result.rows.length);
+
+            // Merge with assignment data
+            const mergedData = result.rows.map(obj => {
+                const assignment = assignedObjects.find(a => a.object_id === obj.id);
+                return {
+                    ...obj,
+                    assigned_at: assignment?.assigned_at
+                };
+            });
+
+            console.log('  ✅ Final merged data:', mergedData.length);
+            console.log('='.repeat(60));
+
+            return mergedData;
+
+        } catch (error) {
+            console.error('❌ getAssignedObjects xato:', error);
+            console.error('='.repeat(60));
+            throw error;
+        }
     }
 }
 

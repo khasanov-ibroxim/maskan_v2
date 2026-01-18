@@ -1,4 +1,4 @@
-// server/src/controllers/clientController.js
+// server/src/controllers/clientController.js - ✅ FULLY FIXED
 const Client = require('../models/Client.pg');
 const PropertyObject = require('../models/Object.pg');
 
@@ -6,7 +6,7 @@ const PropertyObject = require('../models/Object.pg');
  * Get all clients
  * GET /api/clients
  */
-exports.getClients = async (req, res) => {
+const getClients = async (req, res) => {
     try {
         const { status, realtorId, search } = req.query;
 
@@ -30,7 +30,7 @@ exports.getClients = async (req, res) => {
  * Get client by ID
  * GET /api/clients/:id
  */
-exports.getClient = async (req, res) => {
+const getClient = async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -60,7 +60,7 @@ exports.getClient = async (req, res) => {
  * Create new client
  * POST /api/clients
  */
-exports.createClient = async (req, res) => {
+const createClient = async (req, res) => {
     try {
         const clientData = {
             ...req.body,
@@ -106,7 +106,7 @@ exports.createClient = async (req, res) => {
  * Update client
  * PUT /api/clients/:id
  */
-exports.updateClient = async (req, res) => {
+const updateClient = async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -139,7 +139,7 @@ exports.updateClient = async (req, res) => {
  * Delete client
  * DELETE /api/clients/:id
  */
-exports.deleteClient = async (req, res) => {
+const deleteClient = async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -164,7 +164,7 @@ exports.deleteClient = async (req, res) => {
  * Assign realtor to client (NULL = unassign)
  * POST /api/clients/:id/assign-realtor
  */
-exports.assignRealtor = async (req, res) => {
+const assignRealtor = async (req, res) => {
     try {
         const { id } = req.params;
         const { realtorId } = req.body;
@@ -196,7 +196,7 @@ exports.assignRealtor = async (req, res) => {
  * Assign object to client
  * POST /api/clients/:id/assign-object
  */
-exports.assignObject = async (req, res) => {
+const assignObject = async (req, res) => {
     try {
         const { id } = req.params;
         const { objectId } = req.body;
@@ -230,7 +230,7 @@ exports.assignObject = async (req, res) => {
  * Unassign object from client
  * POST /api/clients/:id/unassign-object
  */
-exports.unassignObject = async (req, res) => {
+const unassignObject = async (req, res) => {
     try {
         const { id } = req.params;
         const { objectId } = req.body;
@@ -264,7 +264,7 @@ exports.unassignObject = async (req, res) => {
  * Find matching objects for client
  * GET /api/clients/:id/matches
  */
-exports.findMatches = async (req, res) => {
+const findMatches = async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -288,7 +288,7 @@ exports.findMatches = async (req, res) => {
  * Get statistics
  * GET /api/clients/stats/summary
  */
-exports.getStats = async (req, res) => {
+const getStats = async (req, res) => {
     try {
         const stats = await Client.getStats();
 
@@ -309,7 +309,7 @@ exports.getStats = async (req, res) => {
  * Get assigned objects for client
  * GET /api/clients/:id/assigned-objects
  */
-exports.getAssignedObjects = async (req, res) => {
+const getAssignedObjects = async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -329,16 +329,17 @@ exports.getAssignedObjects = async (req, res) => {
     }
 };
 
+// ✅ CRITICAL FIX: Simple module.exports
 module.exports = {
-    getClients: exports.getClients,
-    getClient: exports.getClient,
-    createClient: exports.createClient,
-    updateClient: exports.updateClient,
-    deleteClient: exports.deleteClient,
-    assignRealtor: exports.assignRealtor,
-    assignObject: exports.assignObject,
-    unassignObject: exports.unassignObject,
-    findMatches: exports.findMatches,
-    getStats: exports.getStats,
-    getAssignedObjects: exports.getAssignedObjects // ✅ NEW
+    getClients,
+    getClient,
+    createClient,
+    updateClient,
+    deleteClient,
+    assignRealtor,
+    assignObject,
+    unassignObject,
+    findMatches,
+    getStats,
+    getAssignedObjects
 };
