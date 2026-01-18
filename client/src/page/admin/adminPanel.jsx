@@ -6,11 +6,12 @@ import {
 } from 'antd';
 import {
     UserOutlined, PlusOutlined, DeleteOutlined, CheckCircleOutlined,
-    ReloadOutlined, DownloadOutlined, EditOutlined, HomeOutlined
+    ReloadOutlined, DownloadOutlined, EditOutlined, HomeOutlined, TeamOutlined
 } from '@ant-design/icons';
 import api from '../../utils/api.jsx';
 import ObjectsList from '../ObjectsList.tsx';
 import SettingsTab from "./SettingsTab.jsx";
+import ClientsTab from "./ClientsTab.jsx";
 
 const {Option} = Select;
 const {TabPane} = Tabs;
@@ -343,6 +344,13 @@ const AdminPanel = () => {
                 </Col>
             </Row>
 
+            <TabPane tab={<span><TeamOutlined /> Clientlar</span>} key="clients">
+                <Card>
+                    <ClientsTab />
+                </Card>
+            </TabPane>
+
+
             <Tabs defaultActiveKey="objects" type="card">
                 <TabPane tab={<span><HomeOutlined /> Obyektlar</span>} key="objects">
                     <Card>
@@ -403,13 +411,19 @@ const AdminPanel = () => {
                     </Card>
                 </TabPane>
 
+                {/* ✅ NEW CLIENTS TAB */}
+                <TabPane tab={<span><TeamOutlined /> Clientlar</span>} key="clients">
+                    <Card>
+                        <ClientsTab />
+                    </Card>
+                </TabPane>
+
                 <TabPane tab={<span><HomeOutlined /> Settings</span>} key="settings">
                     <Card>
                         <SettingsTab />
                     </Card>
                 </TabPane>
             </Tabs>
-
             {/* Create User Modal */}
             <Modal
                 title="🆕 Yangi User"

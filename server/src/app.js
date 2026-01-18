@@ -142,6 +142,15 @@ console.log('\n📊 Excel routes yuklanmoqda...');
 app.use('/api/excel', excelRoutes);
 console.log('✅ Excel routes yuklandi');
 
+
+// ============================================
+// CLIENT ROUTES
+// ============================================
+console.log('\n👥 Client routes yuklanmoqda...');
+const clientRoutes = require('./routes/client.routes');
+app.use('/api/clients', clientRoutes);
+console.log('✅ Client routes yuklandi');
+
 // ============================================
 // 14. PUBLIC DATA ROUTES
 // ============================================
