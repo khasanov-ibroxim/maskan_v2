@@ -221,16 +221,16 @@ function createMultilingualTitle(obj) {
 /**
  * ✅ Create multilingual description
  */
-function createMultilingualDescription(obj) {
+async function  createMultilingualDescription(obj) {
     const { kvartil, xet, m2, xolati, uy_turi, planirovka, balkon } = obj;
     const xonaSoni = xet ? xet.split('/')[0] : '1';
     const etajInfo = xet ? `${xet.split('/')[1]}/${xet.split('/')[2]}` : '1/1';
 
     return {
-        uz: createDescriptionUz(kvartil, xonaSoni, etajInfo, m2, uy_turi, xolati, planirovka, balkon),
-        ru: createDescriptionRu(kvartil, xonaSoni, etajInfo, m2, uy_turi, xolati, planirovka, balkon),
-        en: createDescriptionEn(kvartil, xonaSoni, etajInfo, m2, uy_turi, xolati, planirovka, balkon),
-        uz_cy: createDescriptionUzCy(kvartil, xonaSoni, etajInfo, m2, uy_turi, xolati, planirovka, balkon)
+        uz: createDescriptionUz(await getKvartilTranslations(kvartil), xonaSoni, etajInfo, m2, await getFieldTranslations('uy_turi',uy_turi), await getFieldTranslations("xolati",xolati), await getFieldTranslations("planirovka",planirovka), await getFieldTranslations('balkon', balkon)),
+        ru: createDescriptionRu(await getKvartilTranslations(kvartil), xonaSoni, etajInfo, m2, await getFieldTranslations('uy_turi',uy_turi), await getFieldTranslations("xolati",xolati), await getFieldTranslations("planirovka",planirovka), await getFieldTranslations('balkon', balkon)),
+        en: createDescriptionEn(await getKvartilTranslations(kvartil), xonaSoni, etajInfo, m2, await getFieldTranslations('uy_turi',uy_turi), await getFieldTranslations("xolati",xolati), await getFieldTranslations("planirovka",planirovka), await getFieldTranslations('balkon', balkon)),
+        uz_cy: createDescriptionUzCy(await getKvartilTranslations(kvartil), xonaSoni, etajInfo, m2, await getFieldTranslations('uy_turi',uy_turi), await getFieldTranslations("xolati",xolati), await getFieldTranslations("planirovka",planirovka), await getFieldTranslations('balkon', balkon))
     };
 }
 

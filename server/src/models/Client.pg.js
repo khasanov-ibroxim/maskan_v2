@@ -591,7 +591,7 @@ class Client {
             const objectIds = assignedObjects.map(a => a.object_id);
             console.log('  📝 Object IDs:', objectIds);
 
-            // ✅ Get objects with all details
+            // ✅ FIXED: Removed o.ega column
             const placeholders = objectIds.map((_, i) => `$${i + 1}::uuid`).join(',');
             const result = await query(
                 `SELECT
@@ -602,7 +602,6 @@ class Client {
                      o.narx,
                      o.tell,
                      o.fio,
-                     o.ega,
                      o.created_at,
                      o.updated_at
                  FROM objects o
@@ -619,8 +618,8 @@ class Client {
                 return {
                     ...obj,
                     assigned_at: assignment?.assigned_at,
-                    // ✅ Realtor info from fio or ega field
-                    realtor_name: obj.fio || obj.ega || 'Noma\'lum',
+                    // ✅ Realtor info from fio field only
+                    rieltor: obj.fio || 'Noma\'lum',
                     object_id: obj.id
                 };
             });
