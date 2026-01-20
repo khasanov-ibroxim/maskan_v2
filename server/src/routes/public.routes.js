@@ -198,10 +198,12 @@ const SHEET_TYPE_TRANSLATIONS = {
 /**
  * ✅ Create multilingual title
  */
-function createMultilingualTitle(obj) {
+async function createMultilingualTitle(obj) {
     const xonaSoni = obj.xet ? obj.xet.split('/')[0] : '1';
-    const location = obj.kvartil || 'Yunusobod';
     const type = obj.sheet_type || 'Sotuv';
+
+    // ✅ Get kvartil translations
+    const kvartilTranslations = await getKvartilTranslations(obj.kvartil);
 
     const typeTranslations = SHEET_TYPE_TRANSLATIONS[type] || {
         uz: type,
@@ -211,26 +213,88 @@ function createMultilingualTitle(obj) {
     };
 
     return {
-        uz: `${typeTranslations.uz} ${xonaSoni}-xonali kvartira ${location}`,
-        ru: `${typeTranslations.ru} ${xonaSoni}-комнатная квартира ${location}`,
-        en: `${typeTranslations.en} ${xonaSoni}-room apartment ${location}`,
-        uz_cy: `${typeTranslations.uz_cy} ${xonaSoni}-хонали квартира ${location}`
+        uz: `${typeTranslations.uz} ${xonaSoni}-xonali kvartira ${kvartilTranslations.uz}`,
+        ru: `${typeTranslations.ru} ${xonaSoni}-комнатная квартира ${kvartilTranslations.ru}`,
+        en: `${typeTranslations.en} ${xonaSoni}-room apartment ${kvartilTranslations.en}`,
+        uz_cy: `${typeTranslations.uz_cy} ${xonaSoni}-хонали квартира ${kvartilTranslations.uz_cy}`
     };
 }
 
 /**
  * ✅ Create multilingual description
  */
-async function  createMultilingualDescription(obj) {
+/**
+ * ✅ Create multilingual description
+ */
+async function createMultilingualDescription(obj) {
     const { kvartil, xet, m2, xolati, uy_turi, planirovka, balkon } = obj;
     const xonaSoni = xet ? xet.split('/')[0] : '1';
     const etajInfo = xet ? `${xet.split('/')[1]}/${xet.split('/')[2]}` : '1/1';
 
+    // ✅ Avval barcha translation'larni olamiz
+    const [
+        kvartilTrans,
+        uyTuriTrans,
+        xolatiTrans,
+        planirovkaTrans,
+        balkonTrans
+    ] = await Promise.all([
+        getKvartilTranslations(kvartil),
+        getFieldTranslations('uy_turi', uy_turi),
+        getFieldTranslations('xolati', xolati),
+        getFieldTranslations('planirovka', planirovka),
+        getFieldTranslations('balkon', balkon)
+    ]);
+
+    console.log('📝 Description translations:', {
+        kvartilTrans,
+        uyTuriTrans,
+        xolatiTrans,
+        planirovkaTrans,
+        balkonTrans
+    });
+
     return {
-        uz: createDescriptionUz(await getKvartilTranslations(kvartil), xonaSoni, etajInfo, m2, await getFieldTranslations('uy_turi',uy_turi), await getFieldTranslations("xolati",xolati), await getFieldTranslations("planirovka",planirovka), await getFieldTranslations('balkon', balkon)),
-        ru: createDescriptionRu(await getKvartilTranslations(kvartil), xonaSoni, etajInfo, m2, await getFieldTranslations('uy_turi',uy_turi), await getFieldTranslations("xolati",xolati), await getFieldTranslations("planirovka",planirovka), await getFieldTranslations('balkon', balkon)),
-        en: createDescriptionEn(await getKvartilTranslations(kvartil), xonaSoni, etajInfo, m2, await getFieldTranslations('uy_turi',uy_turi), await getFieldTranslations("xolati",xolati), await getFieldTranslations("planirovka",planirovka), await getFieldTranslations('balkon', balkon)),
-        uz_cy: createDescriptionUzCy(await getKvartilTranslations(kvartil), xonaSoni, etajInfo, m2, await getFieldTranslations('uy_turi',uy_turi), await getFieldTranslations("xolati",xolati), await getFieldTranslations("planirovka",planirovka), await getFieldTranslations('balkon', balkon))
+        uz: createDescriptionUz(
+            kvartilTrans?.uz || kvartil || 'Yunusobod',
+            xonaSoni,
+            etajInfo,
+            m2,
+            uyTuriTrans?.uz || uy_turi,
+            xolatiTrans?.uz || xolati,
+            planirovkaTrans?.uz || planirovka,
+            balkonTrans?.uz || balkon
+        ),
+        ru: createDescriptionRu(
+            kvartilTrans?.ru || kvartil || 'Yunusobod',
+            xonaSoni,
+            etajInfo,
+            m2,
+            uyTuriTrans?.ru || uy_turi,
+            xolatiTrans?.ru || xolati,
+            planirovkaTrans?.ru || planirovka,
+            balkonTrans?.ru || balkon
+        ),
+        en: createDescriptionEn(
+            kvartilTrans?.en || kvartil || 'Yunusobod',
+            xonaSoni,
+            etajInfo,
+            m2,
+            uyTuriTrans?.en || uy_turi,
+            xolatiTrans?.en || xolati,
+            planirovkaTrans?.en || planirovka,
+            balkonTrans?.en || balkon
+        ),
+        uz_cy: createDescriptionUzCy(
+            kvartilTrans?.uz_cy || kvartil || 'Yunusobod',
+            xonaSoni,
+            etajInfo,
+            m2,
+            uyTuriTrans?.uz_cy || uy_turi,
+            xolatiTrans?.uz_cy || xolati,
+            planirovkaTrans?.uz_cy || planirovka,
+            balkonTrans?.uz_cy || balkon
+        )
     };
 }
 
@@ -238,10 +302,12 @@ function createDescriptionUz(kvartil, xonaSoni, etajInfo, m2, uy_turi, xolati, p
     let desc = `${kvartil}da ${xonaSoni}-xonali kvartira\n\n`;
     desc += `• Maydon: ${m2} m²\n`;
     desc += `• Qavat: ${etajInfo}\n`;
-    if (uy_turi) desc += `• Uy turi: ${uy_turi}\n`;
-    if (xolati) desc += `• Ta'mir: ${xolati}\n`;
-    if (planirovka) desc += `• Planirovka: ${planirovka}\n`;
-    if (balkon) desc += `• Balkon: ${balkon}\n`;
+    if (uy_turi && uy_turi !== 'null') desc += `• Uy turi: ${uy_turi}\n`;
+    if (xolati && xolati !== 'null') desc += `• Ta'mir: ${xolati}\n`;
+    if (planirovka && planirovka !== 'null') desc += `• Planirovka: ${planirovka}\n`;
+    if (balkon && balkon !== 'null') desc += `• Balkon: ${balkon}\n`;
+
+    console.log('✅ UZ Description:', desc);
     return desc;
 }
 
@@ -249,10 +315,12 @@ function createDescriptionRu(kvartil, xonaSoni, etajInfo, m2, uy_turi, xolati, p
     let desc = `${xonaSoni}-комнатная квартира в ${kvartil}\n\n`;
     desc += `• Площадь: ${m2} м²\n`;
     desc += `• Этаж: ${etajInfo}\n`;
-    if (uy_turi) desc += `• Тип дома: ${uy_turi}\n`;
-    if (xolati) desc += `• Состояние: ${xolati}\n`;
-    if (planirovka) desc += `• Планировка: ${planirovka}\n`;
-    if (balkon) desc += `• Балкон: ${balkon}\n`;
+    if (uy_turi && uy_turi !== 'null') desc += `• Тип дома: ${uy_turi}\n`;
+    if (xolati && xolati !== 'null') desc += `• Состояние: ${xolati}\n`;
+    if (planirovka && planirovka !== 'null') desc += `• Планировка: ${planirovka}\n`;
+    if (balkon && balkon !== 'null') desc += `• Балкон: ${balkon}\n`;
+
+    console.log('✅ RU Description:', desc);
     return desc;
 }
 
@@ -260,10 +328,12 @@ function createDescriptionEn(kvartil, xonaSoni, etajInfo, m2, uy_turi, xolati, p
     let desc = `${xonaSoni}-room apartment in ${kvartil}\n\n`;
     desc += `• Area: ${m2} m²\n`;
     desc += `• Floor: ${etajInfo}\n`;
-    if (uy_turi) desc += `• Building type: ${uy_turi}\n`;
-    if (xolati) desc += `• Condition: ${xolati}\n`;
-    if (planirovka) desc += `• Layout: ${planirovka}\n`;
-    if (balkon) desc += `• Balcony: ${balkon}\n`;
+    if (uy_turi && uy_turi !== 'null') desc += `• Building type: ${uy_turi}\n`;
+    if (xolati && xolati !== 'null') desc += `• Condition: ${xolati}\n`;
+    if (planirovka && planirovka !== 'null') desc += `• Layout: ${planirovka}\n`;
+    if (balkon && balkon !== 'null') desc += `• Balcony: ${balkon}\n`;
+
+    console.log('✅ EN Description:', desc);
     return desc;
 }
 
@@ -271,13 +341,17 @@ function createDescriptionUzCy(kvartil, xonaSoni, etajInfo, m2, uy_turi, xolati,
     let desc = `${kvartil}да ${xonaSoni}-хонали квартира\n\n`;
     desc += `• Майдон: ${m2} м²\n`;
     desc += `• Қават: ${etajInfo}\n`;
-    if (uy_turi) desc += `• Уй тури: ${uy_turi}\n`;
-    if (xolati) desc += `• Таъмир: ${xolati}\n`;
-    if (planirovka) desc += `• Планировка: ${planirovka}\n`;
-    if (balkon) desc += `• Балкон: ${balkon}\n`;
+    if (uy_turi && uy_turi !== 'null') desc += `• Уй тури: ${uy_turi}\n`;
+    if (xolati && xolati !== 'null') desc += `• Таъмир: ${xolati}\n`;
+    if (planirovka && planirovka !== 'null') desc += `• Планировка: ${planirovka}\n`;
+    if (balkon && balkon !== 'null') desc += `• Балкон: ${balkon}\n`;
+
+    console.log('✅ UZ_CY Description:', desc);
     return desc;
 }
-
+/**
+ * ✅ Transform to frontend format with ALL translations
+ */
 /**
  * ✅ Transform to frontend format with ALL translations
  */
@@ -301,16 +375,27 @@ async function transformProperty(obj) {
     const price = parsePrice(obj.narx);
 
     // ✅ Get translations for all fields
-    const kvartilTranslations = await getKvartilTranslations(obj.kvartil);
-    const uyTuriTranslations = await getFieldTranslations('uy_turi', obj.uy_turi);
-    const xolatiTranslations = await getFieldTranslations('xolati', obj.xolati);
-    const planirovkaTranslations = await getFieldTranslations('planirovka', obj.planirovka);
-    const balkonTranslations = await getFieldTranslations('balkon', obj.balkon);
-    const toretsTranslations = await getFieldTranslations('torets', obj.torets);
+    const [
+        kvartilTranslations,
+        uyTuriTranslations,
+        xolatiTranslations,
+        planirovkaTranslations,
+        balkonTranslations,
+        toretsTranslations,
+        titleTranslations,        // ✅ Bu yerga
+        descriptionTranslations
+    ] = await Promise.all([
+        getKvartilTranslations(obj.kvartil),
+        getFieldTranslations('uy_turi', obj.uy_turi),
+        getFieldTranslations('xolati', obj.xolati),
+        getFieldTranslations('planirovka', obj.planirovka),
+        getFieldTranslations('balkon', obj.balkon),
+        getFieldTranslations('torets', obj.torets),
+        createMultilingualTitle(obj),     // ✅ Title
+        createMultilingualDescription(obj) // ✅ Description
+    ]);
 
-    // ✅ Create multilingual title and description
-    const titleTranslations = createMultilingualTitle(obj);
-    const descriptionTranslations = createMultilingualDescription(obj);
+    console.log('📝 Final descriptions:', descriptionTranslations);
 
     // ✅ Sheet type translations
     const sheetTypeTranslations = SHEET_TYPE_TRANSLATIONS[obj.sheet_type] || {
@@ -357,7 +442,6 @@ async function transformProperty(obj) {
         createdAt: obj.sana || obj.created_at || new Date().toISOString(),
     };
 }
-
 // ============================================
 // PUBLIC API ENDPOINTS
 // ============================================
