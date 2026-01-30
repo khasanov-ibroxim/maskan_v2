@@ -5,9 +5,18 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d3207ba4-420e-4d31-977e-3895919ba9be" name="Changes" comment="wqe">
+      <change afterPath="$PROJECT_DIR$/client/src/components/ui/dropdown-menu.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/client/src/components/ui/toast.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/client/src/components/ui/toaster.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/client/src/components/ui/use-toast.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/client/src/hooks/use-toast.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/client/src/hooks/useApi.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/client/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/client/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/App.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/App.jsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/client/src/components/PropertyForm.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/PropertyForm.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/src/components/ui/calendar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/ui/calendar.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/components/header.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/header.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -60,7 +69,7 @@
     &quot;git-widget-placeholder&quot;: &quot;master&quot;,
     &quot;javascript.nodejs.core.library.configured.version&quot;: &quot;24.11.1&quot;,
     &quot;javascript.nodejs.core.library.typings.version&quot;: &quot;24.10.9&quot;,
-    &quot;last_opened_file_path&quot;: &quot;D:/project/maskan/maskan_v2/client&quot;,
+    &quot;last_opened_file_path&quot;: &quot;D:/project/maskan/maskan_v2/client/src/hooks&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
@@ -81,8 +90,9 @@
 }</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
-      <recent name="D:\project\maskan\maskan_v2\client" />
+      <recent name="D:\project\maskan\maskan_v2\client\src\hooks" />
       <recent name="D:\project\maskan\maskan_v2\client\src\components\ui" />
+      <recent name="D:\project\maskan\maskan_v2\client" />
       <recent name="D:\project\maskan\maskan_v2\client\src\components" />
       <recent name="D:\project\maskan\maskan_v2\client\src\lib" />
     </key>
@@ -195,15 +205,7 @@
       <workItem from="1768841099838" duration="119000" />
       <workItem from="1768898635627" duration="12000" />
       <workItem from="1768938922268" duration="59000" />
-      <workItem from="1769799847477" duration="6050000" />
-    </task>
-    <task id="LOCAL-00073" summary="wqe">
-      <option name="closed" value="true" />
-      <created>1765650463755</created>
-      <option name="number" value="00073" />
-      <option name="presentableId" value="LOCAL-00073" />
-      <option name="project" value="LOCAL" />
-      <updated>1765650463755</updated>
+      <workItem from="1769799847477" duration="7921000" />
     </task>
     <task id="LOCAL-00074" summary="wqe">
       <option name="closed" value="true" />
@@ -589,7 +591,15 @@
       <option name="project" value="LOCAL" />
       <updated>1769805074702</updated>
     </task>
-    <option name="localTasksCounter" value="122" />
+    <task id="LOCAL-00122" summary="wqe">
+      <option name="closed" value="true" />
+      <created>1769807180886</created>
+      <option name="number" value="00122" />
+      <option name="presentableId" value="LOCAL-00122" />
+      <option name="project" value="LOCAL" />
+      <updated>1769807180886</updated>
+    </task>
+    <option name="localTasksCounter" value="123" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">

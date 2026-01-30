@@ -6,6 +6,7 @@ import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import Header from "./components/header.js";
 import AdminPanel from "./page/admin/adminPanel.jsx";
 import PropertyForm from "./components/PropertyForm.js";
+import { Toaster } from "./components/ui/toaster";
 
 const App = () => {
     useEffect(() => {
@@ -20,27 +21,30 @@ const App = () => {
         };
     }, []);
     return (
-        <Routes>
-            <Route path="/login" element={<Login />} />
+        <>
+            <Toaster/>
+            <Routes>
+                <Route path="/login" element={<Login />} />
 
-            <Route path="/" element={
-                <ProtectedRoute>
-                    <div className="min-h-screen bg-background">
+                <Route path="/" element={
+                    <ProtectedRoute>
+                        <div className="min-h-screen bg-background">
+                            <Header />
+                            <main className="pb-safe">
+                                <PropertyForm />
+                            </main>
+                        </div>
+                    </ProtectedRoute>
+                } />
+
+                <Route path="/admin" element={
+                    <ProtectedRoute requiredRole="admin">
                         <Header />
-                        <main className="pb-safe">
-                            <PropertyForm />
-                        </main>
-                    </div>
-                </ProtectedRoute>
-            } />
-
-            <Route path="/admin" element={
-                <ProtectedRoute requiredRole="admin">
-                    <Header />
-                    <AdminPanel />
-                </ProtectedRoute>
-            } />
-        </Routes>
+                        <AdminPanel />
+                    </ProtectedRoute>
+                } />
+            </Routes>
+        </>
     );
 };
 

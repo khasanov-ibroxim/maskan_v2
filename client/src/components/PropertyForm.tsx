@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
@@ -29,33 +29,120 @@ import {
   Building,
   FileText,
   Hash,
-  X
+  X,
+  Loader2,
+  AlertCircle
 } from "lucide-react";
 import { cn } from "../lib/utils";
+import { useRealtors, useSettings, useCascaderData } from "../hooks/useApi";
+import api from "../utils/api";
 
-// Tumanlar va kvartillar ma'lumotlari
-const tumanlarData: Record<string, string[]> = {
-  bektemir: ["Bektemir", "Iqbol", "Majnuntol", "Rohat", "Zilola"],
-  "mirzo-ulugbek": ["Mirzo Ulug'bek", "Qoratosh", "Uchtepa", "Bog'ishamol"],
-  sergeli: ["Sergeli", "Yangihayot", "Olmazor", "Qo'yliq"],
-  yunusobod: ["Yunusobod", "Ming o'rik", "Chorsu", "Buyuk ipak yo'li"],
-  chilonzor: ["Chilonzor", "Qatortol", "Oloy", "Farg'ona yo'li"],
-  yakkasaroy: ["Yakkasaroy", "Amir Temur", "Bobur", "Mustaqillik"],
-  olmazor: ["Olmazor", "Beruniy", "Chimboy", "Qorasaroy"],
-  shayxontohur: ["Shayxontohur", "Eski shahar", "Chorsu bozori", "Sebzor"],
-  uchtepa: ["Uchtepa", "TTZ", "Sayram", "Qo'shbegi"],
-  mirobod: ["Mirobod", "Tashkent City", "Nurafshon", "Amir Temur xiyoboni"],
-};
+// Helper functions
+const compressImage = (file: File): Promise<Blob> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.src = e.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+          let width = img.width;
+          let height = img.height;
+          const maxSize = 800;
+          if (width > maxSize || height > maxSize) {
+            if (width > height) {
+              height = (height / width) * maxSize;
+              width = maxSize;
+            } else {
+              width = (width / height) * maxSize;
+              height = maxSize;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          ctx?.drawImage(img, 0, 0, width, height);
+          canvas.toBlob(
+              (blob) => {
+                if (!blob) return reject(new Error("Blob yaratilmadi"));
+                resolve(blob);
+              },
+              "image/webp",
+              0.7
+          );
+        };
+        img.onerror = reject;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+const blobToBase64 = (blob: Blob): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+
+interface UploadedImage {
+  file: File;
+  preview: string;
+  base64?: string;
+}
+
+interface FormData {
+  sheetType: string;
+  sheetName: string;
+  tuman: string;
+  kvartil: string;
+  xona: string;
+  etaj: string;
+  etajnost: string;
+  dom: string;
+  kvartira: string;
+  m2: string;
+  narx: string;
+  tell: string;
+  rieltor: string;
+  opisaniya: string;
+  fio: string;
+  id: string;
+  uy_turi: string;
+  planirovka: string;
+  xolati: string;
+  torets: string;
+  balkon: string;
+}
 
 const PropertyForm = () => {
   const [date, setDate] = useState<Date>();
   const [time, setTime] = useState("");
   const [dragActive, setDragActive] = useState(false);
-  const [selectedTuman, setSelectedTuman] = useState<string>("");
-  const [selectedKvartil, setSelectedKvartil] = useState<string>("");
-  const [uploadedImages, setUploadedImages] = useState<{ file: File; preview: string }[]>([]);
+  const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
-  const availableKvartillar = selectedTuman ? tumanlarData[selectedTuman] || [] : [];
+  // Form data
+  const [formData, setFormData] = useState<Partial<FormData>>({});
+
+  // API hooks
+  const { realtors, loading: realtorsLoading, error: realtorsError, reload: reloadRealtors } = useRealtors();
+  const { settings, loading: settingsLoading, error: settingsError } = useSettings();
+  const { cascaderData, loading: cascaderLoading, error: cascaderError, reload: reloadCascader } = useCascaderData();
+
+  // Load saved sheet from localStorage
+  useEffect(() => {
+    const savedSheet = localStorage.getItem("selectedSheetName");
+    const savedSheetType = localStorage.getItem("selectedSheetType");
+    if (savedSheet || savedSheetType) {
+      setFormData(prev => ({
+        ...prev,
+        sheetName: savedSheet || undefined,
+        sheetType: savedSheetType || undefined
+      }));
+    }
+  }, []);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -88,6 +175,11 @@ const PropertyForm = () => {
         (file) => file.type === "image/png" || file.type === "image/jpeg" || file.type === "image/jpg"
     );
 
+    if (uploadedImages.length + validFiles.length > 10) {
+      alert("Maksimal 10 ta rasm yuklash mumkin!");
+      return;
+    }
+
     const newImages = validFiles.map((file) => ({
       file,
       preview: URL.createObjectURL(file),
@@ -105,6 +197,158 @@ const PropertyForm = () => {
     });
   };
 
+  const formatPhoneNumber = (value: string) => {
+    let input = value.replace(/\D/g, "");
+    if (!input.startsWith("998")) input = "998" + input;
+    let formatted = "+998";
+    if (input.length > 3) formatted += " " + input.substring(3, 5);
+    if (input.length > 5) formatted += " " + input.substring(5, 8);
+    if (input.length > 8) formatted += " " + input.substring(8, 10);
+    if (input.length > 10) formatted += " " + input.substring(10, 12);
+    return formatted;
+  };
+
+  const formatPrice = (value: string) => {
+    const digits = value.replace(/\D/g, "");
+    return digits.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Validation
+    if (!formData.sheetType || !formData.sheetName || !formData.tuman || !formData.kvartil ||
+        !formData.xona || !formData.etaj || !formData.etajnost || !formData.m2 ||
+        !formData.narx || !formData.tell || !formData.rieltor) {
+      alert("Iltimos, barcha majburiy maydonlarni to'ldiring!");
+      return;
+    }
+
+    setLoading(true);
+    setUploadProgress(0);
+
+    try {
+      // Build data
+      const now = new Date();
+      const currentDateTime = `${String(now.getDate()).padStart(2, "0")}.${String(
+          now.getMonth() + 1
+      ).padStart(2, "0")}.${now.getFullYear()} ${String(now.getHours()).padStart(
+          2,
+          "0"
+      )}:${String(now.getMinutes()).padStart(2, "0")}`;
+
+      const xet = `${formData.xona}/${formData.etaj}/${formData.etajnost}`;
+
+      let osmotir = "";
+      if (date || time) {
+        const sana = date ? format(date, "dd.MM.yyyy") : "";
+        osmotir = (sana + (sana && time ? " " : "") + time).trim();
+      }
+
+      // Compress images
+      setUploadProgress(20);
+      const rasmlarBase64 = await Promise.all(
+          uploadedImages.map(async (img) => {
+            if (img.base64) return img.base64;
+            const blob = await compressImage(img.file);
+            const b64 = await blobToBase64(blob);
+            img.base64 = b64;
+            return b64;
+          })
+      );
+
+      setUploadProgress(50);
+
+      const userData = (() => {
+        try {
+          const u = localStorage.getItem("userData");
+          return u ? JSON.parse(u) : null;
+        } catch {
+          return null;
+        }
+      })();
+
+      const dataToSend = {
+        sheetName: formData.sheetName?.replace(/\s*xona\s*/gi, '').trim(),
+        sheetType: formData.sheetType,
+        kvartil: formData.kvartil,
+        xet,
+        tell: formData.tell,
+        m2: formData.m2 || "",
+        opisaniya: formData.opisaniya || "",
+        narx: formData.narx?.replace(/\s/g, "") || "",
+        fio: formData.fio || "",
+        id: formData.id || "",
+        rieltor: formData.rieltor,
+        sana: currentDateTime,
+        xodim: userData?.username || "",
+        rasmlar: rasmlarBase64.filter(Boolean),
+        uy_turi: formData.uy_turi || "",
+        planirovka: formData.planirovka || "",
+        xolati: formData.xolati || "",
+        torets: formData.torets || "",
+        balkon: formData.balkon || "",
+        osmotir: osmotir || "",
+        dom: formData.dom || "",
+        kvartira: formData.kvartira || "",
+      };
+
+      console.log("📤 Serverga yuborilmoqda:", dataToSend);
+
+      setUploadProgress(70);
+
+      const formDataToSend = new FormData();
+      formDataToSend.append("data", JSON.stringify(dataToSend));
+      uploadedImages.forEach((img) => {
+        formDataToSend.append("images", img.file);
+      });
+
+      const response = await api.post('/api/send-data', formDataToSend, {
+        headers: { "Content-Type": "multipart/form-data" },
+        timeout: 60000,
+      });
+
+      setUploadProgress(100);
+
+      console.log("✅ Server javobi:", response.data);
+
+      if (response.data.success) {
+        alert("✅ Ma'lumotlar muvaffaqiyatli yuborildi!");
+
+        // Reset form
+        setFormData({
+          sheetName: formData.sheetName,
+          sheetType: formData.sheetType
+        });
+        setUploadedImages([]);
+        setDate(undefined);
+        setTime("");
+      } else {
+        alert("❌ Server xatosi: " + (response.data.error || "Noma'lum xato"));
+      }
+
+      setTimeout(() => setUploadProgress(0), 1500);
+
+    } catch (err: any) {
+      console.error("❌ Xatolik:", err);
+      alert(`❌ Xatolik: ${err.response?.data?.error || err.message}`);
+      setUploadProgress(0);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Get Tuman options
+  const tumanOptions = cascaderData.map(item => ({
+    value: item.value,
+    label: item.label
+  }));
+
+  // Get Kvartil options based on selected Tuman
+  const kvartilOptions = formData.tuman
+      ? (cascaderData.find(t => t.value === formData.tuman)?.children || [])
+      : [];
+
   return (
       <div className="w-full max-w-lg mx-auto p-4 pb-8 space-y-6">
         {/* Header */}
@@ -114,19 +358,25 @@ const PropertyForm = () => {
         </div>
 
         {/* Form */}
-        <form className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-5">
           {/* Sotuv yoki Ijara */}
           <div className="space-y-2">
             <Label className="text-sm text-muted-foreground flex items-center gap-1">
               <span className="text-primary">*</span> Sotuv yoki Ijara
             </Label>
-            <Select>
+            <Select
+                value={formData.sheetType}
+                onValueChange={(value) => {
+                  setFormData(prev => ({ ...prev, sheetType: value }));
+                  localStorage.setItem("selectedSheetType", value);
+                }}
+            >
               <SelectTrigger className="w-full h-12 bg-card border-border rounded-xl">
                 <SelectValue placeholder="Tanlang" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="sotuv">Sotuv</SelectItem>
-                <SelectItem value="ijara">Ijara</SelectItem>
+                <SelectItem value="Sotuv">Sotuv</SelectItem>
+                <SelectItem value="Arenda">Ijara</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -136,16 +386,22 @@ const PropertyForm = () => {
             <Label className="text-sm text-muted-foreground flex items-center gap-1">
               <span className="text-primary">*</span> Xona turi
             </Label>
-            <Select>
+            <Select
+                value={formData.sheetName}
+                onValueChange={(value) => {
+                  setFormData(prev => ({ ...prev, sheetName: value }));
+                  localStorage.setItem("selectedSheetName", value);
+                }}
+            >
               <SelectTrigger className="w-full h-12 bg-card border-border rounded-xl">
                 <SelectValue placeholder="Xona turini tanlang" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="1">1 xona</SelectItem>
-                <SelectItem value="2">2 xona</SelectItem>
-                <SelectItem value="3">3 xona</SelectItem>
-                <SelectItem value="4">4 xona</SelectItem>
-                <SelectItem value="5+">5+ xona</SelectItem>
+                <SelectItem value="1 xona">1 xona</SelectItem>
+                <SelectItem value="2 xona">2 xona</SelectItem>
+                <SelectItem value="3 xona">3 xona</SelectItem>
+                <SelectItem value="4 xona">4 xona</SelectItem>
+                <SelectItem value="5 xona">5 xona</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -156,26 +412,37 @@ const PropertyForm = () => {
               <MapPin className="h-3.5 w-3.5" />
               <span className="text-primary">*</span> Tuman
             </Label>
-            <Select value={selectedTuman} onValueChange={(value) => {
-              setSelectedTuman(value);
-              setSelectedKvartil(""); // Reset kvartil when tuman changes
-            }}>
+            <Select
+                value={formData.tuman}
+                onValueChange={(value) => {
+                  setFormData(prev => ({ ...prev, tuman: value, kvartil: "" }));
+                }}
+                disabled={cascaderLoading}
+            >
               <SelectTrigger className="w-full h-12 bg-card border-border rounded-xl">
-                <SelectValue placeholder="Tumanni tanlang" />
+                <SelectValue placeholder={cascaderLoading ? "Yuklanmoqda..." : "Tumanni tanlang"} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="bektemir">Bektemir tumani</SelectItem>
-                <SelectItem value="mirzo-ulugbek">Mirzo Ulug'bek tumani</SelectItem>
-                <SelectItem value="sergeli">Sergeli tumani</SelectItem>
-                <SelectItem value="yunusobod">Yunusobod tumani</SelectItem>
-                <SelectItem value="chilonzor">Chilonzor tumani</SelectItem>
-                <SelectItem value="yakkasaroy">Yakkasaroy tumani</SelectItem>
-                <SelectItem value="olmazor">Olmazor tumani</SelectItem>
-                <SelectItem value="shayxontohur">Shayxontohur tumani</SelectItem>
-                <SelectItem value="uchtepa">Uchtepa tumani</SelectItem>
-                <SelectItem value="mirobod">Mirobod tumani</SelectItem>
+                {tumanOptions.map((tuman) => (
+                    <SelectItem key={tuman.value} value={tuman.value}>
+                      {tuman.label}
+                    </SelectItem>
+                ))}
               </SelectContent>
             </Select>
+            {cascaderError && (
+                <div className="flex items-center gap-2 text-xs text-destructive">
+                  <AlertCircle className="h-3 w-3" />
+                  <span>{cascaderError}</span>
+                  <button
+                      type="button"
+                      onClick={reloadCascader}
+                      className="underline hover:no-underline"
+                  >
+                    Qayta yuklash
+                  </button>
+                </div>
+            )}
           </div>
 
           {/* Kvartil */}
@@ -184,24 +451,24 @@ const PropertyForm = () => {
               <span className="text-primary">*</span> Kvartil
             </Label>
             <Select
-                value={selectedKvartil}
-                onValueChange={setSelectedKvartil}
-                disabled={!selectedTuman}
+                value={formData.kvartil}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, kvartil: value }))}
+                disabled={!formData.tuman}
             >
-              <SelectTrigger className={`w-full h-12 bg-card border-border rounded-xl ${!selectedTuman ? 'opacity-50' : ''}`}>
-                <SelectValue placeholder={selectedTuman ? "Kvartilni tanlang" : "Avval tumanni tanlang"} />
+              <SelectTrigger className={`w-full h-12 bg-card border-border rounded-xl ${!formData.tuman ? 'opacity-50' : ''}`}>
+                <SelectValue placeholder={formData.tuman ? "Kvartilni tanlang" : "Avval tumanni tanlang"} />
               </SelectTrigger>
               <SelectContent>
-                {availableKvartillar.map((kvartil) => (
-                    <SelectItem key={kvartil} value={kvartil.toLowerCase().replace(/\s+/g, '-')}>
-                      {kvartil}
+                {kvartilOptions.map((kvartil) => (
+                    <SelectItem key={kvartil.value} value={kvartil.value}>
+                      {kvartil.label}
                     </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {selectedTuman && (
+            {formData.tuman && (
                 <p className="text-xs text-muted-foreground">
-                  {selectedTuman.charAt(0).toUpperCase() + selectedTuman.slice(1).replace('-', ' ')} tumaniga tegishli kvartillar
+                  {tumanOptions.find(t => t.value === formData.tuman)?.label} tumaniga tegishli kvartillar
                 </p>
             )}
           </div>
@@ -215,18 +482,25 @@ const PropertyForm = () => {
               <Input
                   type="number"
                   placeholder="2"
+                  value={formData.xona || ""}
+                  onChange={(e) => setFormData(prev => ({ ...prev, xona: e.target.value }))}
                   className="h-12 w-16 text-center bg-card border-border rounded-xl"
+                  max={formData.sheetName ? parseInt(formData.sheetName) : undefined}
               />
               <span className="text-2xl text-muted-foreground font-light">/</span>
               <Input
                   type="number"
                   placeholder="3"
+                  value={formData.etaj || ""}
+                  onChange={(e) => setFormData(prev => ({ ...prev, etaj: e.target.value }))}
                   className="h-12 w-16 text-center bg-card border-border rounded-xl"
               />
               <span className="text-2xl text-muted-foreground font-light">/</span>
               <Input
                   type="number"
                   placeholder="9"
+                  value={formData.etajnost || ""}
+                  onChange={(e) => setFormData(prev => ({ ...prev, etajnost: e.target.value }))}
                   className="h-12 w-16 text-center bg-card border-border rounded-xl"
               />
             </div>
@@ -241,6 +515,8 @@ const PropertyForm = () => {
               <Input
                   type="text"
                   placeholder="1"
+                  value={formData.dom || ""}
+                  onChange={(e) => setFormData(prev => ({ ...prev, dom: e.target.value }))}
                   className="h-12 bg-card border-border rounded-xl"
               />
             </div>
@@ -249,6 +525,8 @@ const PropertyForm = () => {
               <Input
                   type="text"
                   placeholder="12"
+                  value={formData.kvartira || ""}
+                  onChange={(e) => setFormData(prev => ({ ...prev, kvartira: e.target.value }))}
                   className="h-12 bg-card border-border rounded-xl"
               />
             </div>
@@ -262,6 +540,8 @@ const PropertyForm = () => {
             <Input
                 type="number"
                 placeholder="65"
+                value={formData.m2 || ""}
+                onChange={(e) => setFormData(prev => ({ ...prev, m2: e.target.value }))}
                 className="h-12 bg-card border-border rounded-xl"
             />
           </div>
@@ -273,8 +553,13 @@ const PropertyForm = () => {
             </Label>
             <div className="relative">
               <Input
-                  type="number"
+                  type="text"
                   placeholder="75000"
+                  value={formData.narx || ""}
+                  onChange={(e) => {
+                    const formatted = formatPrice(e.target.value);
+                    setFormData(prev => ({ ...prev, narx: formatted }));
+                  }}
                   className="h-12 bg-card border-border rounded-xl pr-10"
               />
               <DollarSign className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
@@ -290,6 +575,12 @@ const PropertyForm = () => {
             <Input
                 type="tel"
                 placeholder="+998 90 123 45 67"
+                value={formData.tell || ""}
+                onChange={(e) => {
+                  const formatted = formatPhoneNumber(e.target.value);
+                  setFormData(prev => ({ ...prev, tell: formatted }));
+                }}
+                maxLength={17}
                 className="h-12 bg-card border-border rounded-xl"
             />
           </div>
@@ -299,16 +590,35 @@ const PropertyForm = () => {
             <Label className="text-sm text-muted-foreground flex items-center gap-1">
               <span className="text-primary">*</span> Rielter
             </Label>
-            <Select>
+            <Select
+                value={formData.rieltor}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, rieltor: value }))}
+                disabled={realtorsLoading}
+            >
               <SelectTrigger className="w-full h-12 bg-card border-border rounded-xl">
-                <SelectValue placeholder="Rielter tanlang" />
+                <SelectValue placeholder={realtorsLoading ? "Yuklanmoqda..." : "Rielter tanlang"} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="rielter1">Aliyev Sardor</SelectItem>
-                <SelectItem value="rielter2">Karimov Jasur</SelectItem>
-                <SelectItem value="rielter3">Toshmatov Ulug'bek</SelectItem>
+                {realtors.map((realtor) => (
+                    <SelectItem key={realtor.id} value={realtor.username}>
+                      {realtor.full_name} ({realtor.username})
+                    </SelectItem>
+                ))}
               </SelectContent>
             </Select>
+            {realtorsError && (
+                <div className="flex items-center gap-2 text-xs text-destructive">
+                  <AlertCircle className="h-3 w-3" />
+                  <span>{realtorsError}</span>
+                  <button
+                      type="button"
+                      onClick={reloadRealtors}
+                      className="underline hover:no-underline"
+                  >
+                    Qayta yuklash
+                  </button>
+                </div>
+            )}
           </div>
 
           {/* Primichaniya */}
@@ -318,6 +628,8 @@ const PropertyForm = () => {
             </Label>
             <Textarea
                 placeholder="Remont yaxshi, mebel bor..."
+                value={formData.opisaniya || ""}
+                onChange={(e) => setFormData(prev => ({ ...prev, opisaniya: e.target.value }))}
                 className="min-h-[100px] bg-card border-border rounded-xl resize-none"
             />
           </div>
@@ -330,6 +642,8 @@ const PropertyForm = () => {
             <Input
                 type="text"
                 placeholder="Aliyev Vali"
+                value={formData.fio || ""}
+                onChange={(e) => setFormData(prev => ({ ...prev, fio: e.target.value }))}
                 className="h-12 bg-card border-border rounded-xl"
             />
           </div>
@@ -342,6 +656,8 @@ const PropertyForm = () => {
             <Input
                 type="text"
                 placeholder="12345"
+                value={formData.id || ""}
+                onChange={(e) => setFormData(prev => ({ ...prev, id: e.target.value }))}
                 className="h-12 bg-card border-border rounded-xl"
             />
           </div>
@@ -349,14 +665,20 @@ const PropertyForm = () => {
           {/* Uy turi */}
           <div className="space-y-2">
             <Label className="text-sm text-muted-foreground">Uy turi</Label>
-            <Select>
+            <Select
+                value={formData.uy_turi}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, uy_turi: value }))}
+                disabled={settingsLoading}
+            >
               <SelectTrigger className="w-full h-12 bg-card border-border rounded-xl">
                 <SelectValue placeholder="Uy turi" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="novostroyка">Novostroyka</SelectItem>
-                <SelectItem value="vtorichka">Vtorichka</SelectItem>
-                <SelectItem value="xovli">Xovli uy</SelectItem>
+                {(settings.uy_turi || []).map((item: any) => (
+                    <SelectItem key={item.id} value={item.value}>
+                      {item.value}
+                    </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -364,14 +686,20 @@ const PropertyForm = () => {
           {/* Planirovka */}
           <div className="space-y-2">
             <Label className="text-sm text-muted-foreground">Planirovka</Label>
-            <Select>
+            <Select
+                value={formData.planirovka}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, planirovka: value }))}
+                disabled={settingsLoading}
+            >
               <SelectTrigger className="w-full h-12 bg-card border-border rounded-xl">
                 <SelectValue placeholder="Planirovka" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="standart">Standart</SelectItem>
-                <SelectItem value="uluchshennaya">Uluchshennaya</SelectItem>
-                <SelectItem value="individualnaya">Individual'naya</SelectItem>
+                {(settings.planirovka || []).map((item: any) => (
+                    <SelectItem key={item.id} value={item.value}>
+                      {item.value}
+                    </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -379,15 +707,20 @@ const PropertyForm = () => {
           {/* Xolati */}
           <div className="space-y-2">
             <Label className="text-sm text-muted-foreground">Xolati</Label>
-            <Select>
+            <Select
+                value={formData.xolati}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, xolati: value }))}
+                disabled={settingsLoading}
+            >
               <SelectTrigger className="w-full h-12 bg-card border-border rounded-xl">
                 <SelectValue placeholder="Xolati" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="yaxshi">Yaxshi</SelectItem>
-                <SelectItem value="orta">O'rta</SelectItem>
-                <SelectItem value="yomon">Remont kerak</SelectItem>
-                <SelectItem value="evro">Evro remont</SelectItem>
+                {(settings.xolati || []).map((item: any) => (
+                    <SelectItem key={item.id} value={item.value}>
+                      {item.value}
+                    </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -395,13 +728,20 @@ const PropertyForm = () => {
           {/* Torets */}
           <div className="space-y-2">
             <Label className="text-sm text-muted-foreground">Torets</Label>
-            <Select>
+            <Select
+                value={formData.torets}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, torets: value }))}
+                disabled={settingsLoading}
+            >
               <SelectTrigger className="w-full h-12 bg-card border-border rounded-xl">
                 <SelectValue placeholder="Torets" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ha">Ha</SelectItem>
-                <SelectItem value="yoq">Yo'q</SelectItem>
+                {(settings.torets || []).map((item: any) => (
+                    <SelectItem key={item.id} value={item.value}>
+                      {item.value}
+                    </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -409,15 +749,20 @@ const PropertyForm = () => {
           {/* Balkon */}
           <div className="space-y-2">
             <Label className="text-sm text-muted-foreground">Balkon</Label>
-            <Select>
+            <Select
+                value={formData.balkon}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, balkon: value }))}
+                disabled={settingsLoading}
+            >
               <SelectTrigger className="w-full h-12 bg-card border-border rounded-xl">
                 <SelectValue placeholder="Balkon" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="1">1 ta</SelectItem>
-                <SelectItem value="2">2 ta</SelectItem>
-                <SelectItem value="yoq">Yo'q</SelectItem>
-                <SelectItem value="lodjiya">Lodjiya</SelectItem>
+                {(settings.balkon || []).map((item: any) => (
+                    <SelectItem key={item.id} value={item.value}>
+                      {item.value}
+                    </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -464,12 +809,37 @@ const PropertyForm = () => {
             </div>
           </div>
 
+          {/* Progress Bar */}
+          {loading && uploadProgress > 0 && (
+              <div className="space-y-2">
+                <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                  <div
+                      className="h-full bg-primary transition-all duration-300"
+                      style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+                <p className="text-xs text-center text-muted-foreground">
+                  {uploadProgress < 50 && "Rasmlar yuklanmoqda..."}
+                  {uploadProgress >= 50 && uploadProgress < 100 && "Serverga yuborilmoqda..."}
+                  {uploadProgress === 100 && "✅ Bajarildi!"}
+                </p>
+              </div>
+          )}
+
           {/* Submit Button */}
           <Button
               type="submit"
+              disabled={loading}
               className="w-full h-14 text-base font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 shadow-lg shadow-primary/25"
           >
-            Yuborish
+            {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Yuborilmoqda...
+                </>
+            ) : (
+                "Yuborish"
+            )}
           </Button>
 
           {/* Image Upload */}
@@ -500,9 +870,10 @@ const PropertyForm = () => {
                 Rasmlarni bu yerga tashlang yoki tanlang
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                PNG, JPG yoki JPEG fayllar qo'llanadi
+                PNG, JPG yoki JPEG fayllar qo'llanadi (maks. 10 ta)
               </p>
             </div>
+
             {/* Uploaded Images Preview */}
             {uploadedImages.length > 0 && (
                 <div className="grid grid-cols-3 gap-2">
