@@ -5,11 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d3207ba4-420e-4d31-977e-3895919ba9be" name="Changes" comment="wqe">
-      <change afterPath="$PROJECT_DIR$/client/postcss.config.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/client/index.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/client/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/client/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/tailwind.config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/client/tailwind.config.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/components/PropertyForm.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/PropertyForm.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/components/ui/calendar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/ui/calendar.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -197,15 +195,7 @@
       <workItem from="1768841099838" duration="119000" />
       <workItem from="1768898635627" duration="12000" />
       <workItem from="1768938922268" duration="59000" />
-      <workItem from="1769799847477" duration="3997000" />
-    </task>
-    <task id="LOCAL-00072" summary="wqe">
-      <option name="closed" value="true" />
-      <created>1765648434707</created>
-      <option name="number" value="00072" />
-      <option name="presentableId" value="LOCAL-00072" />
-      <option name="project" value="LOCAL" />
-      <updated>1765648434707</updated>
+      <workItem from="1769799847477" duration="6050000" />
     </task>
     <task id="LOCAL-00073" summary="wqe">
       <option name="closed" value="true" />
@@ -591,7 +581,15 @@
       <option name="project" value="LOCAL" />
       <updated>1769804261848</updated>
     </task>
-    <option name="localTasksCounter" value="121" />
+    <task id="LOCAL-00121" summary="wqe">
+      <option name="closed" value="true" />
+      <created>1769805074701</created>
+      <option name="number" value="00121" />
+      <option name="presentableId" value="LOCAL-00121" />
+      <option name="project" value="LOCAL" />
+      <updated>1769805074702</updated>
+    </task>
+    <option name="localTasksCounter" value="122" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
