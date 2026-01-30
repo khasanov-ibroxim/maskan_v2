@@ -36,6 +36,7 @@ import {
 import { cn } from "../lib/utils";
 import { useRealtors, useSettings, useCascaderData } from "../hooks/useApi";
 import api from "../utils/api";
+import { useToast } from "../hooks/use-toast";
 
 // Helper functions
 const compressImage = (file: File): Promise<Blob> =>
@@ -116,12 +117,14 @@ interface FormData {
 }
 
 const PropertyForm = () => {
+  const { toast } = useToast();
   const [date, setDate] = useState<Date>();
   const [time, setTime] = useState("");
   const [dragActive, setDragActive] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   // Form data
   const [formData, setFormData] = useState<Partial<FormData>>({});
@@ -176,7 +179,11 @@ const PropertyForm = () => {
     );
 
     if (uploadedImages.length + validFiles.length > 10) {
-      alert("Maksimal 10 ta rasm yuklash mumkin!");
+      toast({
+        variant: "destructive",
+        title: "⚠️ Limit oshdi",
+        description: "Maksimal 10 ta rasm yuklash mumkin!",
+      });
       return;
     }
 
@@ -220,7 +227,11 @@ const PropertyForm = () => {
     if (!formData.sheetType || !formData.sheetName || !formData.tuman || !formData.kvartil ||
         !formData.xona || !formData.etaj || !formData.etajnost || !formData.m2 ||
         !formData.narx || !formData.tell || !formData.rieltor) {
-      alert("Iltimos, barcha majburiy maydonlarni to'ldiring!");
+      toast({
+        variant: "destructive",
+        title: "Xato!",
+        description: "Iltimos, barcha majburiy maydonlarni to'ldiring!",
+      });
       return;
     }
 
@@ -313,7 +324,10 @@ const PropertyForm = () => {
       console.log("✅ Server javobi:", response.data);
 
       if (response.data.success) {
-        alert("✅ Ma'lumotlar muvaffaqiyatli yuborildi!");
+        toast({
+          title: "✅ Muvaffaqiyatli!",
+          description: "Ma'lumotlar muvaffaqiyatli yuborildi!",
+        });
 
         // Reset form
         setFormData({
@@ -324,14 +338,22 @@ const PropertyForm = () => {
         setDate(undefined);
         setTime("");
       } else {
-        alert("❌ Server xatosi: " + (response.data.error || "Noma'lum xato"));
+        toast({
+          variant: "destructive",
+          title: "❌ Server xatosi",
+          description: response.data.error || "Noma'lum xato",
+        });
       }
 
       setTimeout(() => setUploadProgress(0), 1500);
 
     } catch (err: any) {
       console.error("❌ Xatolik:", err);
-      alert(`❌ Xatolik: ${err.response?.data?.error || err.message}`);
+      toast({
+        variant: "destructive",
+        title: "❌ Xatolik",
+        description: err.response?.data?.error || err.message || "Noma'lum xato yuz berdi",
+      });
       setUploadProgress(0);
     } finally {
       setLoading(false);
@@ -773,7 +795,7 @@ const PropertyForm = () => {
               <CalendarIcon className="h-3.5 w-3.5" /> Osmotir vaqti
             </Label>
             <div className="grid grid-cols-2 gap-4">
-              <Popover>
+              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                 <PopoverTrigger asChild>
                   <Button
                       variant="outline"
@@ -790,7 +812,12 @@ const PropertyForm = () => {
                   <Calendar
                       mode="single"
                       selected={date}
-                      onSelect={setDate}
+                      onSelect={(selectedDate) => {
+                        setDate(selectedDate);
+                        if (selectedDate) {
+                          setCalendarOpen(false);
+                        }
+                      }}
                       initialFocus
                       className="pointer-events-auto"
                   />

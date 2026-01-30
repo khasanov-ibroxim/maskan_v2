@@ -5,18 +5,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d3207ba4-420e-4d31-977e-3895919ba9be" name="Changes" comment="wqe">
-      <change afterPath="$PROJECT_DIR$/client/src/components/ui/dropdown-menu.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/components/ui/toast.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/components/ui/toaster.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/components/ui/use-toast.ts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/hooks/use-toast.ts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/hooks/useApi.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/client/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/client/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/src/App.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/App.jsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/client/src/components/PropertyForm.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/PropertyForm.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/src/components/header.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/header.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/components/ui/calendar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/ui/calendar.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/hooks/use-toast.ts" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/hooks/use-toast.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/hooks/useApi.ts" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/hooks/useApi.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -205,15 +198,7 @@
       <workItem from="1768841099838" duration="119000" />
       <workItem from="1768898635627" duration="12000" />
       <workItem from="1768938922268" duration="59000" />
-      <workItem from="1769799847477" duration="7921000" />
-    </task>
-    <task id="LOCAL-00074" summary="wqe">
-      <option name="closed" value="true" />
-      <created>1765650932932</created>
-      <option name="number" value="00074" />
-      <option name="presentableId" value="LOCAL-00074" />
-      <option name="project" value="LOCAL" />
-      <updated>1765650932933</updated>
+      <workItem from="1769799847477" duration="9339000" />
     </task>
     <task id="LOCAL-00075" summary="wqe">
       <option name="closed" value="true" />
@@ -599,7 +584,15 @@
       <option name="project" value="LOCAL" />
       <updated>1769807180886</updated>
     </task>
-    <option name="localTasksCounter" value="123" />
+    <task id="LOCAL-00123" summary="wqe">
+      <option name="closed" value="true" />
+      <created>1769809213567</created>
+      <option name="number" value="00123" />
+      <option name="presentableId" value="LOCAL-00123" />
+      <option name="project" value="LOCAL" />
+      <updated>1769809213567</updated>
+    </task>
+    <option name="localTasksCounter" value="124" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">

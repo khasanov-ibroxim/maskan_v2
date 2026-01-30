@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../utils/api';
 
-
-// hooks/useApi.ts ichida
+// Type definitions
 interface Realtor {
     id: number;
     username: string;
@@ -29,14 +28,11 @@ interface CascaderOption {
     children?: CascaderOption[];
 }
 
-
-
-
 // Realtor'larni yuklash hook'i
 export const useRealtors = () => {
-    const [realtors, setRealtors] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
+    const [realtors, setRealtors] = useState<Realtor[]>([]);
+    const [loading, setLoading] = useState<boolean>(false);
+    const [error, setError] = useState<string | null>(null);
 
     const loadRealtors = async () => {
         setLoading(true);
@@ -69,9 +65,9 @@ export const useRealtors = () => {
 
 // Settings yuklash hook'i
 export const useSettings = () => {
-    const [settings, setSettings] = useState({});
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
+    const [settings, setSettings] = useState<Settings>({});
+    const [loading, setLoading] = useState<boolean>(false);
+    const [error, setError] = useState<string | null>(null);
 
     const loadSettings = async () => {
         setLoading(true);
@@ -99,9 +95,9 @@ export const useSettings = () => {
 
 // Cascader data (Tuman -> Kvartil) yuklash hook'i
 export const useCascaderData = () => {
-    const [cascaderData, setCascaderData] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
+    const [cascaderData, setCascaderData] = useState<CascaderOption[]>([]);
+    const [loading, setLoading] = useState<boolean>(false);
+    const [error, setError] = useState<string | null>(null);
 
     const loadCascaderData = async () => {
         setLoading(true);
@@ -133,8 +129,15 @@ export const useCascaderData = () => {
 };
 
 // User data hook'i
+interface UserData {
+    username: string;
+    fullName?: string;
+    full_name?: string;
+    role: string;
+}
+
 export const useUserData = () => {
-    const [userData, setUserData] = useState(null);
+    const [userData, setUserData] = useState<UserData | null>(null);
 
     useEffect(() => {
         const data = localStorage.getItem('userData');
