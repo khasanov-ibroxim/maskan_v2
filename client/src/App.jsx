@@ -3,8 +3,9 @@ import {Route, Routes} from "react-router-dom";
 import FormMaskan from "./page/form_maskan/form_maskan.jsx";
 import Login from "./page/login/login.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
-import Header from "./components/Header.jsx";
+import Header from "./components/header.js";
 import AdminPanel from "./page/admin/adminPanel.jsx";
+import PropertyForm from "./components/PropertyForm.js";
 
 const App = () => {
     useEffect(() => {
@@ -24,8 +25,12 @@ const App = () => {
 
             <Route path="/" element={
                 <ProtectedRoute>
-                    <Header />
-                    <FormMaskan />
+                    <div className="min-h-screen bg-background">
+                        <Header />
+                        <main className="pb-safe">
+                            <PropertyForm />
+                        </main>
+                    </div>
                 </ProtectedRoute>
             } />
 
