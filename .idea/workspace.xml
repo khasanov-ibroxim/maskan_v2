@@ -5,18 +5,14 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d3207ba4-420e-4d31-977e-3895919ba9be" name="Changes" comment="wqe">
-      <change afterPath="$PROJECT_DIR$/client/src/components/AdminPanel.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/components/ClientsTab.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/components/ObjectsTab.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/components/SettingsTab.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/components/StatsCard.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/components/UsersTab.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/components/ui/table.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/src/App.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/App.jsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/src/components/ui/button.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/ui/button.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/src/index.css" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/index.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/tailwind.config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/client/tailwind.config.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/components/AdminPanel.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/AdminPanel.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/components/ClientsTab.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/ClientsTab.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/components/ObjectsTab.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/ObjectsTab.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/components/SettingsTab.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/SettingsTab.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/components/StatsCard.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/StatsCard.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/components/UsersTab.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/UsersTab.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/utils/api.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/utils/api.jsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -208,15 +204,7 @@
       <workItem from="1768898635627" duration="12000" />
       <workItem from="1768938922268" duration="59000" />
       <workItem from="1769799847477" duration="9595000" />
-      <workItem from="1769872868774" duration="6929000" />
-    </task>
-    <task id="LOCAL-00076" summary="wqe">
-      <option name="closed" value="true" />
-      <created>1765652804348</created>
-      <option name="number" value="00076" />
-      <option name="presentableId" value="LOCAL-00076" />
-      <option name="project" value="LOCAL" />
-      <updated>1765652804348</updated>
+      <workItem from="1769872868774" duration="9365000" />
     </task>
     <task id="LOCAL-00077" summary="wqe">
       <option name="closed" value="true" />
@@ -602,7 +590,15 @@
       <option name="project" value="LOCAL" />
       <updated>1769810460420</updated>
     </task>
-    <option name="localTasksCounter" value="125" />
+    <task id="LOCAL-00125" summary="wqe">
+      <option name="closed" value="true" />
+      <created>1769887967199</created>
+      <option name="number" value="00125" />
+      <option name="presentableId" value="LOCAL-00125" />
+      <option name="project" value="LOCAL" />
+      <updated>1769887967200</updated>
+    </task>
+    <option name="localTasksCounter" value="126" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">

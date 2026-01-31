@@ -1,10 +1,11 @@
-import { useState } from "react";
-import { Users, CheckCircle, Home, Building, Settings , HousePlus , BookUser} from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Users, CheckCircle, Home, Building, Settings, HousePlus, BookUser } from "lucide-react";
 import { StatsCard } from "./StatsCard";
 import { ObjectsTab } from "./ObjectsTab";
 import { UsersTab } from "./UsersTab";
 import { SettingsTab } from "./SettingsTab";
-import ClientsTab from "./ClientsTab";
+import { ClientsTab } from "./ClientsTab";
+import api from "../utils/api";
 
 type TabType = "objects" | "clients" | "users" | "settings";
 
@@ -17,7 +18,84 @@ const tabs = [
 
 export function AdminPanel() {
     const [activeTab, setActiveTab] = useState<TabType>("objects");
-    const [lastUpdate] = useState(new Date().toLocaleTimeString());
+    const [lastUpdate, setLastUpdate] = useState(new Date().toLocaleTimeString());
+
+    // Stats data from API
+    const [stats, setStats] = useState({
+        totalUsers: 0,
+        activeUsers: 0,
+        realtors: 0,
+        clients: 0,
+        objects: 0
+    });
+
+    const [loading, setLoading] = useState(false);
+    const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+    // Load stats from API
+    const loadStats = useCallback(async () => {
+        setLoading(true);
+        try {
+            // Load users and sessions
+            const [usersRes, sessionsRes, clientsRes] = await Promise.all([
+                api.get('/api/users/users'),
+                api.get('/api/users/sessions/active'),
+                api.get('/api/clients')
+            ]);
+
+            let totalUsers = 0;
+            let activeUsers = 0;
+            let realtors = 0;
+
+            if (usersRes.data.success) {
+                const users = usersRes.data.users || [];
+                totalUsers = users.length;
+                realtors = users.filter((u: any) =>
+                    u.role === 'rieltor' || u.role === 'individual_rieltor'
+                ).length;
+            }
+
+            if (sessionsRes.data.success) {
+                activeUsers = sessionsRes.data.sessions?.length || 0;
+            }
+
+            const clients = clientsRes.data.success ? (clientsRes.data.data?.length || 0) : 0;
+
+            setStats({
+                totalUsers,
+                activeUsers,
+                realtors,
+                clients,
+                objects: 0 // Will be updated from ObjectsTab
+            });
+
+            setLastUpdate(new Date().toLocaleTimeString());
+        } catch (error) {
+            console.error('Error loading stats:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    // Update objects count
+    const updateObjectsCount = useCallback((count: number) => {
+        setStats(prev => ({ ...prev, objects: count }));
+    }, []);
+
+    useEffect(() => {
+        loadStats();
+
+        // Auto-refresh every 10 minutes
+        intervalRef.current = setInterval(() => {
+            loadStats();
+        }, 600000);
+
+        return () => {
+            if (intervalRef.current) {
+                clearInterval(intervalRef.current);
+            }
+        };
+    }, [loadStats]);
 
     return (
         <div className="min-h-screen bg-background">
@@ -43,32 +121,31 @@ export function AdminPanel() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                     <StatsCard
                         title="Jami Userlar"
-                        value={13}
+                        value={stats.totalUsers}
                         icon={Users}
                         variant="users"
                     />
                     <StatsCard
                         title="Online"
-                        value={1}
+                        value={stats.activeUsers}
                         icon={CheckCircle}
                         variant="online"
                     />
                     <StatsCard
                         title="Rieltor"
-                        value={5}
+                        value={stats.realtors}
                         icon={Home}
                         variant="rieltor"
                     />
                     <StatsCard
                         title="Clients"
-                        value={1}
+                        value={stats.clients}
                         icon={BookUser}
                         variant="clients"
                     />
-
                     <StatsCard
                         title="Obyektlar"
-                        value={5}
+                        value={stats.objects}
                         icon={HousePlus}
                         variant="objects"
                     />
@@ -77,7 +154,7 @@ export function AdminPanel() {
                 {/* Tabs */}
                 <div className="admin-card mb-6">
                     <div className="flex gap-1 p-2 border-b">
-                        {tabs.map((tab , index) => (
+                        {tabs.map((tab, index) => (
                             <button
                                 key={index}
                                 onClick={() => setActiveTab(tab.id)}
@@ -95,9 +172,9 @@ export function AdminPanel() {
                 </div>
 
                 {/* Tab Content */}
-                {activeTab === "objects" && <ObjectsTab />}
-                {activeTab === "clients" && <ClientsTab />}
-                {activeTab === "users" && <UsersTab />}
+                {activeTab === "objects" && <ObjectsTab onCountUpdate={updateObjectsCount} />}
+                {activeTab === "clients" && <ClientsTab onRefresh={loadStats} />}
+                {activeTab === "users" && <UsersTab onRefresh={loadStats} />}
                 {activeTab === "settings" && <SettingsTab />}
             </main>
         </div>

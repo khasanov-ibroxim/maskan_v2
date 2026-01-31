@@ -1,7 +1,16 @@
-import { useState } from "react";
-import { Plus, RefreshCw, Download, Pencil, Trash2, User } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, RefreshCw, Download, Pencil, Trash2, User, Eye, EyeOff, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "./ui/select";
 import {
     Table,
     TableBody,
@@ -10,62 +19,301 @@ import {
     TableHeader,
     TableRow,
 } from "./ui/table";
+import { useToast } from "../hooks/use-toast";
+import api from "../utils/api";
 
-const mockUsers = [
-    {
-        id: 1,
-        username: "Javohir",
-        fullName: "Javohir Karimov",
-        role: "INDIVIDUAL_RIELTOR",
-        status: "Offline",
-    },
-    {
-        id: 2,
-        username: "Laziz",
-        fullName: "Laziz Ahmadov",
-        role: "INDIVIDUAL_RIELTOR",
-        status: "Online",
-    },
-    {
-        id: 3,
-        username: "laziz",
-        fullName: "Laziz Toshmatov",
-        role: "INDIVIDUAL_RIELTOR",
-        status: "Offline",
-    },
-    {
-        id: 4,
-        username: "test",
-        fullName: "Test User",
-        role: "INDIVIDUAL_RIELTOR",
-        status: "Offline",
-    },
-    {
-        id: 5,
-        username: "admin",
-        fullName: "Admin User",
-        role: "ADMIN",
-        status: "Online",
-    },
-];
+interface UserType {
+    id: string;
+    username: string;
+    fullName: string;
+    role: string;
+    appScriptUrl?: string;
+    telegram_chat_id?: string;
+    telegramThemeId?: string;
+    phone?: string;
+}
 
-export function UsersTab() {
-    const [users] = useState(mockUsers);
+interface Session {
+    userId: string;
+}
+
+interface TelegramChat {
+    id: string;
+    chat_name: string;
+    chat_id: string;
+}
+
+interface UsersTabProps {
+    onRefresh?: () => void;
+}
+
+export function UsersTab({ onRefresh }: UsersTabProps) {
+    const [users, setUsers] = useState<UserType[]>([]);
+    const [sessions, setSessions] = useState<Session[]>([]);
+    const [telegramChats, setTelegramChats] = useState<TelegramChat[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [modalVisible, setModalVisible] = useState(false);
+    const [editingUser, setEditingUser] = useState<UserType | null>(null);
+    const { toast } = useToast();
+
+    const [formData, setFormData] = useState({
+        username: '',
+        password: '',
+        fullName: '',
+        role: 'user',
+        appScriptUrl: '',
+        telegramChatId: '',
+        telegramThemeId: '',
+        phone: ''
+    });
+
+    useEffect(() => {
+        loadUsers();
+        loadTelegramChats();
+    }, []);
+
+    const loadUsers = async () => {
+        setLoading(true);
+        try {
+            const [usersRes, sessionsRes] = await Promise.all([
+                api.get('/api/users/users'),
+                api.get('/api/users/sessions/active')
+            ]);
+
+            if (usersRes.data.success) {
+                setUsers(usersRes.data.users || []);
+            }
+
+            if (sessionsRes.data.success) {
+                setSessions(sessionsRes.data.sessions || []);
+            }
+        } catch (error: any) {
+            console.error('Error loading users:', error);
+            toast({
+                title: "Xato",
+                description: "Ma'lumotlarni yuklashda xato",
+                variant: "destructive"
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const loadTelegramChats = async () => {
+        try {
+            const response = await api.get('/api/telegram-chats');
+            if (response.data.success) {
+                setTelegramChats(response.data.data || []);
+            }
+        } catch (error) {
+            console.error('Error loading telegram chats:', error);
+        }
+    };
+
+    const handleAdd = () => {
+        setEditingUser(null);
+        setFormData({
+            username: '',
+            password: '',
+            fullName: '',
+            role: 'user',
+            appScriptUrl: '',
+            telegramChatId: '',
+            telegramThemeId: '',
+            phone: ''
+        });
+        setModalVisible(true);
+    };
+
+    const handleEdit = (user: UserType) => {
+        setEditingUser(user);
+        setFormData({
+            username: user.username,
+            password: '',
+            fullName: user.fullName,
+            role: user.role,
+            appScriptUrl: user.appScriptUrl || '',
+            telegramChatId: user.telegram_chat_id || '',
+            telegramThemeId: user.telegramThemeId || '',
+            phone: user.phone || ''
+        });
+        setModalVisible(true);
+    };
+
+    const handleDelete = async (userId: string) => {
+        if (!confirm("Userni o'chirmoqchimisiz?")) return;
+
+        try {
+            await api.delete(`/api/users/users/${userId}`);
+            toast({
+                title: "Muvaffaqiyatli",
+                description: "User o'chirildi"
+            });
+            loadUsers();
+            if (onRefresh) onRefresh();
+        } catch (error: any) {
+            console.error('Error deleting user:', error);
+            toast({
+                title: "Xato",
+                description: error.response?.data?.error || "O'chirishda xato",
+                variant: "destructive"
+            });
+        }
+    };
+
+    const handleSubmit = async () => {
+        if (!formData.username || !formData.fullName) {
+            toast({
+                title: "Xato",
+                description: "Username va to'liq ism majburiy!",
+                variant: "destructive"
+            });
+            return;
+        }
+
+        if (!editingUser && !formData.password) {
+            toast({
+                title: "Xato",
+                description: "Parol majburiy!",
+                variant: "destructive"
+            });
+            return;
+        }
+
+        try {
+            const payload: any = {
+                username: formData.username,
+                fullName: formData.fullName,
+                role: formData.role
+            };
+
+            if (formData.password) {
+                payload.password = formData.password;
+            }
+
+            if (formData.role === 'rieltor') {
+                payload.appScriptUrl = formData.appScriptUrl;
+                if (formData.telegramChatId && formData.telegramChatId !== 'none') {
+                    payload.telegramChatId = formData.telegramChatId;
+                }
+                if (formData.telegramThemeId) {
+                    payload.telegramThemeId = formData.telegramThemeId;
+                }
+            }
+
+            if (formData.role === 'individual_rieltor') {
+                if (!formData.phone || !/^\+998\d{9}$/.test(formData.phone)) {
+                    toast({
+                        title: "Xato",
+                        description: "Telefon formatida xato! (+998XXXXXXXXX)",
+                        variant: "destructive"
+                    });
+                    return;
+                }
+                payload.phone = formData.phone;
+                if (formData.telegramChatId && formData.telegramChatId !== 'none') {
+                    payload.telegramChatId = formData.telegramChatId;
+                }
+                if (formData.telegramThemeId) {
+                    payload.telegramThemeId = formData.telegramThemeId;
+                }
+            }
+
+            if (editingUser) {
+                await api.put(`/api/users/users/${editingUser.id}`, payload);
+                toast({
+                    title: "Muvaffaqiyatli",
+                    description: "User yangilandi"
+                });
+            } else {
+                await api.post('/api/users/users', payload);
+                toast({
+                    title: "Muvaffaqiyatli",
+                    description: "User yaratildi"
+                });
+            }
+
+            setModalVisible(false);
+            loadUsers();
+            if (onRefresh) onRefresh();
+        } catch (error: any) {
+            console.error('Error saving user:', error);
+            toast({
+                title: "Xato",
+                description: error.response?.data?.error || "Xato yuz berdi",
+                variant: "destructive"
+            });
+        }
+    };
+
+    const handlePhoneChange = (value: string) => {
+        let input = value.replace(/\D/g, '');
+        if (!input.startsWith('998')) input = '998' + input;
+        let formatted = '+' + input.substring(0, 12);
+        setFormData({ ...formData, phone: formatted });
+    };
+
+    const handleDownloadBackup = async () => {
+        try {
+            toast({
+                title: "Yuklanmoqda...",
+                description: "Excel backup tayyorlanmoqda"
+            });
+
+            const response = await api.get('/api/excel/export', {
+                responseType: 'blob'
+            });
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `backup_${new Date().toISOString().split('T')[0]}.xlsx`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+
+            toast({
+                title: "Muvaffaqiyatli",
+                description: "Backup yuklandi"
+            });
+        } catch (error: any) {
+            console.error('Error downloading backup:', error);
+            toast({
+                title: "Xato",
+                description: "Yuklashda xato",
+                variant: "destructive"
+            });
+        }
+    };
+
+    const isOnline = (userId: string) => {
+        return sessions.some(s => s.userId === userId);
+    };
+
+    const getRoleConfig = (role: string) => {
+        const configs: Record<string, { color: string; icon: string; label: string }> = {
+            admin: { color: 'border-red-500 text-red-700', icon: '👑', label: 'ADMIN' },
+            rieltor: { color: 'border-blue-500 text-blue-700', icon: '🏠', label: 'RIELTOR' },
+            individual_rieltor: { color: 'border-purple-500 text-purple-700', icon: '📱', label: 'INDIVIDUAL_RIELTOR' },
+            user: { color: 'border-green-500 text-green-700', icon: '👤', label: 'USER' }
+        };
+        return configs[role] || configs.user;
+    };
 
     return (
         <div className="space-y-6 animate-fade-in">
             {/* Action Buttons */}
             <div className="flex items-center justify-between">
                 <div className="flex gap-3">
-                    <Button className="bg-primary hover:bg-primary/90">
+                    <Button className="bg-primary hover:bg-primary/90" onClick={handleAdd}>
                         <Plus className="h-4 w-4 mr-2" />
                         Yangi User
                     </Button>
-                    <Button variant="outline">
+                    <Button variant="outline" onClick={loadUsers}>
                         <RefreshCw className="h-4 w-4 mr-2" />
                         Yangilash
                     </Button>
-                    <Button variant="outline">
+                    <Button variant="outline" onClick={handleDownloadBackup}>
                         <Download className="h-4 w-4 mr-2" />
                         Excel Backup
                     </Button>
@@ -89,49 +337,219 @@ export function UsersTab() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {users.map((user) => (
-                            <TableRow key={user.id} className="hover:bg-muted/30">
-                                <TableCell className="font-medium text-primary">
-                                    {user.username}
-                                </TableCell>
-                                <TableCell>{user.fullName}</TableCell>
-                                <TableCell>
-                                    <Badge
-                                        variant="outline"
-                                        className="border-primary text-primary bg-primary/5"
-                                    >
-                                        <User className="h-3 w-3 mr-1" />
-                                        {user.role}
-                                    </Badge>
-                                </TableCell>
-                                <TableCell>
-                                    <Badge
-                                        variant="outline"
-                                        className={user.status === "Online"
-                                            ? "border-success text-success bg-success/5"
-                                            : "border-muted-foreground text-muted-foreground"
-                                        }
-                                    >
-                                        {user.status}
-                                    </Badge>
-                                </TableCell>
-                                <TableCell>
-                                    <div className="flex items-center justify-center gap-2">
-                                        <Button size="sm" className="action-btn-success h-8">
-                                            <Pencil className="h-3 w-3 mr-1" />
-                                            Tahrirlash
-                                        </Button>
-                                        <Button size="sm" variant="outline" className="action-btn-danger h-8">
-                                            <Trash2 className="h-3 w-3 mr-1" />
-                                            O'chirish
-                                        </Button>
-                                    </div>
-                                </TableCell>
-                            </TableRow>
-                        ))}
+                        {users.map((user) => {
+                            const roleConfig = getRoleConfig(user.role);
+                            const online = isOnline(user.id);
+
+                            return (
+                                <TableRow key={user.id} className="hover:bg-muted/30">
+                                    <TableCell className="font-medium text-primary">
+                                        {user.username}
+                                    </TableCell>
+                                    <TableCell>{user.fullName}</TableCell>
+                                    <TableCell>
+                                        <Badge variant="outline" className={`${roleConfig.color} bg-transparent`}>
+                                            <User className="h-3 w-3 mr-1" />
+                                            {roleConfig.icon} {roleConfig.label}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Badge
+                                            variant="outline"
+                                            className={online
+                                                ? "border-success text-success bg-success/5"
+                                                : "border-muted-foreground text-muted-foreground"
+                                            }
+                                        >
+                                            {online ? 'Online' : 'Offline'}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="flex items-center justify-center gap-2">
+                                            <Button
+                                                size="sm"
+                                                className="action-btn-success h-8"
+                                                onClick={() => handleEdit(user)}
+                                                disabled={user.role === 'admin'}
+                                            >
+                                                <Pencil className="h-3 w-3 mr-1" />
+                                                Tahrirlash
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="action-btn-danger h-8"
+                                                onClick={() => handleDelete(user.id)}
+                                                disabled={user.role === 'admin'}
+                                            >
+                                                <Trash2 className="h-3 w-3 mr-1" />
+                                                O'chirish
+                                            </Button>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            );
+                        })}
                     </TableBody>
                 </Table>
             </div>
+
+            {/* Modal */}
+            {modalVisible && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-card rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-xl font-bold">
+                                {editingUser ? 'User Tahrirlash' : 'Yangi User'}
+                            </h2>
+                            <button onClick={() => setModalVisible(false)}>
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <Label>Username *</Label>
+                                <Input
+                                    value={formData.username}
+                                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                                    placeholder="john_doe"
+                                />
+                            </div>
+
+                            <div>
+                                <Label>{editingUser ? 'Yangi parol (ixtiyoriy)' : 'Parol *'}</Label>
+                                <Input
+                                    type="password"
+                                    value={formData.password}
+                                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                    placeholder={editingUser ? "Bo'sh qoldiring agar o'zgartirmasangiz" : "Kamida 5 ta belgi"}
+                                />
+                            </div>
+
+                            <div>
+                                <Label>To'liq ism *</Label>
+                                <Input
+                                    value={formData.fullName}
+                                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                                    placeholder="John Doe"
+                                />
+                            </div>
+
+                            <div>
+                                <Label>Role *</Label>
+                                <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="user">👤 User</SelectItem>
+                                        <SelectItem value="rieltor">🏠 Rieltor</SelectItem>
+                                        <SelectItem value="individual_rieltor">📱 Individual Rieltor</SelectItem>
+                                        <SelectItem value="admin">👑 Admin</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {formData.role === 'rieltor' && (
+                                <>
+                                    <div>
+                                        <Label>Telegram Chat</Label>
+                                        <Select
+                                            value={formData.telegramChatId || "none"}
+                                            onValueChange={(value) => setFormData({ ...formData, telegramChatId: value })}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Chat tanlang (ixtiyoriy)" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">Bo'sh</SelectItem>
+                                                {telegramChats.map(chat => (
+                                                    <SelectItem key={chat.id} value={chat.id}>
+                                                        {chat.chat_name} ({chat.chat_id})
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div>
+                                        <Label>Telegram Theme ID</Label>
+                                        <Input
+                                            type="number"
+                                            value={formData.telegramThemeId}
+                                            onChange={(e) => setFormData({ ...formData, telegramThemeId: e.target.value })}
+                                            placeholder="65 (ixtiyoriy)"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <Label>App Script URL *</Label>
+                                        <Input
+                                            value={formData.appScriptUrl}
+                                            onChange={(e) => setFormData({ ...formData, appScriptUrl: e.target.value })}
+                                            placeholder="https://script.google.com/..."
+                                        />
+                                    </div>
+                                </>
+                            )}
+
+                            {formData.role === 'individual_rieltor' && (
+                                <>
+                                    <div>
+                                        <Label>Telegram Chat</Label>
+                                        <Select
+                                            value={formData.telegramChatId || "none"}
+                                            onValueChange={(value) => setFormData({ ...formData, telegramChatId: value })}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Chat tanlang (ixtiyoriy)" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">Bo'sh</SelectItem>
+                                                {telegramChats.map(chat => (
+                                                    <SelectItem key={chat.id} value={chat.id}>
+                                                        {chat.chat_name} ({chat.chat_id})
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div>
+                                        <Label>Telegram Theme ID</Label>
+                                        <Input
+                                            type="number"
+                                            value={formData.telegramThemeId}
+                                            onChange={(e) => setFormData({ ...formData, telegramThemeId: e.target.value })}
+                                            placeholder="65 (ixtiyoriy)"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <Label>Telefon raqami *</Label>
+                                        <Input
+                                            value={formData.phone}
+                                            onChange={(e) => handlePhoneChange(e.target.value)}
+                                            placeholder="+998901234567"
+                                            maxLength={13}
+                                        />
+                                    </div>
+                                </>
+                            )}
+
+                            <div className="flex gap-2 pt-4">
+                                <Button onClick={handleSubmit} className="flex-1">
+                                    {editingUser ? 'Yangilash' : 'Yaratish'}
+                                </Button>
+                                <Button variant="outline" onClick={() => setModalVisible(false)} className="flex-1">
+                                    Bekor qilish
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
