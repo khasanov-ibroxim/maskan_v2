@@ -4,9 +4,10 @@ import FormMaskan from "./page/form_maskan/form_maskan.jsx";
 import Login from "./page/login/login.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import Header from "./components/header.js";
-import AdminPanel from "./page/admin/adminPanel.jsx";
+
 import PropertyForm from "./components/PropertyForm.js";
 import { Toaster } from "./components/ui/toaster";
+import {AdminPanel} from "./components/AdminPanel.js";
 
 const App = () => {
     useEffect(() => {

@@ -60,6 +60,11 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        stats: {
+          users: "hsl(var(--stats-users))",
+          online: "hsl(var(--stats-online))",
+          rieltor: "hsl(var(--stats-rieltor))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

@@ -5,11 +5,18 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d3207ba4-420e-4d31-977e-3895919ba9be" name="Changes" comment="wqe">
+      <change afterPath="$PROJECT_DIR$/client/src/components/AdminPanel.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/client/src/components/ClientsTab.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/client/src/components/ObjectsTab.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/client/src/components/SettingsTab.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/client/src/components/StatsCard.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/client/src/components/UsersTab.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/client/src/components/ui/table.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/src/components/PropertyForm.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/PropertyForm.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/src/components/ui/calendar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/ui/calendar.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/src/hooks/use-toast.ts" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/hooks/use-toast.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/src/hooks/useApi.ts" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/hooks/useApi.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/App.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/App.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/components/ui/button.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/ui/button.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/index.css" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/index.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/tailwind.config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/client/tailwind.config.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -21,6 +28,7 @@
       <list>
         <option value="JSX File" />
         <option value="JavaScript File" />
+        <option value="TypeScript JSX File" />
       </list>
     </option>
   </component>
@@ -52,35 +60,36 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Node.js.api.jsx.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;database.data.extractors.current.export.id&quot;: &quot;JSON-Groovy.json.groovy&quot;,
-    &quot;database.data.extractors.current.id&quot;: &quot;JSON-Groovy.json.groovy&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;javascript.nodejs.core.library.configured.version&quot;: &quot;24.11.1&quot;,
-    &quot;javascript.nodejs.core.library.typings.version&quot;: &quot;24.10.9&quot;,
-    &quot;last_opened_file_path&quot;: &quot;D:/project/maskan/maskan_v2/client/src/hooks&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;npm.dev.executor&quot;: &quot;Run&quot;,
-    &quot;npm.olx:login.executor&quot;: &quot;Run&quot;,
-    &quot;npm.test:login.executor&quot;: &quot;Run&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
-    &quot;ts.external.directory.path&quot;: &quot;D:\\webstorm\\JetBrains\\WebStorm2025.1\\plugins\\javascript-plugin\\jsLanguageServicesImpl\\external&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "Node.js.api.jsx.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "database.data.extractors.current.export.id": "JSON-Groovy.json.groovy",
+    "database.data.extractors.current.id": "JSON-Groovy.json.groovy",
+    "git-widget-placeholder": "master",
+    "javascript.nodejs.core.library.configured.version": "24.11.1",
+    "javascript.nodejs.core.library.typings.version": "24.10.9",
+    "last_opened_file_path": "D:/project/maskan/maskan_v2/client/src/hooks",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "npm.dev.executor": "Run",
+    "npm.olx:login.executor": "Run",
+    "npm.test:login.executor": "Run",
+    "settings.editor.selected.configurable": "preferences.pluginManager",
+    "ts.external.directory.path": "D:\\webstorm\\JetBrains\\WebStorm2025.1\\plugins\\javascript-plugin\\jsLanguageServicesImpl\\external",
+    "vue.rearranger.settings.migration": "true"
   },
-  &quot;keyToStringList&quot;: {
-    &quot;DatabaseDriversLRU&quot;: [
-      &quot;postgresql&quot;
+  "keyToStringList": {
+    "DatabaseDriversLRU": [
+      "postgresql"
     ]
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="D:\project\maskan\maskan_v2\client\src\hooks" />
@@ -198,15 +207,8 @@
       <workItem from="1768841099838" duration="119000" />
       <workItem from="1768898635627" duration="12000" />
       <workItem from="1768938922268" duration="59000" />
-      <workItem from="1769799847477" duration="9339000" />
-    </task>
-    <task id="LOCAL-00075" summary="wqe">
-      <option name="closed" value="true" />
-      <created>1765652242655</created>
-      <option name="number" value="00075" />
-      <option name="presentableId" value="LOCAL-00075" />
-      <option name="project" value="LOCAL" />
-      <updated>1765652242655</updated>
+      <workItem from="1769799847477" duration="9595000" />
+      <workItem from="1769872868774" duration="6929000" />
     </task>
     <task id="LOCAL-00076" summary="wqe">
       <option name="closed" value="true" />
@@ -592,7 +594,15 @@
       <option name="project" value="LOCAL" />
       <updated>1769809213567</updated>
     </task>
-    <option name="localTasksCounter" value="124" />
+    <task id="LOCAL-00124" summary="wqe">
+      <option name="closed" value="true" />
+      <created>1769810460420</created>
+      <option name="number" value="00124" />
+      <option name="presentableId" value="LOCAL-00124" />
+      <option name="project" value="LOCAL" />
+      <updated>1769810460420</updated>
+    </task>
+    <option name="localTasksCounter" value="125" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">

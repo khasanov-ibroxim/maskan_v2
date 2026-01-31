@@ -63,6 +63,9 @@ All colors MUST be HSL.
         --sidebar-accent-foreground: 0 0% 95%;
         --sidebar-border: 0 0% 20%;
         --sidebar-ring: 163 100% 39%;
+        --stats-users: 164 100% 39%;
+        --stats-online: 142 76% 36%;
+        --stats-rieltor: 38 92% 50%;
     }
 
     .dark {
@@ -87,6 +90,12 @@ All colors MUST be HSL.
         --accent: 163 100% 39%;
         --accent-foreground: 0 0% 2%;
 
+        --success: 164 100% 39%;
+        --success-foreground: 0 0% 2%;
+
+        --warning: 38 92% 50%;
+        --warning-foreground: 0 0% 2%;
+
         --destructive: 0 84% 60%;
         --destructive-foreground: 0 0% 98%;
 
@@ -102,6 +111,8 @@ All colors MUST be HSL.
         --sidebar-accent-foreground: 0 0% 95%;
         --sidebar-border: 0 0% 20%;
         --sidebar-ring: 163 100% 39%;
+
+
     }
 }
 
@@ -113,4 +124,38 @@ All colors MUST be HSL.
     body {
         @apply bg-background text-foreground;
     }
+}
+
+
+@layer components {
+    .admin-card {
+        @apply bg-card rounded-lg border border-border shadow-sm;
+    }
+
+    .stat-card {
+        @apply admin-card p-6 transition-all duration-200 hover:shadow-md;
+    }
+
+
+
+    .action-btn-danger {
+        @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium border border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors;
+    }
+
+    .tab-active {
+        @apply text-primary border-b-2 border-primary font-medium;
+    }
+
+    .tab-inactive {
+        @apply text-muted-foreground hover:text-foreground transition-colors;
+    }
+}
+
+
+.card {
+    padding: 2em;
+}
+
+.read-the-docs {
+    color: #888;
 }
