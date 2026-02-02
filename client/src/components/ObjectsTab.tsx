@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+// client/src/components/ObjectsTab.tsx (OPTIMIZED VERSION)
+import { useState, useEffect, useMemo } from "react";
 import { Search, RefreshCw, Upload, Pencil, Trash2, FolderOpen, Megaphone, X, Filter } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -19,106 +20,57 @@ import {
     TableRow,
 } from "./ui/table";
 import { useToast } from "../hooks/use-toast";
+import { useAppStore } from "../stores/useAppStore";
+import {
+    useObjects,
+    useQueueStatus,
+    usePostAd,
+    useUpdateObject,
+    useDeleteObject,
+} from "../hooks/useQueries";
 import api from "../utils/api";
-
-interface ObjectType {
-    id: string;
-    kvartil: string;
-    xet: string;
-    m2: number;
-    narx: number;
-    turi: string;
-    tell: string;
-    rieltor: string;
-    rasmlar?: string;
-    elonStatus?: string;
-    opisaniya?: string;
-}
 
 interface ObjectsTabProps {
     onCountUpdate?: (count: number) => void;
 }
 
 export function ObjectsTab({ onCountUpdate }: ObjectsTabProps) {
-    const [objects, setObjects] = useState<ObjectType[]>([]);
-    const [filteredObjects, setFilteredObjects] = useState<ObjectType[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [postingId, setPostingId] = useState<string | null>(null);
-    const [queueStatus, setQueueStatus] = useState({ queueLength: 0 });
     const { toast } = useToast();
 
-    // Filters
-    const [filters, setFilters] = useState({
-        searchText: '',
-        id: '',
-        kvartil: '',
-        rieltor: '',
-        status: '',
-        minPrice: '',
-        maxPrice: ''
-    });
+    // Zustand state
+    const {
+        objectFilters,
+        setObjectFilters,
+        clearObjectFilters,
+        objectModalVisible,
+        setObjectModalVisible,
+        editingObject,
+        setEditingObject,
+    } = useAppStore();
 
-    useEffect(() => {
-        loadObjects();
-        loadQueueStatus();
+    // React Query hooks
+    const { data: objects = [], isLoading, refetch: refetchObjects } = useObjects();
+    const { data: queueStatus = { queueLength: 0, queue: [] } } = useQueueStatus();
 
-        // Auto-refresh queue status every 10 minutes
-        const interval = setInterval(() => {
-            loadQueueStatus();
-        }, 600000);
+    const postAdMutation = usePostAd();
+    const updateObjectMutation = useUpdateObject();
+    const deleteObjectMutation = useDeleteObject();
 
-        return () => clearInterval(interval);
-    }, []);
+    const [postingId, setPostingId] = useState<string | null>(null);
 
-    useEffect(() => {
-        applyFilters();
-    }, [objects, filters]);
-
+    // Update parent count
     useEffect(() => {
         if (onCountUpdate) {
             onCountUpdate(objects.length);
         }
     }, [objects, onCountUpdate]);
 
-    const loadObjects = async () => {
-        setLoading(true);
-        try {
-            const response = await api.get('/api/excel/objects');
-            if (response.data.success) {
-                setObjects(response.data.objects || []);
-                toast({
-                    title: "Ma'lumotlar yangilandi",
-                    description: `${response.data.objects?.length || 0} ta obyekt yuklandi`,
-                });
-            }
-        } catch (error: any) {
-            console.error('Error loading objects:', error);
-            toast({
-                title: "Xato",
-                description: error.response?.data?.error || "Obyektlarni yuklashda xato",
-                variant: "destructive"
-            });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const loadQueueStatus = async () => {
-        try {
-            const response = await api.get('/api/excel/queue-status');
-            if (response.data.success) {
-                setQueueStatus({ queueLength: response.data.queueLength || 0 });
-            }
-        } catch (error) {
-            console.error('Error loading queue status:', error);
-        }
-    };
-
-    const applyFilters = () => {
+    // Filter objects
+    const filteredObjects = useMemo(() => {
         let filtered = [...objects];
 
-        if (filters.searchText) {
-            const searchLower = filters.searchText.toLowerCase();
+        if (objectFilters.searchText) {
+            const searchLower = objectFilters.searchText.toLowerCase();
             filtered = filtered.filter(obj =>
                 obj.id?.toLowerCase().includes(searchLower) ||
                 obj.kvartil?.toLowerCase().includes(searchLower) ||
@@ -128,53 +80,37 @@ export function ObjectsTab({ onCountUpdate }: ObjectsTabProps) {
             );
         }
 
-        if (filters.id) {
-            filtered = filtered.filter(obj => obj.id === filters.id);
+        if (objectFilters.id) {
+            filtered = filtered.filter(obj => obj.id === objectFilters.id);
         }
 
-        if (filters.kvartil) {
-            filtered = filtered.filter(obj => obj.kvartil === filters.kvartil);
+        if (objectFilters.kvartil && objectFilters.kvartil !== 'all') {
+            filtered = filtered.filter(obj => obj.kvartil === objectFilters.kvartil);
         }
 
-        if (filters.rieltor) {
-            filtered = filtered.filter(obj => obj.rieltor === filters.rieltor);
+        if (objectFilters.rieltor && objectFilters.rieltor !== 'all') {
+            filtered = filtered.filter(obj => obj.rieltor === objectFilters.rieltor);
         }
 
-        if (filters.status) {
-            filtered = filtered.filter(obj => obj.elonStatus === filters.status);
+        if (objectFilters.status && objectFilters.status !== 'all') {
+            filtered = filtered.filter(obj => obj.elonStatus === objectFilters.status);
         }
 
-        if (filters.minPrice) {
-            filtered = filtered.filter(obj => obj.narx >= Number(filters.minPrice));
+        if (objectFilters.minPrice) {
+            filtered = filtered.filter(obj => obj.narx >= Number(objectFilters.minPrice));
         }
 
-        if (filters.maxPrice) {
-            filtered = filtered.filter(obj => obj.narx <= Number(filters.maxPrice));
+        if (objectFilters.maxPrice) {
+            filtered = filtered.filter(obj => obj.narx <= Number(objectFilters.maxPrice));
         }
 
-        setFilteredObjects(filtered);
-    };
+        return filtered;
+    }, [objects, objectFilters]);
 
     const handlePostAd = async (objectId: string) => {
         setPostingId(objectId);
         try {
-            const response = await api.post('/api/excel/post-ad', { objectId });
-
-            if (response.data.success) {
-                toast({
-                    title: "Elon navbatga qo'shildi",
-                    description: `Navbatda: ${response.data.queuePosition}`,
-                });
-                await loadObjects();
-                await loadQueueStatus();
-            }
-        } catch (error: any) {
-            console.error('Error posting ad:', error);
-            toast({
-                title: "Xato",
-                description: error.response?.data?.error || "Elon berishda xato",
-                variant: "destructive"
-            });
+            await postAdMutation.mutateAsync(objectId);
         } finally {
             setPostingId(null);
         }
@@ -184,7 +120,7 @@ export function ObjectsTab({ onCountUpdate }: ObjectsTabProps) {
         try {
             toast({
                 title: "Yuklanmoqda...",
-                description: "Uploads papka tayyorlanmoqda",
+                description: "Uploads papka tayyorlanmoqda"
             });
 
             const response = await api.get('/download-uploads-zip', {
@@ -203,7 +139,7 @@ export function ObjectsTab({ onCountUpdate }: ObjectsTabProps) {
 
             toast({
                 title: "Muvaffaqiyatli",
-                description: "Uploads papka yuklandi",
+                description: "Uploads papka yuklandi"
             });
         } catch (error: any) {
             console.error('Error downloading backup:', error);
@@ -226,19 +162,7 @@ export function ObjectsTab({ onCountUpdate }: ObjectsTabProps) {
         window.open(url, '_blank');
     };
 
-    const clearFilters = () => {
-        setFilters({
-            searchText: '',
-            id: '',
-            kvartil: '',
-            rieltor: '',
-            status: '',
-            minPrice: '',
-            maxPrice: ''
-        });
-    };
-
-    const getUniqueValues = (field: keyof ObjectType) => {
+    const getUniqueValues = (field: keyof typeof objects[0]) => {
         const values = objects.map(obj => obj[field]).filter(Boolean);
         return [...new Set(values)] as string[];
     };
@@ -260,7 +184,7 @@ export function ObjectsTab({ onCountUpdate }: ObjectsTabProps) {
         );
     };
 
-    const activeFiltersCount = Object.values(filters).filter(v => v !== '').length;
+    const activeFiltersCount = Object.values(objectFilters).filter(v => v !== '' && v !== 'all').length;
 
     return (
         <div className="space-y-6 animate-fade-in">
@@ -271,8 +195,8 @@ export function ObjectsTab({ onCountUpdate }: ObjectsTabProps) {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
                             placeholder="Qidirish (kvartil, telefon, rieltor...)"
-                            value={filters.searchText}
-                            onChange={(e) => setFilters(prev => ({ ...prev, searchText: e.target.value }))}
+                            value={objectFilters.searchText}
+                            onChange={(e) => setObjectFilters({ searchText: e.target.value })}
                             className="pl-10"
                         />
                     </div>
@@ -280,13 +204,13 @@ export function ObjectsTab({ onCountUpdate }: ObjectsTabProps) {
                     <Input
                         placeholder="ID"
                         className="w-28"
-                        value={filters.id}
-                        onChange={(e) => setFilters(prev => ({ ...prev, id: e.target.value }))}
+                        value={objectFilters.id}
+                        onChange={(e) => setObjectFilters({ id: e.target.value })}
                     />
 
                     <Select
-                        value={filters.kvartil}
-                        onValueChange={(value) => setFilters(prev => ({ ...prev, kvartil: value }))}
+                        value={objectFilters.kvartil || 'all'}
+                        onValueChange={(value) => setObjectFilters({ kvartil: value === 'all' ? '' : value })}
                     >
                         <SelectTrigger className="w-32">
                             <SelectValue placeholder="Kvartil" />
@@ -300,8 +224,8 @@ export function ObjectsTab({ onCountUpdate }: ObjectsTabProps) {
                     </Select>
 
                     <Select
-                        value={filters.rieltor}
-                        onValueChange={(value) => setFilters(prev => ({ ...prev, rieltor: value }))}
+                        value={objectFilters.rieltor || 'all'}
+                        onValueChange={(value) => setObjectFilters({ rieltor: value === 'all' ? '' : value })}
                     >
                         <SelectTrigger className="w-32">
                             <SelectValue placeholder="Rieltor" />
@@ -315,8 +239,8 @@ export function ObjectsTab({ onCountUpdate }: ObjectsTabProps) {
                     </Select>
 
                     <Select
-                        value={filters.status}
-                        onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}
+                        value={objectFilters.status || 'all'}
+                        onValueChange={(value) => setObjectFilters({ status: value === 'all' ? '' : value })}
                     >
                         <SelectTrigger className="w-28">
                             <SelectValue placeholder="Status" />
@@ -334,19 +258,19 @@ export function ObjectsTab({ onCountUpdate }: ObjectsTabProps) {
                         placeholder="Min narx"
                         className="w-28"
                         type="number"
-                        value={filters.minPrice}
-                        onChange={(e) => setFilters(prev => ({ ...prev, minPrice: e.target.value }))}
+                        value={objectFilters.minPrice}
+                        onChange={(e) => setObjectFilters({ minPrice: e.target.value })}
                     />
 
                     <Input
                         placeholder="Max narx"
                         className="w-28"
                         type="number"
-                        value={filters.maxPrice}
-                        onChange={(e) => setFilters(prev => ({ ...prev, maxPrice: e.target.value }))}
+                        value={objectFilters.maxPrice}
+                        onChange={(e) => setObjectFilters({ maxPrice: e.target.value })}
                     />
 
-                    <Button variant="outline" size="sm" onClick={clearFilters}>
+                    <Button variant="outline" size="sm" onClick={clearObjectFilters}>
                         Tozalash
                     </Button>
 
@@ -364,10 +288,10 @@ export function ObjectsTab({ onCountUpdate }: ObjectsTabProps) {
                 <div className="flex gap-3">
                     <Button
                         className="bg-primary hover:bg-primary/80"
-                        onClick={loadObjects}
-                        disabled={loading}
+                        onClick={() => refetchObjects()}
+                        disabled={isLoading}
                     >
-                        <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                        <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
                         Yangilash
                     </Button>
                     <Button
@@ -409,7 +333,7 @@ export function ObjectsTab({ onCountUpdate }: ObjectsTabProps) {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {filteredObjects.map((obj, index) => {
+                        {filteredObjects.map((obj: any, index: number) => {
                             const isPosted = obj.elonStatus === 'posted';
                             const isPosting = postingId === obj.id;
 
@@ -440,7 +364,7 @@ export function ObjectsTab({ onCountUpdate }: ObjectsTabProps) {
                                                 size="sm"
                                                 className="bg-primary hover:bg-primary/80 h-7 px-2"
                                                 onClick={() => handlePostAd(obj.id)}
-                                                disabled={isPosted || isPosting}
+                                                disabled={isPosted || isPosting || postAdMutation.isPending}
                                             >
                                                 {isPosting ? (
                                                     <RefreshCw className="h-3 w-3 animate-spin" />
@@ -464,3 +388,5 @@ export function ObjectsTab({ onCountUpdate }: ObjectsTabProps) {
         </div>
     );
 }
+
+export default ObjectsTab;

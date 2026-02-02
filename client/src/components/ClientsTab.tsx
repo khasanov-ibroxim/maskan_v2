@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+// client/src/components/ClientsTab.tsx (OPTIMIZED VERSION)
+import { useState } from "react";
 import {
     Search, RefreshCw, Plus, Pencil, Trash2, User, Home, Phone,
     MapPin, X
@@ -23,32 +24,29 @@ import {
 } from "./ui/table";
 import { Badge } from "./ui/badge";
 import { useToast } from "../hooks/use-toast";
-import api from "../utils/api";
+import { useAppStore } from "../stores/useAppStore";
+import {
+    useClients,
+    useRealtorsQuery,
+    useCreateClient,
+    useUpdateClient,
+    useDeleteClient,
+    useAssignRealtor,
+    useCascaderDataQuery,
+} from "../hooks/useQueries";
 
-interface Client {
-    id: string;
-    full_name: string;
+interface ClientFormData {
+    fullName: string;
     phone: string;
     rooms: number[];
-    floor_min: number | null;
-    floor_max: number | null;
-    total_floors_min: number | null;
-    total_floors_max: number | null;
-    price_min: number | null;
-    price_max: number | null;
+    floorMin: number | null;
+    floorMax: number | null;
+    totalFloorsMin: number | null;
+    totalFloorsMax: number | null;
+    priceMin: number | null;
+    priceMax: number | null;
     notes: string;
-    preferred_locations: Array<{ tuman: string; kvartils: string[] }>;
-    assigned_realtor_id: string | null;
-    assigned_realtor_name: string | null;
-    assigned_objects: any[];
-    status: string;
-}
-
-interface Realtor {
-    id: string;
-    full_name: string;
-    username: string;
-    role: string;
+    preferredLocations: Array<{ tuman: string; kvartils: string[] }>;
 }
 
 interface ClientsTabProps {
@@ -56,62 +54,42 @@ interface ClientsTabProps {
 }
 
 export function ClientsTab({ onRefresh }: ClientsTabProps) {
-    const [clients, setClients] = useState<Client[]>([]);
-    const [realtors, setRealtors] = useState<Realtor[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [searchQuery, setSearchQuery] = useState("");
-    const [modalVisible, setModalVisible] = useState(false);
-    const [editingClient, setEditingClient] = useState<Client | null>(null);
     const { toast } = useToast();
 
-    const [formData, setFormData] = useState({
+    // Zustand state
+    const {
+        clientModalVisible,
+        setClientModalVisible,
+        editingClient,
+        setEditingClient,
+        clientFilters,
+        setClientFilters,
+    } = useAppStore();
+
+    // React Query hooks
+    const { data: clients = [], isLoading: clientsLoading, refetch: refetchClients } = useClients();
+    const { data: realtors = [] } = useRealtorsQuery();
+    const { data: cascaderData = [] } = useCascaderDataQuery();
+
+    const createClientMutation = useCreateClient();
+    const updateClientMutation = useUpdateClient();
+    const deleteClientMutation = useDeleteClient();
+    const assignRealtorMutation = useAssignRealtor();
+
+    // Local form state
+    const [formData, setFormData] = useState<ClientFormData>({
         fullName: '',
         phone: '',
-        rooms: [] as number[],
-        floorMin: null as number | null,
-        floorMax: null as number | null,
-        totalFloorsMin: null as number | null,
-        totalFloorsMax: null as number | null,
-        priceMin: null as number | null,
-        priceMax: null as number | null,
+        rooms: [],
+        floorMin: null,
+        floorMax: null,
+        totalFloorsMin: null,
+        totalFloorsMax: null,
+        priceMin: null,
+        priceMax: null,
         notes: '',
-        preferredLocations: [] as Array<{ tuman: string; kvartils: string[] }>
+        preferredLocations: []
     });
-
-    useEffect(() => {
-        loadClients();
-        loadRealtors();
-    }, []);
-
-    const loadClients = async () => {
-        setLoading(true);
-        try {
-            const response = await api.get('/api/clients');
-            if (response.data.success) {
-                setClients(response.data.data || []);
-            }
-        } catch (error: any) {
-            console.error('Error loading clients:', error);
-            toast({
-                title: "Xato",
-                description: "Clientlarni yuklashda xato",
-                variant: "destructive"
-            });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const loadRealtors = async () => {
-        try {
-            const response = await api.get('/api/users/realtors');
-            if (response.data.success) {
-                setRealtors(response.data.realtors || []);
-            }
-        } catch (error) {
-            console.error('Error loading realtors:', error);
-        }
-    };
 
     const handleAdd = () => {
         setEditingClient(null);
@@ -128,10 +106,10 @@ export function ClientsTab({ onRefresh }: ClientsTabProps) {
             notes: '',
             preferredLocations: []
         });
-        setModalVisible(true);
+        setClientModalVisible(true);
     };
 
-    const handleEdit = (client: Client) => {
+    const handleEdit = (client: any) => {
         setEditingClient(client);
         setFormData({
             fullName: client.full_name || '',
@@ -146,28 +124,14 @@ export function ClientsTab({ onRefresh }: ClientsTabProps) {
             notes: client.notes || '',
             preferredLocations: client.preferred_locations || []
         });
-        setModalVisible(true);
+        setClientModalVisible(true);
     };
 
     const handleDelete = async (id: string) => {
         if (!confirm("Clientni o'chirmoqchimisiz?")) return;
 
-        try {
-            await api.delete(`/api/clients/${id}`);
-            toast({
-                title: "Muvaffaqiyatli",
-                description: "Client o'chirildi"
-            });
-            loadClients();
-            if (onRefresh) onRefresh();
-        } catch (error: any) {
-            console.error('Error deleting client:', error);
-            toast({
-                title: "Xato",
-                description: error.response?.data?.error || "O'chirishda xato",
-                variant: "destructive"
-            });
-        }
+        await deleteClientMutation.mutateAsync(id);
+        onRefresh?.();
     };
 
     const handleSubmit = async () => {
@@ -189,71 +153,33 @@ export function ClientsTab({ onRefresh }: ClientsTabProps) {
             return;
         }
 
-        try {
-            const payload = {
-                fullName: formData.fullName,
-                phone: formData.phone,
-                rooms: formData.rooms,
-                floorMin: formData.floorMin,
-                floorMax: formData.floorMax,
-                totalFloorsMin: formData.totalFloorsMin,
-                totalFloorsMax: formData.totalFloorsMax,
-                priceMin: formData.priceMin,
-                priceMax: formData.priceMax,
-                notes: formData.notes,
-                preferredLocations: formData.preferredLocations || []
-            };
+        const payload = {
+            fullName: formData.fullName,
+            phone: formData.phone,
+            rooms: formData.rooms,
+            floorMin: formData.floorMin,
+            floorMax: formData.floorMax,
+            totalFloorsMin: formData.totalFloorsMin,
+            totalFloorsMax: formData.totalFloorsMax,
+            priceMin: formData.priceMin,
+            priceMax: formData.priceMax,
+            notes: formData.notes,
+            preferredLocations: formData.preferredLocations || []
+        };
 
-            if (editingClient) {
-                await api.put(`/api/clients/${editingClient.id}`, payload);
-                toast({
-                    title: "Muvaffaqiyatli",
-                    description: "Client yangilandi"
-                });
-            } else {
-                await api.post('/api/clients', payload);
-                toast({
-                    title: "Muvaffaqiyatli",
-                    description: "Client qo'shildi"
-                });
-            }
-
-            setModalVisible(false);
-            loadClients();
-            if (onRefresh) onRefresh();
-        } catch (error: any) {
-            console.error('Error saving client:', error);
-            toast({
-                title: "Xato",
-                description: error.response?.data?.error || "Saqlashda xato",
-                variant: "destructive"
-            });
+        if (editingClient) {
+            await updateClientMutation.mutateAsync({ id: editingClient.id, data: payload });
+        } else {
+            await createClientMutation.mutateAsync(payload);
         }
+
+        setClientModalVisible(false);
+        onRefresh?.();
     };
 
     const handleAssignRealtor = async (clientId: string, realtorId: string) => {
-        try {
-            // Handle "none" as null
-            const assignId = realtorId === "none" ? null : realtorId;
-
-            await api.post(`/api/clients/${clientId}/assign-realtor`, {
-                realtorId: assignId
-            });
-
-            toast({
-                title: "Muvaffaqiyatli",
-                description: assignId ? "Rieltor biriktirildi" : "Rieltor ajratildi"
-            });
-
-            loadClients();
-        } catch (error: any) {
-            console.error('Error assigning realtor:', error);
-            toast({
-                title: "Xato",
-                description: error.response?.data?.error || "Xato yuz berdi",
-                variant: "destructive"
-            });
-        }
+        const assignId = realtorId === "none" ? null : realtorId;
+        await assignRealtorMutation.mutateAsync({ clientId, realtorId: assignId });
     };
 
     const handlePhoneChange = (value: string) => {
@@ -263,9 +189,9 @@ export function ClientsTab({ onRefresh }: ClientsTabProps) {
         setFormData({ ...formData, phone: formatted });
     };
 
-    const filteredClients = clients.filter(client =>
-        client.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        client.phone.includes(searchQuery)
+    const filteredClients = clients.filter((client: any) =>
+        client.full_name.toLowerCase().includes(clientFilters.searchText.toLowerCase()) ||
+        client.phone.includes(clientFilters.searchText)
     );
 
     return (
@@ -277,12 +203,12 @@ export function ClientsTab({ onRefresh }: ClientsTabProps) {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
                             placeholder="Qidirish (ism, telefon...)"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
+                            value={clientFilters.searchText}
+                            onChange={(e) => setClientFilters({ searchText: e.target.value })}
                             className="pl-10"
                         />
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => setSearchQuery("")}>
+                    <Button variant="outline" size="sm" onClick={() => setClientFilters({ searchText: "" })}>
                         Tozalash
                     </Button>
                 </div>
@@ -295,8 +221,8 @@ export function ClientsTab({ onRefresh }: ClientsTabProps) {
                         <Plus className="h-4 w-4 mr-2" />
                         Yangi Client
                     </Button>
-                    <Button className="bg-primary hover:bg-primary/80" onClick={loadClients}>
-                        <RefreshCw className="h-4 w-4 mr-2" />
+                    <Button className="bg-primary hover:bg-primary/80" onClick={() => refetchClients()} disabled={clientsLoading}>
+                        <RefreshCw className={`h-4 w-4 mr-2 ${clientsLoading ? 'animate-spin' : ''}`} />
                         Yangilash
                     </Button>
                 </div>
@@ -321,7 +247,7 @@ export function ClientsTab({ onRefresh }: ClientsTabProps) {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {filteredClients.map((client) => (
+                        {filteredClients.map((client: any) => (
                             <TableRow key={client.id} className="hover:bg-muted/30">
                                 <TableCell>
                                     <div className="flex items-center gap-2">
@@ -337,7 +263,7 @@ export function ClientsTab({ onRefresh }: ClientsTabProps) {
                                 </TableCell>
                                 <TableCell>
                                     <div className="flex gap-1">
-                                        {(client.rooms || []).map(r => (
+                                        {(client.rooms || []).map((r: number) => (
                                             <Badge key={r} variant="outline" className="border-primary text-primary">
                                                 {r}-xona
                                             </Badge>
@@ -355,7 +281,7 @@ export function ClientsTab({ onRefresh }: ClientsTabProps) {
                                 <TableCell>
                                     {client.preferred_locations && client.preferred_locations.length > 0 ? (
                                         <div className="flex flex-wrap gap-1">
-                                            {client.preferred_locations.slice(0, 2).map((loc, idx) => (
+                                            {client.preferred_locations.slice(0, 2).map((loc: any, idx: number) => (
                                                 <Badge key={idx} variant="outline" className="border-purple-500 text-purple-700">
                                                     <MapPin className="h-3 w-3 mr-1" />
                                                     {loc.tuman}
@@ -373,13 +299,14 @@ export function ClientsTab({ onRefresh }: ClientsTabProps) {
                                     <Select
                                         value={client.assigned_realtor_id || "none"}
                                         onValueChange={(value) => handleAssignRealtor(client.id, value)}
+                                        disabled={assignRealtorMutation.isPending}
                                     >
                                         <SelectTrigger className="w-[180px]">
                                             <SelectValue placeholder="Rieltor tanlang" />
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="none">Bo'sh</SelectItem>
-                                            {realtors.map(r => (
+                                            {realtors.map((r: any) => (
                                                 <SelectItem key={r.id} value={r.id}>
                                                     {r.full_name}
                                                 </SelectItem>
@@ -407,6 +334,7 @@ export function ClientsTab({ onRefresh }: ClientsTabProps) {
                                         <button
                                             className="p-1.5 rounded hover:bg-muted transition-colors"
                                             onClick={() => handleDelete(client.id)}
+                                            disabled={deleteClientMutation.isPending}
                                         >
                                             <Trash2 className="h-4 w-4 text-destructive" />
                                         </button>
@@ -419,14 +347,14 @@ export function ClientsTab({ onRefresh }: ClientsTabProps) {
             </div>
 
             {/* Modal */}
-            {modalVisible && (
+            {clientModalVisible && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                     <div className="bg-card rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-xl font-bold">
                                 {editingClient ? 'Client Tahrirlash' : 'Yangi Client'}
                             </h2>
-                            <button onClick={() => setModalVisible(false)}>
+                            <button onClick={() => setClientModalVisible(false)}>
                                 <X className="h-5 w-5" />
                             </button>
                         </div>
@@ -479,10 +407,14 @@ export function ClientsTab({ onRefresh }: ClientsTabProps) {
                             </div>
 
                             <div className="flex gap-2 pt-4">
-                                <Button onClick={handleSubmit} className="flex-1">
+                                <Button
+                                    onClick={handleSubmit}
+                                    className="flex-1"
+                                    disabled={createClientMutation.isPending || updateClientMutation.isPending}
+                                >
                                     {editingClient ? 'Yangilash' : 'Qo\'shish'}
                                 </Button>
-                                <Button variant="outline" onClick={() => setModalVisible(false)} className="flex-1">
+                                <Button variant="outline" onClick={() => setClientModalVisible(false)} className="flex-1">
                                     Bekor qilish
                                 </Button>
                             </div>

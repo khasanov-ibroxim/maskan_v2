@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
-import { Plus, RefreshCw, Download, Pencil, Trash2, User, Eye, EyeOff, X } from "lucide-react";
+// client/src/components/UsersTab.tsx (OPTIMIZED VERSION)
+import { useState } from "react";
+import { Plus, RefreshCw, Download, Pencil, Trash2, User, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Input } from "./ui/input";
@@ -20,27 +21,26 @@ import {
     TableRow,
 } from "./ui/table";
 import { useToast } from "../hooks/use-toast";
+import { useAppStore } from "../stores/useAppStore";
+import {
+    useUsers,
+    useActiveSessions,
+    useCreateUser,
+    useUpdateUser,
+    useDeleteUser,
+    useTelegramChats,
+} from "../hooks/useQueries";
 import api from "../utils/api";
 
-interface UserType {
-    id: string;
+interface UserFormData {
     username: string;
+    password?: string;
     fullName: string;
     role: string;
     appScriptUrl?: string;
-    telegram_chat_id?: string;
+    telegramChatId?: string;
     telegramThemeId?: string;
     phone?: string;
-}
-
-interface Session {
-    userId: string;
-}
-
-interface TelegramChat {
-    id: string;
-    chat_name: string;
-    chat_id: string;
 }
 
 interface UsersTabProps {
@@ -48,15 +48,27 @@ interface UsersTabProps {
 }
 
 export function UsersTab({ onRefresh }: UsersTabProps) {
-    const [users, setUsers] = useState<UserType[]>([]);
-    const [sessions, setSessions] = useState<Session[]>([]);
-    const [telegramChats, setTelegramChats] = useState<TelegramChat[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [modalVisible, setModalVisible] = useState(false);
-    const [editingUser, setEditingUser] = useState<UserType | null>(null);
     const { toast } = useToast();
 
-    const [formData, setFormData] = useState({
+    // Zustand state
+    const {
+        userModalVisible,
+        setUserModalVisible,
+        editingUser,
+        setEditingUser,
+    } = useAppStore();
+
+    // React Query hooks
+    const { data: users = [], isLoading: usersLoading, refetch: refetchUsers } = useUsers();
+    const { data: sessions = [] } = useActiveSessions();
+    const { data: telegramChats = [] } = useTelegramChats();
+
+    const createUserMutation = useCreateUser();
+    const updateUserMutation = useUpdateUser();
+    const deleteUserMutation = useDeleteUser();
+
+    // Local form state
+    const [formData, setFormData] = useState<UserFormData>({
         username: '',
         password: '',
         fullName: '',
@@ -66,49 +78,6 @@ export function UsersTab({ onRefresh }: UsersTabProps) {
         telegramThemeId: '',
         phone: ''
     });
-
-    useEffect(() => {
-        loadUsers();
-        loadTelegramChats();
-    }, []);
-
-    const loadUsers = async () => {
-        setLoading(true);
-        try {
-            const [usersRes, sessionsRes] = await Promise.all([
-                api.get('/api/users/users'),
-                api.get('/api/users/sessions/active')
-            ]);
-
-            if (usersRes.data.success) {
-                setUsers(usersRes.data.users || []);
-            }
-
-            if (sessionsRes.data.success) {
-                setSessions(sessionsRes.data.sessions || []);
-            }
-        } catch (error: any) {
-            console.error('Error loading users:', error);
-            toast({
-                title: "Xato",
-                description: "Ma'lumotlarni yuklashda xato",
-                variant: "destructive"
-            });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const loadTelegramChats = async () => {
-        try {
-            const response = await api.get('/api/telegram-chats');
-            if (response.data.success) {
-                setTelegramChats(response.data.data || []);
-            }
-        } catch (error) {
-            console.error('Error loading telegram chats:', error);
-        }
-    };
 
     const handleAdd = () => {
         setEditingUser(null);
@@ -122,10 +91,10 @@ export function UsersTab({ onRefresh }: UsersTabProps) {
             telegramThemeId: '',
             phone: ''
         });
-        setModalVisible(true);
+        setUserModalVisible(true);
     };
 
-    const handleEdit = (user: UserType) => {
+    const handleEdit = (user: any) => {
         setEditingUser(user);
         setFormData({
             username: user.username,
@@ -137,28 +106,14 @@ export function UsersTab({ onRefresh }: UsersTabProps) {
             telegramThemeId: user.telegramThemeId || '',
             phone: user.phone || ''
         });
-        setModalVisible(true);
+        setUserModalVisible(true);
     };
 
     const handleDelete = async (userId: string) => {
         if (!confirm("Userni o'chirmoqchimisiz?")) return;
 
-        try {
-            await api.delete(`/api/users/users/${userId}`);
-            toast({
-                title: "Muvaffaqiyatli",
-                description: "User o'chirildi"
-            });
-            loadUsers();
-            if (onRefresh) onRefresh();
-        } catch (error: any) {
-            console.error('Error deleting user:', error);
-            toast({
-                title: "Xato",
-                description: error.response?.data?.error || "O'chirishda xato",
-                variant: "destructive"
-            });
-        }
+        await deleteUserMutation.mutateAsync(userId);
+        onRefresh?.();
     };
 
     const handleSubmit = async () => {
@@ -180,70 +135,52 @@ export function UsersTab({ onRefresh }: UsersTabProps) {
             return;
         }
 
-        try {
-            const payload: any = {
-                username: formData.username,
-                fullName: formData.fullName,
-                role: formData.role
-            };
+        const payload: any = {
+            username: formData.username,
+            fullName: formData.fullName,
+            role: formData.role
+        };
 
-            if (formData.password) {
-                payload.password = formData.password;
-            }
-
-            if (formData.role === 'rieltor') {
-                payload.appScriptUrl = formData.appScriptUrl;
-                if (formData.telegramChatId && formData.telegramChatId !== 'none') {
-                    payload.telegramChatId = formData.telegramChatId;
-                }
-                if (formData.telegramThemeId) {
-                    payload.telegramThemeId = formData.telegramThemeId;
-                }
-            }
-
-            if (formData.role === 'individual_rieltor') {
-                if (!formData.phone || !/^\+998\d{9}$/.test(formData.phone)) {
-                    toast({
-                        title: "Xato",
-                        description: "Telefon formatida xato! (+998XXXXXXXXX)",
-                        variant: "destructive"
-                    });
-                    return;
-                }
-                payload.phone = formData.phone;
-                if (formData.telegramChatId && formData.telegramChatId !== 'none') {
-                    payload.telegramChatId = formData.telegramChatId;
-                }
-                if (formData.telegramThemeId) {
-                    payload.telegramThemeId = formData.telegramThemeId;
-                }
-            }
-
-            if (editingUser) {
-                await api.put(`/api/users/users/${editingUser.id}`, payload);
-                toast({
-                    title: "Muvaffaqiyatli",
-                    description: "User yangilandi"
-                });
-            } else {
-                await api.post('/api/users/users', payload);
-                toast({
-                    title: "Muvaffaqiyatli",
-                    description: "User yaratildi"
-                });
-            }
-
-            setModalVisible(false);
-            loadUsers();
-            if (onRefresh) onRefresh();
-        } catch (error: any) {
-            console.error('Error saving user:', error);
-            toast({
-                title: "Xato",
-                description: error.response?.data?.error || "Xato yuz berdi",
-                variant: "destructive"
-            });
+        if (formData.password) {
+            payload.password = formData.password;
         }
+
+        if (formData.role === 'rieltor') {
+            payload.appScriptUrl = formData.appScriptUrl;
+            if (formData.telegramChatId && formData.telegramChatId !== 'none') {
+                payload.telegramChatId = formData.telegramChatId;
+            }
+            if (formData.telegramThemeId) {
+                payload.telegramThemeId = formData.telegramThemeId;
+            }
+        }
+
+        if (formData.role === 'individual_rieltor') {
+            if (!formData.phone || !/^\+998\d{9}$/.test(formData.phone)) {
+                toast({
+                    title: "Xato",
+                    description: "Telefon formatida xato! (+998XXXXXXXXX)",
+                    variant: "destructive"
+                });
+                return;
+            }
+            payload.phone = formData.phone;
+            if (formData.telegramChatId && formData.telegramChatId !== 'none') {
+                payload.telegramChatId = formData.telegramChatId;
+            }
+            if (formData.telegramThemeId) {
+                payload.telegramThemeId = formData.telegramThemeId;
+            }
+        }
+
+        if (editingUser) {
+            await updateUserMutation.mutateAsync({ id: editingUser.id, data: payload });
+        } else {
+            await createUserMutation.mutateAsync(payload);
+        }
+
+        setUserModalVisible(false);
+        onRefresh?.();
     };
 
     const handlePhoneChange = (value: string) => {
@@ -309,8 +246,8 @@ export function UsersTab({ onRefresh }: UsersTabProps) {
                         <Plus className="h-4 w-4 mr-2" />
                         Yangi User
                     </Button>
-                    <Button variant="outline" onClick={loadUsers}>
-                        <RefreshCw className="h-4 w-4 mr-2" />
+                    <Button variant="outline" onClick={() => refetchUsers()} disabled={usersLoading}>
+                        <RefreshCw className={`h-4 w-4 mr-2 ${usersLoading ? 'animate-spin' : ''}`} />
                         Yangilash
                     </Button>
                     <Button variant="outline" onClick={handleDownloadBackup}>
@@ -337,7 +274,7 @@ export function UsersTab({ onRefresh }: UsersTabProps) {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {users.map((user) => {
+                        {users.map((user: any) => {
                             const roleConfig = getRoleConfig(user.role);
                             const online = isOnline(user.id);
 
@@ -380,7 +317,7 @@ export function UsersTab({ onRefresh }: UsersTabProps) {
                                                 variant="outline"
                                                 className="action-btn-danger h-8"
                                                 onClick={() => handleDelete(user.id)}
-                                                disabled={user.role === 'admin'}
+                                                disabled={user.role === 'admin' || deleteUserMutation.isPending}
                                             >
                                                 <Trash2 className="h-3 w-3 mr-1" />
                                                 O'chirish
@@ -395,14 +332,14 @@ export function UsersTab({ onRefresh }: UsersTabProps) {
             </div>
 
             {/* Modal */}
-            {modalVisible && (
+            {userModalVisible && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                     <div className="bg-card rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-xl font-bold">
                                 {editingUser ? 'User Tahrirlash' : 'Yangi User'}
                             </h2>
-                            <button onClick={() => setModalVisible(false)}>
+                            <button onClick={() => setUserModalVisible(false)}>
                                 <X className="h-5 w-5" />
                             </button>
                         </div>
@@ -464,7 +401,7 @@ export function UsersTab({ onRefresh }: UsersTabProps) {
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="none">Bo'sh</SelectItem>
-                                                {telegramChats.map(chat => (
+                                                {telegramChats.map((chat: any) => (
                                                     <SelectItem key={chat.id} value={chat.id}>
                                                         {chat.chat_name} ({chat.chat_id})
                                                     </SelectItem>
@@ -507,7 +444,7 @@ export function UsersTab({ onRefresh }: UsersTabProps) {
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="none">Bo'sh</SelectItem>
-                                                {telegramChats.map(chat => (
+                                                {telegramChats.map((chat: any) => (
                                                     <SelectItem key={chat.id} value={chat.id}>
                                                         {chat.chat_name} ({chat.chat_id})
                                                     </SelectItem>
@@ -539,10 +476,14 @@ export function UsersTab({ onRefresh }: UsersTabProps) {
                             )}
 
                             <div className="flex gap-2 pt-4">
-                                <Button onClick={handleSubmit} className="flex-1">
+                                <Button
+                                    onClick={handleSubmit}
+                                    className="flex-1"
+                                    disabled={createUserMutation.isPending || updateUserMutation.isPending}
+                                >
                                     {editingUser ? 'Yangilash' : 'Yaratish'}
                                 </Button>
-                                <Button variant="outline" onClick={() => setModalVisible(false)} className="flex-1">
+                                <Button variant="outline" onClick={() => setUserModalVisible(false)} className="flex-1">
                                     Bekor qilish
                                 </Button>
                             </div>
@@ -553,3 +494,5 @@ export function UsersTab({ onRefresh }: UsersTabProps) {
         </div>
     );
 }
+
+export default UsersTab;
