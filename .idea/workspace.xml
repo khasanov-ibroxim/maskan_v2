@@ -5,17 +5,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d3207ba4-420e-4d31-977e-3895919ba9be" name="Changes" comment="wqe">
-      <change afterPath="$PROJECT_DIR$/client/src/hooks/useQueries.ts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/providers/QueryProvider.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/stores/useAppStore.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/client/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/client/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/src/App.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/App.jsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/client/src/components/ClientsTab.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/ClientsTab.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/client/src/components/ObjectsTab.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/ObjectsTab.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/src/components/UsersTab.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/UsersTab.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/src/page/ObjectsList.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/page/ObjectsList.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/components/SettingsTab.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/SettingsTab.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -210,15 +203,7 @@
       <workItem from="1769799847477" duration="9595000" />
       <workItem from="1769872868774" duration="9736000" />
       <workItem from="1769946076560" duration="3421000" />
-      <workItem from="1770037238753" duration="335000" />
-    </task>
-    <task id="LOCAL-00078" summary="wqe">
-      <option name="closed" value="true" />
-      <created>1765653942478</created>
-      <option name="number" value="00078" />
-      <option name="presentableId" value="LOCAL-00078" />
-      <option name="project" value="LOCAL" />
-      <updated>1765653942478</updated>
+      <workItem from="1770037238753" duration="4906000" />
     </task>
     <task id="LOCAL-00079" summary="wqe">
       <option name="closed" value="true" />
@@ -604,7 +589,15 @@
       <option name="project" value="LOCAL" />
       <updated>1769891039487</updated>
     </task>
-    <option name="localTasksCounter" value="127" />
+    <task id="LOCAL-00127" summary="wqe">
+      <option name="closed" value="true" />
+      <created>1770037913821</created>
+      <option name="number" value="00127" />
+      <option name="presentableId" value="LOCAL-00127" />
+      <option name="project" value="LOCAL" />
+      <updated>1770037913821</updated>
+    </task>
+    <option name="localTasksCounter" value="128" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">

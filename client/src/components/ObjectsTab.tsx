@@ -1,8 +1,12 @@
-// client/src/components/ObjectsTab.tsx (OPTIMIZED VERSION)
+// client/src/components/ObjectsTab.tsx - FULL VERSION
 import { useState, useEffect, useMemo } from "react";
-import { Search, RefreshCw, Upload, Pencil, Trash2, FolderOpen, Megaphone, X, Filter } from "lucide-react";
+import {
+    Search, RefreshCw, Upload, Pencil, Trash2, FolderOpen, Megaphone,
+    X, Filter, Save, ChevronLeft, ChevronRight
+} from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { Label } from "./ui/label";
 import { Badge } from "./ui/badge";
 import {
     Select,
@@ -34,6 +38,26 @@ interface ObjectsTabProps {
     onCountUpdate?: (count: number) => void;
 }
 
+interface ObjectFormData {
+    kvartil: string;
+    xet: string;
+    tell: string;
+    m2: string;
+    narx: string;
+    fio: string;
+    uy_turi: string;
+    xolati: string;
+    planirovka: string;
+    balkon: string;
+    torets: string;
+    dom: string;
+    kvartira: string;
+    osmotir: string;
+    opisaniya: string;
+    rieltor: string;
+    xodim: string;
+}
+
 export function ObjectsTab({ onCountUpdate }: ObjectsTabProps) {
     const { toast } = useToast();
 
@@ -42,8 +66,6 @@ export function ObjectsTab({ onCountUpdate }: ObjectsTabProps) {
         objectFilters,
         setObjectFilters,
         clearObjectFilters,
-        objectModalVisible,
-        setObjectModalVisible,
         editingObject,
         setEditingObject,
     } = useAppStore();
@@ -57,6 +79,32 @@ export function ObjectsTab({ onCountUpdate }: ObjectsTabProps) {
     const deleteObjectMutation = useDeleteObject();
 
     const [postingId, setPostingId] = useState<string | null>(null);
+    const [editModalVisible, setEditModalVisible] = useState(false);
+
+    // ✅ Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(20);
+
+    // ✅ Edit Form State
+    const [formData, setFormData] = useState<ObjectFormData>({
+        kvartil: '',
+        xet: '',
+        tell: '',
+        m2: '',
+        narx: '',
+        fio: '',
+        uy_turi: '',
+        xolati: '',
+        planirovka: '',
+        balkon: '',
+        torets: '',
+        dom: '',
+        kvartira: '',
+        osmotir: '',
+        opisaniya: '',
+        rieltor: '',
+        xodim: ''
+    });
 
     // Update parent count
     useEffect(() => {
@@ -72,16 +120,17 @@ export function ObjectsTab({ onCountUpdate }: ObjectsTabProps) {
         if (objectFilters.searchText) {
             const searchLower = objectFilters.searchText.toLowerCase();
             filtered = filtered.filter(obj =>
-                obj.id?.toLowerCase().includes(searchLower) ||
+                obj.id?.toString().toLowerCase().includes(searchLower) ||
                 obj.kvartil?.toLowerCase().includes(searchLower) ||
                 obj.xet?.toLowerCase().includes(searchLower) ||
                 obj.tell?.toLowerCase().includes(searchLower) ||
-                obj.rieltor?.toLowerCase().includes(searchLower)
+                obj.rieltor?.toLowerCase().includes(searchLower) ||
+                obj.opisaniya?.toLowerCase().includes(searchLower)
             );
         }
 
         if (objectFilters.id) {
-            filtered = filtered.filter(obj => obj.id === objectFilters.id);
+            filtered = filtered.filter(obj => obj.id?.toString() === objectFilters.id);
         }
 
         if (objectFilters.kvartil && objectFilters.kvartil !== 'all') {
@@ -107,12 +156,89 @@ export function ObjectsTab({ onCountUpdate }: ObjectsTabProps) {
         return filtered;
     }, [objects, objectFilters]);
 
+    // ✅ Paginated Data
+    const paginatedObjects = useMemo(() => {
+        const startIndex = (currentPage - 1) * pageSize;
+        const endIndex = startIndex + pageSize;
+        return filteredObjects.slice(startIndex, endIndex);
+    }, [filteredObjects, currentPage, pageSize]);
+
+    const totalPages = Math.ceil(filteredObjects.length / pageSize);
+
+    // Reset to page 1 when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [objectFilters]);
+
     const handlePostAd = async (objectId: string) => {
         setPostingId(objectId);
         try {
             await postAdMutation.mutateAsync(objectId);
         } finally {
             setPostingId(null);
+        }
+    };
+
+    // ✅ EDIT FUNCTIONALITY
+    const handleEditClick = (record: any) => {
+        setEditingObject(record);
+        setFormData({
+            kvartil: record.kvartil || '',
+            xet: record.xet || '',
+            tell: record.tell || '',
+            m2: record.m2?.toString() || '',
+            narx: record.narx?.toString() || '',
+            fio: record.fio || '',
+            uy_turi: record.uyTuri || '',
+            xolati: record.xolati || '',
+            planirovka: record.planirovka || '',
+            balkon: record.balkon || '',
+            torets: record.torets || '',
+            dom: record.dom || '',
+            kvartira: record.kvartira || '',
+            osmotir: record.osmotir || '',
+            opisaniya: record.opisaniya || '',
+            rieltor: record.rieltor || '',
+            xodim: record.xodim || ''
+        });
+        setEditModalVisible(true);
+    };
+
+    const handleEditSave = async () => {
+        if (!editingObject) return;
+
+        try {
+            const payload = {
+                ...formData,
+                m2: formData.m2 ? Number(formData.m2) : 0,
+                narx: formData.narx ? Number(formData.narx) : 0
+            };
+
+            await updateObjectMutation.mutateAsync({
+                id: editingObject.id,
+                data: payload
+            });
+
+            setEditModalVisible(false);
+            setEditingObject(null);
+        } catch (error) {
+            console.error('Edit error:', error);
+        }
+    };
+
+    const handleEditDelete = async () => {
+        if (!editingObject) return;
+
+        if (!confirm(`${editingObject.kvartil} - ${editingObject.xet} obyektini o'chirmoqchimisiz?`)) {
+            return;
+        }
+
+        try {
+            await deleteObjectMutation.mutateAsync(editingObject.id);
+            setEditModalVisible(false);
+            setEditingObject(null);
+        } catch (error) {
+            console.error('Delete error:', error);
         }
     };
 
@@ -333,26 +459,33 @@ export function ObjectsTab({ onCountUpdate }: ObjectsTabProps) {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {filteredObjects.map((obj: any, index: number) => {
+                        {paginatedObjects.map((obj: any, index: number) => {
                             const isPosted = obj.elonStatus === 'posted';
                             const isPosting = postingId === obj.id;
+                            const globalIndex = (currentPage - 1) * pageSize + index + 1;
 
                             return (
                                 <TableRow key={obj.id} className="hover:bg-muted/30">
-                                    <TableCell className="text-primary font-medium">{index + 1}</TableCell>
+                                    <TableCell className="text-primary font-medium">{globalIndex}</TableCell>
                                     <TableCell className="text-xs text-muted-foreground font-mono">
-                                        {obj.id.slice(0, 8)}...
+                                        {obj.id.toString().slice(0, 8)}...
                                     </TableCell>
                                     <TableCell>{obj.kvartil}</TableCell>
                                     <TableCell>{obj.xet}</TableCell>
                                     <TableCell>{obj.m2}</TableCell>
                                     <TableCell className="text-success font-semibold">${obj.narx}</TableCell>
-                                    <TableCell>{obj.turi}</TableCell>
+                                    <TableCell>{obj.sheet_type}</TableCell>
                                     <TableCell>{obj.tell}</TableCell>
                                     <TableCell>{obj.rieltor}</TableCell>
                                     <TableCell>{getStatusBadge(obj.elonStatus)}</TableCell>
                                     <TableCell>
                                         <div className="flex items-center justify-center gap-2">
+                                            <button
+                                                className="p-1.5 rounded hover:bg-muted transition-colors"
+                                                onClick={() => handleEditClick(obj)}
+                                            >
+                                                <Pencil className="h-4 w-4 text-muted-foreground" />
+                                            </button>
                                             <button
                                                 className="p-1.5 rounded hover:bg-muted transition-colors"
                                                 onClick={() => openFolder(obj.rasmlar)}
@@ -385,6 +518,302 @@ export function ObjectsTab({ onCountUpdate }: ObjectsTabProps) {
                     </TableBody>
                 </Table>
             </div>
+
+            {/* ✅ Pagination */}
+            {totalPages > 1 && (
+                <div className="flex items-center justify-between admin-card p-4">
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">
+                            Sahifa {currentPage} / {totalPages}
+                        </span>
+                        <Select
+                            value={pageSize.toString()}
+                            onValueChange={(value) => {
+                                setPageSize(Number(value));
+                                setCurrentPage(1);
+                            }}
+                        >
+                            <SelectTrigger className="w-24">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="10">10</SelectItem>
+                                <SelectItem value="20">20</SelectItem>
+                                <SelectItem value="50">50</SelectItem>
+                                <SelectItem value="100">100</SelectItem>
+                                <SelectItem value="200">200</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <span className="text-sm">
+                            {(currentPage - 1) * pageSize + 1}-
+                            {Math.min(currentPage * pageSize, filteredObjects.length)} / {filteredObjects.length}
+                        </span>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages}
+                        >
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+            )}
+
+            {/* ✅ EDIT MODAL */}
+            {editModalVisible && editingObject && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-card rounded-lg p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-xl font-bold">Obyektni tahrirlash</h2>
+                            <button onClick={() => setEditModalVisible(false)}>
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <Label>Kvartil *</Label>
+                                    <Input
+                                        value={formData.kvartil}
+                                        onChange={(e) => setFormData({ ...formData, kvartil: e.target.value })}
+                                        placeholder="Yunusobod-5"
+                                    />
+                                </div>
+                                <div>
+                                    <Label>X/E/T *</Label>
+                                    <Input
+                                        value={formData.xet}
+                                        onChange={(e) => setFormData({ ...formData, xet: e.target.value })}
+                                        placeholder="3/7/9"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <Label>Telefon</Label>
+                                    <Input
+                                        value={formData.tell}
+                                        onChange={(e) => setFormData({ ...formData, tell: e.target.value })}
+                                        placeholder="+998901234567"
+                                    />
+                                </div>
+                                <div>
+                                    <Label>Maydon (m²)</Label>
+                                    <Input
+                                        type="number"
+                                        value={formData.m2}
+                                        onChange={(e) => setFormData({ ...formData, m2: e.target.value })}
+                                        placeholder="65"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <Label>Narx ($)</Label>
+                                    <Input
+                                        type="number"
+                                        value={formData.narx}
+                                        onChange={(e) => setFormData({ ...formData, narx: e.target.value })}
+                                        placeholder="85000"
+                                    />
+                                </div>
+                                <div>
+                                    <Label>F.I.O</Label>
+                                    <Input
+                                        value={formData.fio}
+                                        onChange={(e) => setFormData({ ...formData, fio: e.target.value })}
+                                        placeholder="Familiya Ism"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <Label>Uy turi</Label>
+                                    <Select
+                                        value={formData.uy_turi}
+                                        onValueChange={(value) => setFormData({ ...formData, uy_turi: value })}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Tanlang" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="Blok">Blok</SelectItem>
+                                            <SelectItem value="Panel">Panel</SelectItem>
+                                            <SelectItem value="G'isht">G'isht</SelectItem>
+                                            <SelectItem value="Monоlit">Monоlit</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div>
+                                    <Label>Xolati</Label>
+                                    <Select
+                                        value={formData.xolati}
+                                        onValueChange={(value) => setFormData({ ...formData, xolati: value })}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Tanlang" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="Evroremont">Evroremont</SelectItem>
+                                            <SelectItem value="Oddiy remont">Oddiy remont</SelectItem>
+                                            <SelectItem value="Ta'mirsiz">Ta'mirsiz</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <Label>Planirovka</Label>
+                                    <Select
+                                        value={formData.planirovka}
+                                        onValueChange={(value) => setFormData({ ...formData, planirovka: value })}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Tanlang" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="Ajratlangan">Ajratlangan</SelectItem>
+                                            <SelectItem value="Smejniy">Smejniy</SelectItem>
+                                            <SelectItem value="Chexol">Chexol</SelectItem>
+                                            <SelectItem value="Student">Student</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div>
+                                    <Label>Balkon</Label>
+                                    <Select
+                                        value={formData.balkon}
+                                        onValueChange={(value) => setFormData({ ...formData, balkon: value })}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Tanlang" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="Yo'q">Yo'q</SelectItem>
+                                            <SelectItem value="1 ta">1 ta</SelectItem>
+                                            <SelectItem value="2 ta">2 ta</SelectItem>
+                                            <SelectItem value="3 ta">3 ta</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <Label>Torets</Label>
+                                    <Select
+                                        value={formData.torets}
+                                        onValueChange={(value) => setFormData({ ...formData, torets: value })}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Tanlang" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="Yo'q">Yo'q</SelectItem>
+                                            <SelectItem value="Ha">Ha</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div>
+                                    <Label>Dom</Label>
+                                    <Input
+                                        value={formData.dom}
+                                        onChange={(e) => setFormData({ ...formData, dom: e.target.value })}
+                                        placeholder="Yangi"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <Label>Kvartira</Label>
+                                    <Input
+                                        value={formData.kvartira}
+                                        onChange={(e) => setFormData({ ...formData, kvartira: e.target.value })}
+                                        placeholder="Burchak"
+                                    />
+                                </div>
+                                <div>
+                                    <Label>Osmotir</Label>
+                                    <Input
+                                        value={formData.osmotir}
+                                        onChange={(e) => setFormData({ ...formData, osmotir: e.target.value })}
+                                        placeholder="2024-12-15 14:00"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <Label>Opisaniya</Label>
+                                <Input
+                                    value={formData.opisaniya}
+                                    onChange={(e) => setFormData({ ...formData, opisaniya: e.target.value })}
+                                    placeholder="Qo'shimcha ma'lumot..."
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <Label>Rieltor</Label>
+                                    <Input
+                                        value={formData.rieltor}
+                                        onChange={(e) => setFormData({ ...formData, rieltor: e.target.value })}
+                                        placeholder="Aziz"
+                                        disabled
+                                    />
+                                </div>
+                                <div>
+                                    <Label>Xodim</Label>
+                                    <Input
+                                        value={formData.xodim}
+                                        onChange={(e) => setFormData({ ...formData, xodim: e.target.value })}
+                                        placeholder="Sarvar"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex gap-2 pt-4">
+                                <Button
+                                    onClick={handleEditSave}
+                                    className="flex-1"
+                                    disabled={updateObjectMutation.isPending}
+                                >
+                                    <Save className="h-4 w-4 mr-2" />
+                                    Saqlash
+                                </Button>
+                                <Button
+                                    variant="destructive"
+                                    onClick={handleEditDelete}
+                                    disabled={deleteObjectMutation.isPending}
+                                >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    O'chirish
+                                </Button>
+                                <Button variant="outline" onClick={() => setEditModalVisible(false)}>
+                                    Bekor qilish
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
